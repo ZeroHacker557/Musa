@@ -1,10 +1,9 @@
 import type { LucideIcon } from 'lucide-react'
 import {
-  ArrowRight, Bell, CircleHelp, CupSoda, Heart, Leaf, Search,
+  ArrowRight, Bell, CircleHelp, CookingPot, Heart, Leaf, Search,
   ShieldCheck, Truck,
 } from 'lucide-react'
-import heroCan from '../images/hero-can.webp'
-import { BrandLogo } from '../components/brand/BrandLogo'
+import { BrandLogo, BrandPlate } from '../components/brand/BrandLogo'
 import { ProductCard } from '../components/product/ProductCard'
 import { ProductRowSkeleton } from '../components/ui/ProductCardSkeleton'
 import { CartButton } from '../components/ui/CartButton'
@@ -75,7 +74,9 @@ export function HomePage({
         </button>
       </section>
 
-      {/* Hero — Lemon Mint bankasi to'q yashil sahnada */}
+      {/* Hero — MUSA yashil sahnasi, o'ngda logotip plitasi.
+          Mahsulot fotosi kelganda: rasmni src/images ga qo'ying,
+          import qiling va pastdagi <BrandPlate> o'rniga <img> qo'ying. */}
       <section className="mx-5 mt-6 sm:mx-10">
         <div className="hero-banner">
           <div className="relative min-h-[260px] p-6 sm:min-h-[340px] sm:p-9">
@@ -106,14 +107,13 @@ export function HomePage({
               </button>
             </div>
 
-            <img
-              className="pointer-events-none absolute top-1/2 right-[-4%] h-[112%] w-[52%] -translate-y-1/2 object-contain object-center sm:right-2 sm:h-[118%] sm:w-[46%]"
-              src={heroCan}
-              alt=""
+            <span
+              className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rotate-[-8deg] sm:right-8"
+              style={{ filter: 'drop-shadow(0 12px 28px rgb(0 0 0 / 0.35))' }}
               aria-hidden="true"
-              decoding="async"
-              fetchPriority="high"
-            />
+            >
+              <BrandPlate width={124} />
+            </span>
           </div>
         </div>
       </section>
@@ -198,7 +198,7 @@ export function HomePage({
               className="mx-auto grid size-16 place-items-center rounded-full"
               style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
             >
-              <CupSoda size={30} />
+              <CookingPot size={30} />
             </span>
             <p className="mt-4 font-bold" style={{ color: 'var(--ink-2)' }}>{t('home.emptyTitle')}</p>
             <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>{t('home.emptyText')}</p>

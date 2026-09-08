@@ -1,25 +1,30 @@
 /**
- * V7™ brend va kompaniya ma'lumotlari — bitta manba.
+ * MUSA brend va kompaniya ma'lumotlari — bitta manba.
  *
  * Bot username, domen va aloqa raqamlari shu yerda turadi; ilovaning
  * qolgan qismi faqat shu konstantalarga murojaat qiladi. Yangi bot
  * tokeni / domen kelganda o'zgartiriladigan yagona fayl (bot tomonida
  * esa bot/config.py).
+ *
+ * ⚠️ TODO(MUSA): quyida "TODO(MUSA)" deb belgilangan qiymatlar bo'sh joy
+ * tutuvchi — haqiqiy emas. Ishga tushirishdan OLDIN ularni to'ldiring va
+ * DEPLOY.md → "0. MUSA ga o'tish" ro'yxatini tekshiring.
  */
 export const BRAND = {
-  name: 'V7',
-  legalName: 'V7™',
-  tagline: 'Vitamin Sparkling Drink',
+  name: 'MUSA',
+  legalName: 'MUSA',
+  tagline: 'Yarim tayyor mahsulotlar',
+  taglineRu: 'Полуфабрикаты',
 
   /** Telegram bot — mini app shu bot ichida ochiladi. */
-  botUsername: 'v7buyurtma_bot',
+  botUsername: 'musa_shop_bot', // TODO(MUSA): @BotFather dagi haqiqiy username
 
   /** Mijozlar xizmati. */
-  phone: '+998 95 177 88 82',
-  phoneHref: 'tel:+998951778882',
-  email: 'abubakrfrontend@gmail.com',
-  telegram: '@v7uzbekistan',
-  telegramHref: 'https://t.me/v7uzbekistan',
+  phone: '+998 00 000 00 00', // TODO(MUSA): haqiqiy raqam
+  phoneHref: 'tel:+998000000000', // TODO(MUSA): haqiqiy raqam
+  email: 'info@musa.uz', // TODO(MUSA): haqiqiy email
+  telegram: '@musa_uz', // TODO(MUSA): haqiqiy kanal
+  telegramHref: 'https://t.me/musa_uz', // TODO(MUSA): haqiqiy kanal
 
   /** Ish vaqti va manzil — bot javoblarida ham ishlatiladi. */
   city: "Toshkent, O'zbekiston",
@@ -28,7 +33,7 @@ export const BRAND = {
 
 /**
  * Ilovani ishlab chiqqan dasturchi — "Yordam" sahifasidagi alohida blok.
- * Texnik savollar V7 mijozlar xizmatiga emas, shu manzillarga tushadi.
+ * Texnik savollar MUSA mijozlar xizmatiga emas, shu manzillarga tushadi.
  */
 export const DEVELOPER = {
   name: 'Abubakr.A',

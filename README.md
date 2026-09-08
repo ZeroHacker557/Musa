@@ -1,6 +1,6 @@
-# V7™ Shop — Telegram Mini App
+# MUSA Shop — Telegram Mini App
 
-V7 (Vitamin Sparkling Drink) ichimliklari uchun Telegram mini app do'koni:
+MUSA (yarim tayyor mahsulotlar) uchun Telegram mini app do'koni:
 React + TypeScript + Tailwind CSS frontend, Vercel serverless API va aiogram
 asosidagi Telegram bot.
 
@@ -8,11 +8,12 @@ asosidagi Telegram bot.
 
 | Element | Qiymat |
 | --- | --- |
-| Asosiy rang | `#008743` (logo yashili) |
-| Aksent | `#C79A32` / `#E3B341` (V7 oltini) |
+| Asosiy rang | `#0A7A3D` (logo yashili) |
+| Aksent | `#F2C94C` (logo sarig'i) / matn uchun `#A9760A` |
+| Uchinchi rang | `#16359E` (logodagi ko'k yozuv) |
 | Shriftlar | Archivo Black (sarlavha), Montserrat (matn) |
-| Logotip | `src/images/v7-mark.png`, `v7-mark-white.png`, `v7-logo-full.webp` |
-| Hero rasm | `src/images/hero-can.webp` (Lemon Mint — Immune Support) |
+| Logotip | `src/components/brand/BrandLogo.tsx` — CSS bilan chizilgan, rasm fayli kerak emas |
+| Hero rasm | Hozircha yo'q — `src/pages/HomePage.tsx` da logotip plitasi turibdi |
 
 Kompaniya ma'lumotlari (telefon, email, Telegram, bot username) bitta joyda:
 [`src/config/brand.ts`](src/config/brand.ts). Bot tomonida — `bot/config.py`.
@@ -20,6 +21,11 @@ Kompaniya ma'lumotlari (telefon, email, Telegram, bot username) bitta joyda:
 Ranglar `src/styles.css` dagi CSS o'zgaruvchilarida. Komponentlarda hex
 yozilmaydi — faqat `var(--brand)` kabi tokenlar, shu tufayli qorong'i rejim
 bitta blokda hal bo'ladi.
+
+> ⚠️ Loyihada `TODO(MUSA)` deb belgilangan bo'sh joy tutuvchi qiymatlar bor
+> (Firebase config, bot username, telefon, karta). Ishga tushirishdan oldin
+> [`DEPLOY.md`](./DEPLOY.md) → "0. MUSA ga o'tish" bo'limidagi ro'yxatni
+> to'ldiring. Ularni topish uchun: `grep -rn "TODO(MUSA)" src bot`.
 
 ## Tuzilma
 
@@ -32,7 +38,7 @@ bitta blokda hal bo'ladi.
 - `src/types` — markazlashtirilgan TypeScript domen turlari.
 - `api/` — Vercel serverless funksiyalari (auth, orders, reviews, promo).
 - `bot/` — aiogram bot va admin panel.
-- `public/images/flavors` — 9 ta ta'm bankasining rasmlari (mahsulot qo'shishda).
+- `public/images/products` — mahsulot rasmlari (bot admin paneli orqali ham yuklanadi).
 
 ## Buyruqlar
 

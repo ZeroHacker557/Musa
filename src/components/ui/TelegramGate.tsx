@@ -1,5 +1,5 @@
 import { BrandLogo } from '../brand/BrandLogo'
-import { BOT_URL } from '../../config/brand'
+import { BOT_URL, BRAND } from '../../config/brand'
 
 /**
  * Ilova Telegram tashqarisida ochilganda ko'rsatiladi.
@@ -18,21 +18,21 @@ export function TelegramGate() {
         <BrandLogo size={64} markOnly className="justify-center" />
 
         <h1 className="wordmark mt-6 text-3xl" style={{ color: 'var(--ink)' }}>
-          V7<sup className="text-[0.4em] align-super">&trade;</sup>
+          {BRAND.name}
         </h1>
         <p
           className="mt-2 text-[0.68rem] font-bold uppercase"
           style={{ letterSpacing: '0.22em', color: 'var(--brand)' }}
         >
-          Vitamin Sparkling Drink
+          {BRAND.tagline}
         </p>
 
         <p className="mt-5 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>
-          V7 do&rsquo;koni Telegram ilovasi ichida ishlaydi. Botni oching va
+          {BRAND.name} do&rsquo;koni Telegram ilovasi ichida ishlaydi. Botni oching va
           &laquo;Katalogni ochish&raquo; tugmasini bosing.
         </p>
         <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--faint)' }}>
-          Магазин V7 работает внутри Telegram. Откройте бота и нажмите
+          Магазин {BRAND.name} работает внутри Telegram. Откройте бота и нажмите
           &laquo;Открыть каталог&raquo;.
         </p>
 

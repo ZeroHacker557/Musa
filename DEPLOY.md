@@ -10,23 +10,32 @@
 
 ---
 
-## 0. V7 ga o'tish — almashtiriladigan qiymatlar
+## 0. MUSA ga o'tish — to'ldiriladigan qiymatlar
 
-Loyiha V7™ brendiga moslandi. Yangi Firebase loyihasi, yangi bot va yangi
-domen ulanganda **faqat quyidagi joylar** o'zgaradi:
+Loyiha MUSA brendiga moslandi: ranglar, matnlar, logotip va kategoriya
+ikonkalari almashtirildi. **Maxfiy va loyihaga xos qiymatlar esa bo'sh joy
+tutuvchi holida qoldi** — ularni to'ldirmasdan ilova ishlamaydi.
 
-| Nima | Qayerga |
-|---|---|
-| **Bot tokeni** | `bot/.env` (git'ga tushmaydi) **va** Vercel env `BOT_TOKEN` |
-| Firebase service account JSON | Loyiha ildiziga fayl (git'ga tushmaydi) + Vercel env `FIREBASE_SERVICE_ACCOUNT` |
-| Service account fayl nomi va bucket | `bot/config.py` → `FIREBASE_KEY_FILE`, `FIREBASE_STORAGE_BUCKET` |
-| Firebase web config | `src/config/firebase.ts` |
-| Bot username | `bot/config.py` → `BOT_USERNAME`, `src/config/brand.ts` → `botUsername` |
-| Mini app domeni | `bot/config.py` → `MINI_APP_URL` + BotFather `/setdomain` |
-| Admin Telegram ID | `bot/config.py` → `ADMIN_IDS` |
-| Aloqa raqami / email / Telegram | `src/config/brand.ts` va `bot/config.py` |
-| Dasturchi kontaktlari | `src/config/brand.ts` → `DEVELOPER` |
-| To'lov kartasi | `bot/config.py` → `CARD_NUMBER`, `CARD_OWNER` (keyin Firestore `settings/payment`) |
+Barcha bo'sh joy tutuvchilar kodda `TODO(MUSA)` deb belgilangan:
+
+```bash
+grep -rn "TODO(MUSA)" src bot
+```
+
+| Nima | Qayerga | Holat |
+|---|---|---|
+| **Bot tokeni** | `bot/.env` (git'ga tushmaydi) **va** Vercel env `BOT_TOKEN` | ❌ to'ldiriladi |
+| Firebase web config | `src/config/firebase.ts` | ❌ to'ldiriladi |
+| Firebase service account JSON | Loyiha ildiziga fayl (git'ga tushmaydi) + Vercel env `FIREBASE_SERVICE_ACCOUNT` | ❌ to'ldiriladi |
+| Service account fayl nomi va bucket | `bot/config.py` → `FIREBASE_KEY_FILE`, `FIREBASE_STORAGE_BUCKET` | ❌ to'ldiriladi |
+| Bot username | `bot/config.py` → `BOT_USERNAME`, `src/config/brand.ts` → `botUsername` | ❌ to'ldiriladi |
+| Mini app domeni | `bot/config.py` → `MINI_APP_URL` + BotFather `/setdomain` | ❌ to'ldiriladi |
+| Admin Telegram ID | `bot/config.py` → `ADMIN_IDS` | ❌ to'ldiriladi |
+| Aloqa raqami / email / Telegram | `src/config/brand.ts` va `bot/config.py` | ❌ to'ldiriladi |
+| To'lov kartasi | `bot/config.py` → `CARD_NUMBER`, `CARD_OWNER` (keyin Firestore `settings/payment`) | ❌ to'ldiriladi |
+| Favicon (`public/favicon-*.png`) | MUSA logosidan qayta yasaldi | ✅ tayyor |
+| Dasturchi kontaktlari | `src/config/brand.ts` → `DEVELOPER` | ✅ o'zgarmadi |
+| Brend ranglari va matnlar | `src/styles.css`, `src/i18n/*`, `src/config/brand.ts` | ✅ MUSA ga moslandi |
 
 > **Bot tokeni hech qachon git'ga tushmaydi.** U `bot/.env` da, `.gitignore`
 > esa uni to'sadi. `bot/config.py` faqat `os.environ` dan o'qiydi. Yangi
@@ -62,10 +71,11 @@ bo'lsa:
 `initData` imzosi aynan shu token bilan tekshiriladi: token va Vercel'dagi
 qiymat mos kelmasa, mini app "Tizimga kirilmagan" xatosini beradi.
 
-> ⚠️ Eski `ecommercy_test_bot` tokeni git tarixida ochiq qolgan. O'sha bot
-> endi ishlatilmasa ham, @BotFather → **Revoke current token** bilan uni
-> bekor qilib qo'ying — aks holda tokenni topgan odam o'sha bot nomidan
-> ish yurita oladi.
+> ⚠️ Bu repozitoriy V7 loyihasidan nusxalangan. Git tarixida eski
+> `ecommercy_test_bot` tokeni ochiq qolgan, `bot/.env` faylida esa hozir
+> ham V7 ning tokeni turibdi. MUSA uchun **yangi bot** oching va eski
+> tokenlarni @BotFather → **Revoke current token** bilan bekor qiling —
+> aks holda tokenni topgan odam o'sha bot nomidan ish yurita oladi.
 
 ---
 
@@ -82,8 +92,9 @@ Firebase Console → ⚙️ **Project Settings** → **Service accounts** →
 **Generate new private key**. Yuklab olingan JSON faylni matn muharririda
 oching va **butun mazmunini** (`{` dan `}` gacha) qiymat sifatida joylang.
 
-> Bu kalit loyihadagi `ecommercytest-firebase-adminsdk-*.json` fayl bilan
-> bir xil. U `.gitignore` da — git'ga tushmaydi va tushmasligi kerak.
+> Loyiha ildizidagi eski `*-firebase-adminsdk-*.json` fayllar V7 loyihasiniki.
+> Ular `.gitignore` da — git'ga tushmagan, lekin diskda turibdi: MUSA
+> kalitini qo'shgandan keyin ularni o'chirib tashlang.
 
 Env o'zgaruvchilarni qo'shgandan keyin **qaytadan deploy qiling** —
 Vercel ularni faqat yangi build'ga qo'llaydi.

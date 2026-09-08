@@ -2,8 +2,9 @@
  * O'zbekcha lug'at — asosiy (source of truth).
  * Boshqa tillar shu kalitlar to'plamiga amal qiladi.
  *
- * Matnlar V7™ — vitaminli gazlangan ichimliklar do'koni uchun yozilgan.
- * "O'lcham" o'rniga hajm (300 ml), "rang" o'rniga ta'm ishlatiladi.
+ * Matnlar MUSA — muzlatilgan yarim tayyor mahsulotlar do'koni uchun
+ * yozilgan. "O'lcham" o'rniga vazn (gramm/kg), "rang" o'rniga
+ * mahsulot turi ishlatiladi.
  */
 export const uz = {
   // ── Umumiy ──
@@ -22,25 +23,25 @@ export const uz = {
   'common.required': 'majburiy',
 
   // ── Brend ──
-  'brand.tagline': 'Vitamin Sparkling Drink',
-  'brand.slogan': "100% tabiiy ta'm — har qultumda tetiklik",
+  'brand.tagline': 'Yarim tayyor mahsulotlar',
+  'brand.slogan': "Uydagidek ta'm — tez va oson",
 
   // ── Navigatsiya ──
   'nav.home': 'Bosh sahifa',
-  'nav.catalog': "Ta'mlar",
+  'nav.catalog': 'Katalog',
   'nav.favorites': 'Sevimlilar',
   'nav.orders': 'Buyurtmalar',
   'nav.profile': 'Profil',
 
   // ── Bosh sahifa ──
-  'home.searchPlaceholder': "Ta'm yoki liniya qidiring...",
-  'home.heroBadge': "100% tabiiy ta'm",
-  'home.heroTitle': 'Muzdek tetiklik — bir qultumda',
-  'home.heroSubtitle': "Vitaminlar bilan boyitilgan gazlangan ichimliklar. 300 ml, 9 xil ta'm.",
+  'home.searchPlaceholder': 'Mahsulot yoki turkum qidiring...',
+  'home.heroBadge': 'Yangi va sifatli',
+  'home.heroTitle': "Uydagidek ta'm — bir necha daqiqada",
+  'home.heroSubtitle': 'Muzlatilgan yarim tayyor mahsulotlar — chuchvara, manti, somsa va boshqalar.',
   'home.heroCta': 'Buyurtma berish',
-  'home.popular': "Mashhur ta'mlar",
+  'home.popular': 'Mashhur mahsulotlar',
   'home.seeAll': "Barchasini ko'rish",
-  'home.emptyTitle': "Ta'mlar tez orada!",
+  'home.emptyTitle': 'Mahsulotlar tez orada!',
   'home.emptyText': "Admin mahsulot qo'shganda shu yerda ko'rinadi.",
 
   'benefit.delivery': 'Tez yetkazish',
@@ -49,25 +50,25 @@ export const uz = {
   'benefit.paymentSub': 'Naqd yoki karta',
   'benefit.support': '24/7 aloqa',
   'benefit.supportSub': 'Har doim siz bilan',
-  'benefit.natural': '100% tabiiy',
-  'benefit.naturalSub': "Sun'iy bo'yoqsiz",
+  'benefit.natural': 'Tabiiy tarkib',
+  'benefit.naturalSub': "Sun'iy qo'shimchalarsiz",
 
   // ── Katalog ──
-  'catalog.title': "Ta'mlar katalogi",
+  'catalog.title': 'Mahsulotlar katalogi',
   'catalog.filters': 'Filtrlar',
   'catalog.sortCheap': 'Arzon narx',
   'catalog.sortExpensive': 'Qimmat narx',
-  'catalog.total': "Jami {count} ta ta'm",
-  'catalog.emptyCategory': 'Bu liniyada mahsulot topilmadi',
-  'catalog.emptyCategoryText': 'Boshqa liniyani tanlang.',
-  'catalog.filterSummary': 'Liniya: {category} • Narx: {sort}',
+  'catalog.total': 'Jami {count} ta mahsulot',
+  'catalog.emptyCategory': 'Bu turkumda mahsulot topilmadi',
+  'catalog.emptyCategoryText': 'Boshqa turkumni tanlang.',
+  'catalog.filterSummary': 'Turkum: {category} • Narx: {sort}',
   'catalog.sortAsc': 'arzondan qimmatga',
   'catalog.sortDesc': 'qimmatdan arzonga',
   'catalog.priceRange': 'Narx oralig‘i',
   'catalog.priceFrom': 'dan',
   'catalog.priceTo': 'gacha',
-  'catalog.size': 'Hajm',
-  'catalog.color': "Ta'm",
+  'catalog.size': 'Vazn',
+  'catalog.color': 'Turi',
   'catalog.inStockOnly': 'Faqat sotuvdagilar',
   'catalog.reset': 'Tozalash',
   'catalog.apply': "Qo'llash",
@@ -77,9 +78,9 @@ export const uz = {
 
   // ── Mahsulot ──
   'product.title': 'Mahsulot',
-  'product.fastDelivery': 'Muzdek yetkaziladi',
-  'product.chooseColor': "Ta'mni tanlang",
-  'product.chooseSize': 'Hajmni tanlang',
+  'product.fastDelivery': 'Muzlatilgan holda yetkaziladi',
+  'product.chooseColor': 'Turini tanlang',
+  'product.chooseSize': 'Vaznni tanlang',
   'product.about': 'Mahsulot haqida',
   'product.addToCart': "Savatchaga qo'shish",
   'product.soldOut': "Sotuvda yo'q",
@@ -90,7 +91,7 @@ export const uz = {
 
   // ── Sharhlar ──
   'reviews.title': 'Sharhlar',
-  'reviews.rateThis': "Ta'mni baholang:",
+  'reviews.rateThis': 'Mahsulotni baholang:',
   'reviews.placeholder': "O'z fikringizni yozib qoldiring...",
   'reviews.submit': 'Sharh qoldirish',
   'reviews.submitting': 'Yuborilmoqda...',
@@ -102,19 +103,19 @@ export const uz = {
   'reviews.thanks': 'Sharhingiz uchun rahmat!',
   'reviews.myTitle': 'Mening sharhlarim',
   'reviews.myEmpty': "Sharhlar yo'q",
-  'reviews.myEmptyText': "Siz hali birorta ta'mga sharh qoldirmagansiz.",
+  'reviews.myEmptyText': 'Siz hali birorta mahsulotga sharh qoldirmagansiz.',
   'reviews.productId': 'Mahsulot ID: {id}',
 
   // ── Savat ──
   'cart.title': 'Savatcha',
-  'cart.kinds': "{count} xil ta'm",
+  'cart.kinds': '{count} xil mahsulot',
   'cart.empty': "Savatchangiz bo'sh",
-  'cart.emptyText': "Yoqtirgan ta'mlaringizni tanlang.",
+  'cart.emptyText': 'Yoqtirgan mahsulotlaringizni tanlang.',
   'cart.total': 'Jami',
   'cart.checkout': 'Buyurtma berish',
-  'cart.size': 'Hajm',
-  'cart.color': "Ta'm",
-  'cart.goToCatalog': "Ta'mlarni ko‘rish",
+  'cart.size': 'Vazn',
+  'cart.color': 'Turi',
+  'cart.goToCatalog': "Mahsulotlarni ko‘rish",
 
   // ── Qidiruv ──
   'search.placeholder': 'Qidirish...',
@@ -158,14 +159,14 @@ export const uz = {
   'checkout.submit': 'Buyurtma berish',
   'checkout.submitting': 'Yuborilmoqda...',
   'checkout.disclaimer':
-    "Buyurtma berish tugmasini bosganingizda, ma'lumotlaringiz V7 savdo bo'limiga yuboriladi.",
+    "Buyurtma berish tugmasini bosganingizda, ma'lumotlaringiz MUSA savdo bo'limiga yuboriladi.",
   'checkout.fillAll': "Iltimos, barcha maydonlarni to'ldiring",
   'checkout.cartEmpty': "Savatingiz bo'sh",
   'checkout.failed': "Buyurtma yuborilmadi. Internetni tekshirib, qayta urinib ko'ring",
   'checkout.success': 'Buyurtma muvaffaqiyatli berildi!',
   'checkout.successTitle': 'Buyurtma qabul qilindi!',
   'checkout.successText':
-    "Buyurtmangiz V7 omboriga tushdi. Tez orada operatorimiz siz bilan bog'lanadi.",
+    "Buyurtmangiz MUSA omboriga tushdi. Tez orada operatorimiz siz bilan bog'lanadi.",
   'checkout.viewOrders': "Buyurtmalarimni ko'rish",
 
   // ── Buyurtmalar ──
@@ -203,8 +204,8 @@ export const uz = {
 
   // ── Sevimlilar ──
   'favorites.title': 'Sevimlilar',
-  'favorites.empty': "Sevimli ta'mlar hali yo'q",
-  'favorites.emptyText': "Yoqtirgan ta'mlaringizni ❤️ tugmasi bilan qo'shing.",
+  'favorites.empty': "Sevimli mahsulotlar hali yo'q",
+  'favorites.emptyText': "Yoqtirgan mahsulotlaringizni ❤️ tugmasi bilan qo'shing.",
 
   // ── Profil ──
   'profile.title': 'Profil',
@@ -278,7 +279,7 @@ export const uz = {
   // ── Telegram to'sig'i ──
   'gate.title': 'Telegram orqali oching',
   'gate.text':
-    "V7 do'koni Telegram ilovasi ichida ishlaydi. Buyurtma berish uchun botni oching va «Katalogni ochish» tugmasini bosing.",
+    "MUSA do'koni Telegram ilovasi ichida ishlaydi. Buyurtma berish uchun botni oching va «Katalogni ochish» tugmasini bosing.",
   'gate.button': "Telegram'da ochish",
 } as const
 

@@ -12,8 +12,8 @@ import { useT } from '../i18n'
 /** Pastki menyudagi asosiy sahifalar — ularga o'tganda tarix tozalanadi. */
 const ROOT_PAGES: AppPage[] = ['home', 'catalog', 'favorites', 'orders', 'profile']
 
-const LIKES_KEY = 'v7ShopLikes'
-const CART_KEY = 'v7ShopCart'
+const LIKES_KEY = 'musaShopLikes'
+const CART_KEY = 'musaShopCart'
 
 type CartItems = Record<string, { quantity: number; size?: string; color?: string }>
 

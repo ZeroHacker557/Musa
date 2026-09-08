@@ -1,4 +1,32 @@
-import markWhite from '../../images/v7-mark-white.png'
+import { BRAND } from '../../config/brand'
+
+/**
+ * Logodagi sariq plita — ko'k MUSA yozuvi bilan.
+ *
+ * Alohida eksport qilinadi: hero kabi yirik joylarda yashil plitkasiz,
+ * yolg'iz o'zi bezak sifatida ishlatiladi.
+ */
+export function BrandPlate({ width, className = '' }: { width: number; className?: string }) {
+  return (
+    <span
+      className={'grid place-items-center ' + className}
+      style={{
+        width,
+        height: width * 0.51,
+        borderRadius: width * 0.15,
+        background: 'linear-gradient(180deg, #fbe9a6 0%, #f2c94c 55%, #e0ad2c 100%)',
+        boxShadow: 'inset 0 1px 0 rgb(255 255 255 / 0.7)',
+      }}
+    >
+      <b
+        className="wordmark leading-none"
+        style={{ fontSize: width * 0.31, letterSpacing: '0.02em', color: '#16359e' }}
+      >
+        {BRAND.name}
+      </b>
+    </span>
+  )
+}
 
 type Props = {
   /** Belgi o'lchami (px). Yozuv shunga nisbatan masshtablanadi. */
@@ -9,12 +37,17 @@ type Props = {
 }
 
 /**
- * V7™ logotipi.
+ * MUSA logotipi.
  *
- * Belgi doimo yashil plitka ustidagi OQ variant — logotipning yashil
- * varianti qorong'i temada fon bilan qo'shilib ketadi, oq plitka esa
- * yorug' temada yo'qoladi. Plitka ikkalasida ham bir xil ko'rinadi va
- * favicon bilan aynan mos tushadi.
+ * Belgi logotipning o'zi kabi tuzilgan: yashil plitka ustida sariq
+ * plita, uning ichida ko'k MUSA yozuvi. Rasm fayli emas, CSS bilan
+ * chizilgan — shuning uchun istalgan o'lchamda aniq ko'rinadi va
+ * qorong'i temada ham fon bilan qo'shilib ketmaydi (plitka ikkala
+ * temada bir xil, favicon bilan mos tushadi).
+ *
+ * Haqiqiy logotip fayli kelganda: rasmni `src/images/musa-mark.png`
+ * ga qo'ying va shu yerdagi <BrandPlate> o'rniga <img> qo'ying —
+ * boshqa hech qayerda o'zgartirish kerak emas.
  */
 export function BrandLogo({ size = 44, markOnly = false, className = '' }: Props) {
   return (
@@ -28,13 +61,10 @@ export function BrandLogo({ size = 44, markOnly = false, className = '' }: Props
           background: 'var(--brand)',
           boxShadow: 'var(--shadow-brand)',
         }}
+        aria-label={BRAND.name}
+        role="img"
       >
-        <img
-          src={markWhite}
-          alt="V7"
-          style={{ width: size * 0.62, height: 'auto' }}
-          decoding="async"
-        />
+        <BrandPlate width={size * 0.74} />
       </span>
 
       {!markOnly && (
@@ -43,17 +73,17 @@ export function BrandLogo({ size = 44, markOnly = false, className = '' }: Props
             className="wordmark block"
             style={{ fontSize: size * 0.6, color: 'var(--ink)' }}
           >
-            V7<sup style={{ fontSize: '0.4em', verticalAlign: 'super' }}>™</sup>
+            {BRAND.name}
           </b>
           <small
-            className="mt-1 block font-bold uppercase"
+            className="mt-1 block truncate font-bold uppercase"
             style={{
               fontSize: Math.max(7, size * 0.17),
-              letterSpacing: '0.14em',
+              letterSpacing: '0.1em',
               color: 'var(--brand)',
             }}
           >
-            Vitamin Sparkling
+            {BRAND.tagline}
           </small>
         </span>
       )}

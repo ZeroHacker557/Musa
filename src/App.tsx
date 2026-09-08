@@ -62,7 +62,7 @@ function App() {
   // Profilda saqlangan til — boshqa qurilmada ham o'sha tilda ochiladi
   useEffect(() => {
     const saved = shop.userProfile?.language
-    if (saved && saved !== lang && !localStorage.getItem('v7ShopLang')) {
+    if (saved && saved !== lang && !localStorage.getItem('musaShopLang')) {
       setLang(saved)
     }
   }, [shop.userProfile?.language, lang, setLang])

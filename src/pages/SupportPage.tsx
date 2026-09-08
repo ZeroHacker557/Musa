@@ -10,9 +10,9 @@ import {
   Clock,
   CheckCircle2,
   Code2,
-  Droplets,
-  Leaf,
-  Sparkles,
+  ChefHat,
+  CookingPot,
+  Snowflake,
 } from 'lucide-react'
 import { useState } from 'react'
 import { BRAND, DEVELOPER } from '../config/brand'
@@ -24,51 +24,59 @@ type Props = {
 
 const faqs_uz = [
   {
-    q: "V7 ichimliklari nimasi bilan ajralib turadi?",
-    a: "V7 — 100% tabiiy ta'mlardan tayyorlangan gazlangan ichimlik. Sun'iy bo'yoq ishlatilmaydi, Vitamin Sparkling liniyasi esa vitaminlar bilan qo'shimcha boyitilgan. Har bir banka 300 ml.",
+    q: "MUSA mahsulotlari nimasi bilan ajralib turadi?",
+    a: "MUSA — yarim tayyor mahsulotlar: har kuni yangi go‘sht va xamirdan tayyorlanadi, so‘ng darhol shok muzlatishdan o‘tadi. Sun’iy qo‘shimchalar va konservantlar ishlatilmaydi.",
   },
   {
-    q: "Qanday liniya va ta'mlar bor?",
-    a: "Uchta liniya: Vitamin Sparkling (Limon-Yalpiz, Anor, Chernika, Pina Kolada), Super Soda (Kola va Diet Kola — kofeinsiz) hamda Flavored Malt (Ananas, Olma). Jami 9 xil ta'm.",
+    q: "Qanday mahsulotlar bor?",
+    a: "Chuchvara, manti, somsa, kotlet, naggets, lyulya-kabob, xamir mahsulotlari va boshqalar. To‘liq ro‘yxat va vaznlar katalogda ko‘rsatilgan.",
   },
   {
-    q: "Buyurtma qancha vaqtda yetkaziladi?",
-    a: "Toshkent bo'ylab 24 soat ichida. Buyurtma holati o'zgarganda sizga avtomatik bildirishnoma keladi.",
+    q: "Mahsulot qanday yetkaziladi?",
+    a: "Toshkent bo‘ylab 24 soat ichida, termo-qopda muzlatilgan holda. Buyurtma holati o‘zgarganda sizga avtomatik bildirishnoma keladi.",
+  },
+  {
+    q: "Mahsulotni qanday saqlash kerak?",
+    a: "Muzlatgichda −18°C haroratda saqlanadi. Bir marta erigan mahsulotni qayta muzlatish tavsiya etilmaydi — uni darhol pishiring.",
   },
   {
     q: "Eng kam buyurtma miqdori bormi?",
-    a: "Yo'q, hatto bitta bankadan ham buyurtma berishingiz mumkin. Katta summadagi buyurtmalar bepul yetkaziladi — summa rasmiylashtirish sahifasida ko'rsatiladi.",
+    a: "Yo‘q, hatto bitta paketdan ham buyurtma berishingiz mumkin. Katta summadagi buyurtmalar bepul yetkaziladi — summa rasmiylashtirish sahifasida ko‘rsatiladi.",
   },
   {
-    q: "To'lov qanday amalga oshiriladi?",
-    a: "Naqd pul (yetkazishda) yoki karta orqali o'tkazma. Karta orqali to'lasangiz, chekni botga yuboring — operator tekshirib tasdiqlaydi.",
+    q: "To‘lov qanday amalga oshiriladi?",
+    a: "Naqd pul (yetkazishda) yoki karta orqali o‘tkazma. Karta orqali to‘lasangiz, chekni botga yuboring — operator tekshirib tasdiqlaydi.",
   },
   {
     q: "Ulgurji xarid yoki hamkorlik mumkinmi?",
-    a: "Ha. Do'kon, kafe va distribyutorlar uchun alohida shartlar bor — quyidagi raqam yoki Telegram orqali bog'laning.",
+    a: "Ha. Do‘kon, kafe, restoran va distribyutorlar uchun alohida shartlar bor — quyidagi raqam yoki Telegram orqali bog‘laning.",
   },
   {
     q: "Promo kod qanday ishlatiladi?",
-    a: "Buyurtma berish sahifasida «Promokod» maydoniga kodingizni kiriting va «Qo'llash» tugmasini bosing. Chegirma avtomatik qo'shiladi.",
+    a: "Buyurtma berish sahifasida «Promokod» maydoniga kodingizni kiriting va «Qo‘llash» tugmasini bosing. Chegirma avtomatik qo‘shiladi.",
   },
 ]
 
 const faqs_ru = [
   {
-    q: "Чем отличаются напитки V7?",
-    a: "V7 — газированный напиток на 100% натуральных вкусах. Без искусственных красителей, а линейка Vitamin Sparkling дополнительно обогащена витаминами. Объём банки — 300 мл.",
+    q: "Чем отличается продукция MUSA?",
+    a: "MUSA — это полуфабрикаты из свежего мяса и теста, которые сразу после приготовления проходят шоковую заморозку. Без искусственных добавок и консервантов.",
   },
   {
-    q: "Какие линейки и вкусы есть?",
-    a: "Три линейки: Vitamin Sparkling (Лимон-Мята, Гранат, Черника, Пина Колада), Super Soda (Кола и Диет Кола — без кофеина) и Flavored Malt (Ананас, Яблоко). Всего 9 вкусов.",
+    q: "Какие есть продукты?",
+    a: "Пельмени, манты, самса, котлеты, наггетсы, люля-кебаб, тестовые изделия и другое. Полный список и вес указаны в каталоге.",
   },
   {
-    q: "Как быстро доставляют заказ?",
-    a: "По Ташкенту — в течение 24 часов. При изменении статуса заказа вы получите уведомление.",
+    q: "Как доставляется заказ?",
+    a: "По Ташкенту — в течение 24 часов, в термосумке и замороженном виде. При изменении статуса заказа вы получите уведомление.",
+  },
+  {
+    q: "Как хранить продукт?",
+    a: "В морозильной камере при −18°C. Повторная заморозка размороженного продукта не рекомендуется — приготовьте его сразу.",
   },
   {
     q: "Есть ли минимальный заказ?",
-    a: "Нет, заказать можно даже одну банку. Крупные заказы доставляются бесплатно — сумма указана на странице оформления.",
+    a: "Нет, заказать можно даже один пакет. Крупные заказы доставляются бесплатно — сумма указана на странице оформления.",
   },
   {
     q: "Как осуществляется оплата?",
@@ -76,7 +84,7 @@ const faqs_ru = [
   },
   {
     q: "Возможна ли оптовая закупка или сотрудничество?",
-    a: "Да. Для магазинов, кафе и дистрибьюторов действуют отдельные условия — свяжитесь по телефону или в Telegram ниже.",
+    a: "Да. Для магазинов, кафе, ресторанов и дистрибьюторов действуют отдельные условия — свяжитесь по телефону или в Telegram ниже.",
   },
   {
     q: "Как использовать промокод?",
@@ -117,7 +125,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 export function SupportPage({ onBack }: Props) {
   const t = useT()
   // detect lang from localStorage
-  const lang = (localStorage.getItem('v7ShopLang') ?? 'uz') as 'uz' | 'ru'
+  const lang = (localStorage.getItem('musaShopLang') ?? 'uz') as 'uz' | 'ru'
   const faqs = lang === 'ru' ? faqs_ru : faqs_uz
 
   const contacts = [
@@ -158,14 +166,14 @@ export function SupportPage({ onBack }: Props) {
 
   const about = lang === 'ru'
     ? [
-        { icon: Leaf, title: '100% натуральный вкус', text: 'Без искусственных красителей и консервантов вкуса.' },
-        { icon: Sparkles, title: 'Обогащено витаминами', text: 'Линейка Vitamin Sparkling — витамины в каждой банке.' },
-        { icon: Droplets, title: '9 вкусов, 3 линейки', text: 'Vitamin Sparkling, Super Soda и Flavored Malt. 300 мл.' },
+        { icon: Snowflake, title: 'Шоковая заморозка', text: 'Продукт замораживается сразу после приготовления.' },
+        { icon: ChefHat, title: 'Свежее сырьё', text: 'Мясо и тесто готовятся каждый день.' },
+        { icon: CookingPot, title: 'Готово за несколько минут', text: 'Отварите, обжарьте или приготовьте на пару.' },
       ]
     : [
-        { icon: Leaf, title: "100% tabiiy ta'm", text: "Sun'iy bo'yoq va ta'm konservantlari ishlatilmaydi." },
-        { icon: Sparkles, title: 'Vitaminlar bilan boyitilgan', text: 'Vitamin Sparkling liniyasi — har bankada vitamin.' },
-        { icon: Droplets, title: "9 ta'm, 3 liniya", text: 'Vitamin Sparkling, Super Soda va Flavored Malt. 300 ml.' },
+        { icon: Snowflake, title: 'Shok muzlatish', text: "Mahsulot tayyorlangan zahoti −18°C da muzlatiladi." },
+        { icon: ChefHat, title: 'Yangi xomashyo', text: "Go‘sht va xamir har kuni yangidan tayyorlanadi." },
+        { icon: CookingPot, title: 'Bir necha daqiqada tayyor', text: 'Qaynating, qovuring yoki bug‘da pishiring.' },
       ]
 
   const features = lang === 'ru'
@@ -210,7 +218,7 @@ export function SupportPage({ onBack }: Props) {
         <div
           className="relative overflow-hidden rounded-3xl p-6"
           style={{
-            background: 'linear-gradient(135deg, #067a3f 0%, #02301b 100%)',
+            background: 'linear-gradient(135deg, #0a7a3d 0%, #04331c 100%)',
           }}
         >
           {/* Decorative circles */}
@@ -231,7 +239,7 @@ export function SupportPage({ onBack }: Props) {
               <Headphones size={28} color="white" />
             </div>
             <h2 className="wordmark text-xl text-white leading-tight">
-              {lang === 'ru' ? 'Служба заботы V7' : 'V7 mijozlar xizmati'}
+              {lang === 'ru' ? `Служба заботы ${BRAND.name}` : `${BRAND.name} mijozlar xizmati`}
             </h2>
             <p className="mt-1.5 text-sm text-white opacity-80">
               {lang === 'ru'
@@ -300,13 +308,13 @@ export function SupportPage({ onBack }: Props) {
         </div>
       </section>
 
-      {/* V7 haqida */}
+      {/* MUSA haqida */}
       <section
         className="px-5 pt-7 sm:px-10"
         style={{ animation: 'fadeInUp 0.4s ease 0.12s both' }}
       >
         <h2 className="section-title mb-4">
-          {lang === 'ru' ? 'О V7' : 'V7 haqida'}
+          {lang === 'ru' ? `О ${BRAND.name}` : `${BRAND.name} haqida`}
         </h2>
         <div
           className="rounded-2xl border p-2"

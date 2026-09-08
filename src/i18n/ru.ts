@@ -18,25 +18,25 @@ export const ru: Record<TranslationKey, string> = {
   'common.required': 'обязательно',
 
   // ── Бренд ──
-  'brand.tagline': 'Vitamin Sparkling Drink',
-  'brand.slogan': '100% натуральный вкус — свежесть в каждом глотке',
+  'brand.tagline': 'Полуфабрикаты',
+  'brand.slogan': 'Домашний вкус — быстро и просто',
 
   // ── Навигация ──
   'nav.home': 'Главная',
-  'nav.catalog': 'Вкусы',
+  'nav.catalog': 'Каталог',
   'nav.favorites': 'Избранное',
   'nav.orders': 'Заказы',
   'nav.profile': 'Профиль',
 
   // ── Главная ──
-  'home.searchPlaceholder': 'Поиск вкуса или линейки...',
-  'home.heroBadge': '100% натуральный вкус',
-  'home.heroTitle': 'Ледяная свежесть — в одном глотке',
-  'home.heroSubtitle': 'Газированные напитки с витаминами. 300 мл, 9 вкусов.',
+  'home.searchPlaceholder': 'Поиск товара или категории...',
+  'home.heroBadge': 'Свежо и качественно',
+  'home.heroTitle': 'Домашний вкус — за несколько минут',
+  'home.heroSubtitle': 'Замороженные полуфабрикаты — пельмени, манты, самса и другое.',
   'home.heroCta': 'Заказать',
-  'home.popular': 'Популярные вкусы',
+  'home.popular': 'Популярные товары',
   'home.seeAll': 'Смотреть все',
-  'home.emptyTitle': 'Вкусы появятся скоро!',
+  'home.emptyTitle': 'Товары появятся скоро!',
   'home.emptyText': 'Как только админ добавит товары, они появятся здесь.',
 
   'benefit.delivery': 'Быстрая доставка',
@@ -45,25 +45,25 @@ export const ru: Record<TranslationKey, string> = {
   'benefit.paymentSub': 'Наличные или карта',
   'benefit.support': 'Связь 24/7',
   'benefit.supportSub': 'Всегда на связи',
-  'benefit.natural': '100% натурально',
-  'benefit.naturalSub': 'Без искусственных красителей',
+  'benefit.natural': 'Натуральный состав',
+  'benefit.naturalSub': 'Без искусственных добавок',
 
   // ── Каталог ──
-  'catalog.title': 'Каталог вкусов',
+  'catalog.title': 'Каталог товаров',
   'catalog.filters': 'Фильтры',
   'catalog.sortCheap': 'Сначала дешёвые',
   'catalog.sortExpensive': 'Сначала дорогие',
-  'catalog.total': 'Всего {count} вкусов',
-  'catalog.emptyCategory': 'В этой линейке товаров нет',
-  'catalog.emptyCategoryText': 'Выберите другую линейку.',
-  'catalog.filterSummary': 'Линейка: {category} • Цена: {sort}',
+  'catalog.total': 'Всего {count} товаров',
+  'catalog.emptyCategory': 'В этой категории товаров нет',
+  'catalog.emptyCategoryText': 'Выберите другую категорию.',
+  'catalog.filterSummary': 'Категория: {category} • Цена: {sort}',
   'catalog.sortAsc': 'по возрастанию',
   'catalog.sortDesc': 'по убыванию',
   'catalog.priceRange': 'Диапазон цен',
   'catalog.priceFrom': 'от',
   'catalog.priceTo': 'до',
-  'catalog.size': 'Объём',
-  'catalog.color': 'Вкус',
+  'catalog.size': 'Вес',
+  'catalog.color': 'Вид',
   'catalog.inStockOnly': 'Только в наличии',
   'catalog.reset': 'Сбросить',
   'catalog.apply': 'Применить',
@@ -73,9 +73,9 @@ export const ru: Record<TranslationKey, string> = {
 
   // ── Товар ──
   'product.title': 'Товар',
-  'product.fastDelivery': 'Доставим охлаждённым',
-  'product.chooseColor': 'Выберите вкус',
-  'product.chooseSize': 'Выберите объём',
+  'product.fastDelivery': 'Доставим замороженным',
+  'product.chooseColor': 'Выберите вид',
+  'product.chooseSize': 'Выберите вес',
   'product.about': 'О товаре',
   'product.addToCart': 'В корзину',
   'product.soldOut': 'Нет в наличии',
@@ -86,7 +86,7 @@ export const ru: Record<TranslationKey, string> = {
 
   // ── Отзывы ──
   'reviews.title': 'Отзывы',
-  'reviews.rateThis': 'Оцените вкус:',
+  'reviews.rateThis': 'Оцените товар:',
   'reviews.placeholder': 'Напишите своё мнение...',
   'reviews.submit': 'Оставить отзыв',
   'reviews.submitting': 'Отправка...',
@@ -98,19 +98,19 @@ export const ru: Record<TranslationKey, string> = {
   'reviews.thanks': 'Спасибо за отзыв!',
   'reviews.myTitle': 'Мои отзывы',
   'reviews.myEmpty': 'Отзывов нет',
-  'reviews.myEmptyText': 'Вы ещё не оценили ни один вкус.',
+  'reviews.myEmptyText': 'Вы ещё не оценили ни один товар.',
   'reviews.productId': 'ID товара: {id}',
 
   // ── Корзина ──
   'cart.title': 'Корзина',
-  'cart.kinds': 'видов вкуса: {count}',
+  'cart.kinds': 'видов товара: {count}',
   'cart.empty': 'Ваша корзина пуста',
-  'cart.emptyText': 'Выберите понравившиеся вкусы.',
+  'cart.emptyText': 'Выберите понравившиеся товары.',
   'cart.total': 'Итого',
   'cart.checkout': 'Оформить заказ',
-  'cart.size': 'Объём',
-  'cart.color': 'Вкус',
-  'cart.goToCatalog': 'Смотреть вкусы',
+  'cart.size': 'Вес',
+  'cart.color': 'Вид',
+  'cart.goToCatalog': 'Смотреть товары',
 
   // ── Поиск ──
   'search.placeholder': 'Поиск...',
@@ -153,13 +153,13 @@ export const ru: Record<TranslationKey, string> = {
     'После заполнения формы бот пришлёт вам сообщение. Отправьте чек об оплате боту — админ проверит и подтвердит.',
   'checkout.submit': 'Оформить заказ',
   'checkout.submitting': 'Отправка...',
-  'checkout.disclaimer': 'Нажимая кнопку, вы отправляете свои данные отделу продаж V7.',
+  'checkout.disclaimer': 'Нажимая кнопку, вы отправляете свои данные отделу продаж MUSA.',
   'checkout.fillAll': 'Пожалуйста, заполните все поля',
   'checkout.cartEmpty': 'Ваша корзина пуста',
   'checkout.failed': 'Заказ не отправлен. Проверьте интернет и попробуйте снова',
   'checkout.success': 'Заказ успешно оформлен!',
   'checkout.successTitle': 'Заказ принят!',
-  'checkout.successText': 'Ваш заказ поступил на склад V7. Наш оператор свяжется с вами в ближайшее время.',
+  'checkout.successText': 'Ваш заказ поступил на склад MUSA. Наш оператор свяжется с вами в ближайшее время.',
   'checkout.viewOrders': 'Мои заказы',
 
   // ── Заказы ──
@@ -198,7 +198,7 @@ export const ru: Record<TranslationKey, string> = {
   // ── Избранное ──
   'favorites.title': 'Избранное',
   'favorites.empty': 'В избранном пока пусто',
-  'favorites.emptyText': 'Добавляйте любимые вкусы кнопкой ❤️.',
+  'favorites.emptyText': 'Добавляйте любимые товары кнопкой ❤️.',
 
   // ── Профиль ──
   'profile.title': 'Профиль',
@@ -272,6 +272,6 @@ export const ru: Record<TranslationKey, string> = {
   // ── Telegram ──
   'gate.title': 'Откройте через Telegram',
   'gate.text':
-    'Магазин V7 работает внутри Telegram. Откройте бота и нажмите «Открыть каталог».',
+    'Магазин MUSA работает внутри Telegram. Откройте бота и нажмите «Открыть каталог».',
   'gate.button': 'Открыть в Telegram',
 }

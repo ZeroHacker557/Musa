@@ -2,12 +2,13 @@
 @import "leaflet/dist/leaflet.css";
 
 /* ══════════════════════════════════════════════════════════════
-   V7 DIZAYN TOKENLARI
+   MUSA DIZAYN TOKENLARI
 
-   Brend ranglari V7™ logosidan olingan:
-     yashil  #008743  — asosiy (logo va bankalarning rangi)
-     oltin   #C79A32  — ikkilamchi aksent (reyting, chegirma, VIP)
-     ko'mir  #0D0D0F  — qorong'i rejim asosi
+   Brend ranglari MUSA logosidan olingan:
+     yashil  #0A7A3D  — asosiy (logo foni)
+     sariq   #F2C94C  — ikkilamchi aksent (logo plitasi)
+     ko'k    #16359E  — uchinchi rang (logodagi yozuv)
+     ko'mir  #0B0E0C  — qorong'i rejim asosi
 
    Barcha ranglar shu yerda. Komponentlarda hex yozilmaydi —
    faqat var(--...) yoki Tailwind utilitasi (bg-surface, text-ink).
@@ -36,25 +37,35 @@
   --line: #e5ede8;
   --line-soft: #f0f6f2;
 
-  /* Brend — V7 yashili */
-  --brand: #008743;
-  --brand-strong: #006b35;
+  /* Brend — MUSA yashili */
+  --brand: #0a7a3d;
+  --brand-strong: #056130;
   --brand-ink: #ffffff;
-  --brand-soft: #e6f4ec;
-  --brand-soft-2: #d0eadd;
-  --brand-line: #b2dbc6;
+  --brand-soft: #e6f4ea;
+  --brand-soft-2: #cfe9d8;
+  --brand-line: #b0dbc0;
 
-  /* Aksent — V7 oltini (reyting yulduzlari, chegirma nishonlari) */
-  --gold: #b5801a;
-  --gold-strong: #8f6410;
-  --gold-soft: #fdf4e0;
-  --gold-line: #f0dbab;
+  /* Aksent — MUSA sarig'i (reyting yulduzlari, chegirma nishonlari).
+     Matn uchun to'qroq variant: logodagi ochiq sariq oq fonda o'qilmaydi.
+     Quyish uchun yorqin variant — --gold-bright. */
+  --gold: #a9760a;
+  --gold-strong: #7f5804;
+  --gold-bright: #f2c94c;
+  --gold-soft: #fff7de;
+  --gold-line: #f0dc9e;
+
+  /* Uchinchi rang — MUSA ko'ki (logodagi yozuv) */
+  --royal: #16359e;
+  --royal-strong: #0f2678;
+  --royal-ink: #ffffff;
+  --royal-soft: #e9edfb;
+  --royal-line: #c2cdf0;
 
   /* Semantik */
-  --success: #008743;
-  --success-soft: #e6f4ec;
-  --warning: #b5801a;
-  --warning-soft: #fdf4e0;
+  --success: #0a7a3d;
+  --success-soft: #e6f4ea;
+  --warning: #a9760a;
+  --warning-soft: #fff7de;
   --danger: #d02c26;
   --danger-soft: #fdecea;
   --info: #1f6fd0;
@@ -69,7 +80,7 @@
   --shadow-sm: 0 1px 2px rgb(6 26 16 / 0.04), 0 1px 3px rgb(6 26 16 / 0.03);
   --shadow-md: 0 2px 4px rgb(6 26 16 / 0.04), 0 8px 20px rgb(6 26 16 / 0.07);
   --shadow-lg: 0 4px 8px rgb(6 26 16 / 0.05), 0 16px 36px rgb(6 26 16 / 0.1);
-  --shadow-brand: 0 6px 20px rgb(0 135 67 / 0.26);
+  --shadow-brand: 0 6px 20px rgb(10 122 61 / 0.26);
 
   /* Telegram xavfsiz zonasi (JS to'ldiradi) */
   --safe-bottom: 0px;
@@ -97,21 +108,28 @@
     --line: #253029;
     --line-soft: #1c2520;
 
-    --brand: #3ecf82;
-    --brand-strong: #2fb670;
+    --brand: #43ce83;
+    --brand-strong: #33b771;
     --brand-ink: #04140b;
     --brand-soft: #11291c;
     --brand-soft-2: #153422;
     --brand-line: #21432e;
 
-    --gold: #e3b341;
-    --gold-strong: #c79a32;
+    --gold: #f2c94c;
+    --gold-strong: #d9ae33;
+    --gold-bright: #f2c94c;
     --gold-soft: #2a2213;
     --gold-line: #453519;
 
-    --success: #3ecf82;
+    --royal: #93a9f2;
+    --royal-strong: #7a92e6;
+    --royal-ink: #06102e;
+    --royal-soft: #161d3a;
+    --royal-line: #26305c;
+
+    --success: #43ce83;
     --success-soft: #11291c;
-    --warning: #e3b341;
+    --warning: #f2c94c;
     --warning-soft: #2a2213;
     --danger: #f4756d;
     --danger-soft: #2e1917;
@@ -141,21 +159,28 @@
   --line: #253029;
   --line-soft: #1c2520;
 
-  --brand: #3ecf82;
-  --brand-strong: #2fb670;
+  --brand: #43ce83;
+  --brand-strong: #33b771;
   --brand-ink: #04140b;
   --brand-soft: #11291c;
   --brand-soft-2: #153422;
   --brand-line: #21432e;
 
-  --gold: #e3b341;
-  --gold-strong: #c79a32;
+  --gold: #f2c94c;
+  --gold-strong: #d9ae33;
+  --gold-bright: #f2c94c;
   --gold-soft: #2a2213;
   --gold-line: #453519;
 
-  --success: #3ecf82;
+  --royal: #93a9f2;
+  --royal-strong: #7a92e6;
+  --royal-ink: #06102e;
+  --royal-soft: #161d3a;
+  --royal-line: #26305c;
+
+  --success: #43ce83;
   --success-soft: #11291c;
-  --warning: #e3b341;
+  --warning: #f2c94c;
   --warning-soft: #2a2213;
   --danger: #f4756d;
   --danger-soft: #2e1917;
@@ -173,7 +198,7 @@
 /* Tokenlarni Tailwind utilitalariga bog'laymiz:
    bg-surface, text-ink, border-line, text-brand va h.k. */
 @theme inline {
-  /* Montserrat — V7 qadoqlaridagi matn shrifti */
+  /* Montserrat — MUSA matn shrifti */
   --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
   /* Archivo Black — logotip va yirik sarlavhalar uchun */
   --font-display: "Archivo Black", "Montserrat", ui-sans-serif, sans-serif;
@@ -194,6 +219,11 @@
   --color-brand-line: var(--brand-line);
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
+  --color-gold-bright: var(--gold-bright);
+  --color-royal: var(--royal);
+  --color-royal-strong: var(--royal-strong);
+  --color-royal-soft: var(--royal-soft);
+  --color-royal-line: var(--royal-line);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
@@ -916,8 +946,8 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   border-radius: var(--r-lg);
   background:
-    radial-gradient(120% 90% at 78% 45%, rgb(62 207 130 / 0.28) 0%, transparent 60%),
-    linear-gradient(135deg, #067a3f 0%, #02301b 100%);
+    radial-gradient(120% 90% at 78% 45%, rgb(242 201 76 / 0.26) 0%, transparent 60%),
+    linear-gradient(135deg, #0a7a3d 0%, #04331c 100%);
   color: #ffffff;
 }
 
@@ -930,7 +960,7 @@ a { color: inherit; text-decoration: none; }
   aspect-ratio: 1;
   transform: translateY(-50%);
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(255 255 255 / 0.22) 0%, transparent 68%);
+  background: radial-gradient(circle, rgb(255 240 190 / 0.26) 0%, transparent 68%);
   pointer-events: none;
 }
 
