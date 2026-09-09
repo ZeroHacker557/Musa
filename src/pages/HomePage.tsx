@@ -10,6 +10,7 @@ import { ProductRowSkeleton } from '../components/ui/ProductCardSkeleton'
 import { CartButton } from '../components/ui/CartButton'
 import { IconButton } from '../components/ui/IconButton'
 import { categoryIcon } from '../utils/category-icons'
+import { MAIN_LINES, isMainLine } from '../config/categories'
 import { useT, type TranslationKey } from '../i18n'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
 
@@ -118,11 +119,41 @@ export function HomePage({
         </div>
       </section>
 
-      {/* Kategoriyalar — bazadan, bosilganda katalog filtrlanadi */}
-      {categories.length > 0 && (
-        <section className="mt-6">
+      {/* Asosiy yo'nalishlar — uchta yirik karta.
+          Foto qo'yish uchun: MAIN_LINES dagi `image` maydonini to'ldiring
+          (src/config/categories.ts) — gradient o'rniga rasm ko'rinadi. */}
+      <section className="px-5 pt-8 sm:px-10">
+        <h2 className="section-title mb-4">{t('home.lines')}</h2>
+        <div className="line-grid">
+          {MAIN_LINES.map((line, index) => {
+            const Icon = categoryIcon(line.icon, line.name)
+            return (
+              <button
+                key={line.name}
+                onClick={() => onOpenCategory(line.name)}
+                className={'line-card' + (index === 0 ? ' line-card--wide' : '')}
+                style={
+                  line.image
+                    ? { backgroundImage: `url(${line.image})` }
+                    : { backgroundImage: line.gradient }
+                }
+              >
+                {!line.image && (
+                  <Icon className="line-card__icon" size={index === 0 ? 128 : 104} aria-hidden="true" />
+                )}
+                <span className="line-card__title">{line.name}</span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Kategoriyalar — bazadan, bosilganda katalog filtrlanadi.
+          Yo'nalishlar yuqorida kartada turibdi, bu yerda takrorlanmaydi. */}
+      {categories.some((c) => !isMainLine(c.name)) && (
+        <section className="mt-5">
           <div className="category-strip scrollbar-none">
-            {categories.map((category) => {
+            {categories.filter((c) => !isMainLine(c.name)).map((category) => {
               const Icon = categoryIcon(category.icon, category.name)
               return (
                 <button
@@ -133,7 +164,7 @@ export function HomePage({
                   <span className="category-icon-wrap">
                     <Icon size={22} />
                   </span>
-                  <span className="line-clamp-1">{category.name}</span>
+                  <span className="category-label">{category.name}</span>
                 </button>
               )
             })}

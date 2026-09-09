@@ -34,6 +34,7 @@ export const ru: Record<TranslationKey, string> = {
   'home.heroTitle': 'Домашний вкус — за несколько минут',
   'home.heroSubtitle': 'Полуфабрикаты, мороженое и сырки.',
   'home.heroCta': 'Заказать',
+  'home.lines': 'Направления',
   'home.popular': 'Популярные товары',
   'home.seeAll': 'Смотреть все',
   'home.emptyTitle': 'Товары появятся скоро!',

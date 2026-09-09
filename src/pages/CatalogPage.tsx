@@ -122,7 +122,7 @@ export function CatalogPage({
               className={'catalog-category ' + (active === category.name ? 'active' : '')}
             >
               <Icon size={21} />
-              <span className="line-clamp-1">{category.name}</span>
+              <span className="category-label">{category.name}</span>
             </button>
           )
         })}

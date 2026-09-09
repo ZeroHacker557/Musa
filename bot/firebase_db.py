@@ -524,6 +524,33 @@ def get_delivery_settings() -> dict:
     return {"fee": 0, "freeFrom": 0}
 
 
+# MUSA ning uchta asosiy yo'nalishi — mini app'da bosh sahifadagi yirik
+# kartalar va katalog menyusi shu nomlarga tayanadi
+# (src/config/categories.ts). Bot birinchi ishga tushganda bazada yo'q
+# bo'lsa yaratamiz, aks holda admin mahsulotni ularga biriktira olmaydi.
+MAIN_CATEGORIES = [
+    ("Yarim tayyor mahsulotlar", "chuchvara"),
+    ("Muzqaymoqlar", "muzqaymoq"),
+    ("Siroklar", "sirok"),
+]
+
+
+def ensure_main_categories():
+    """Yetishmayotgan asosiy yo'nalishlarni qo'shadi. Borlariga tegmaydi."""
+    try:
+        existing = {c.get("name", "").strip().lower() for c in get_categories()}
+        for name, icon in MAIN_CATEGORIES:
+            if name.lower() in existing:
+                continue
+            cat_id = str(int(uuid.uuid4().int % 100000))
+            db.collection("categories").document(cat_id).set(
+                {"id": cat_id, "name": name, "icon": icon}
+            )
+            print(f"[OK] Asosiy kategoriya yaratildi: {name}")
+    except Exception as e:
+        print(f"[ERR] ensure_main_categories: {e}")
+
+
 def ensure_delivery_settings():
     try:
         ref = db.collection("settings").document("delivery")

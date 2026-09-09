@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { withMainLines } from '../config/categories'
 import { subscribeToCategories, subscribeToProducts, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead } from '../lib/firebase'
 import { ensureSignedIn, onAuthChanged, auth } from '../lib/auth'
 import { apiPost, ApiError } from '../lib/api'
@@ -52,7 +53,7 @@ export function useShopStore() {
   // Bosh sahifadan tanlangan kategoriya katalogga uzatiladi (F-16)
   const [catalogCategory, setCatalogCategory] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
+  const [categories, setCategories] = useState<Category[]>(() => withMainLines([]))
   const [loading, setLoading] = useState(true)
   const [likedIds, setLikedIds] = useState<number[]>(loadLikes)
   const [cartItems, setCartItems] = useState<CartItems>(loadCart)
@@ -90,7 +91,9 @@ export function useShopStore() {
     )
 
     const unsubCats = subscribeToCategories(
-      (fbCats) => setCategories(fbCats),
+      // Uchta asosiy yo'nalish doim ro'yxat boshida turadi — katalog
+      // bo'sh bo'lganda ham menyu bo'sh qolmasin (src/config/categories.ts).
+      (fbCats) => setCategories(withMainLines(fbCats)),
       () => {},
     )
 

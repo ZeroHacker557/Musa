@@ -383,14 +383,19 @@ a { color: inherit; text-decoration: none; }
 
 .category-card {
   display: flex;
-  min-width: 104px;
+  /* Qat'iy kenglik — uzun nomli kategoriya chipni cho'zib yubormasin,
+     hammasi "Barchasi" bilan bir xil o'lchamda tursin. 124px eng uzun
+     bo'linmas so'z ("Muzqaymoqlar", 94px) bir qatorga sig'ishi uchun. */
+  width: 124px;
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  padding: 0.9rem 0.75rem;
-  font-size: 0.8rem;
+  padding: 0.9rem 0.7rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-align: center;
   font-weight: 700;
   color: var(--ink);
   background: var(--surface);
@@ -416,6 +421,111 @@ a { color: inherit; text-decoration: none; }
   transition: transform 0.25s ease;
 }
 .category-card:hover .category-icon-wrap { transform: scale(1.06); }
+
+/* Kategoriya nomi — ikki qatorgacha qisqaradi. min-height tufayli bir
+   qatorli va ikki qatorli chiplar bir xil balandlikda turadi. */
+.category-label {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* Juda uzun bo'linmas so'z qatorga sig'masa, qirqilib qolmasin —
+     ko'chirilib, keyin uchta nuqta qo'yilsin. */
+  overflow-wrap: anywhere;
+  min-height: 2.4em;
+  width: 100%;
+}
+
+/* ====== Asosiy yo'nalish kartalari (bosh sahifa) ======
+   Bitta keng karta + ikkita yarim karta. Fon — gradient yoki foto;
+   ikonka suvbelgisi sifatida o'ng pastda turadi, sarlavha esa uning
+   ustidan qorong'i pardaga tushadi va har ikkala holatda ham o'qiladi. */
+.line-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.line-card {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  /* Nisbat qat'iy — foto qo'yilganda u har qanday ekranda bir xil
+     qirqiladi. Keng ekranda karta haddan tashqari baland bo'lib
+     ketmasligi uchun max-height bilan cheklanadi. */
+  aspect-ratio: 1.27 / 1;
+  min-height: 128px;
+  max-height: 260px;
+  padding: 0.95rem 1rem;
+  border-radius: var(--r-lg);
+  background-position: center;
+  background-size: cover;
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.line-card--wide {
+  grid-column: span 2;
+  aspect-ratio: 2.2 / 1;
+  min-height: 152px;
+  max-height: 300px;
+}
+
+/* Sarlavha ostidagi parda — foto qo'yilganda ham matn o'qiladi.
+   Ikki qatlam: pastdan yuqoriga va chapdan o'ngga. Mahsulot fotolari
+   kompozitsiyasida bo'sh joy chapda, sarlavha ham o'sha yerda — shu
+   tufayli chap parda matnni ajratadi, mahsulotni esa ochiq qoldiradi. */
+.line-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, rgb(0 0 0 / 0.58) 0%, rgb(0 0 0 / 0.2) 42%, transparent 72%),
+    linear-gradient(to right, rgb(0 0 0 / 0.34) 0%, transparent 58%);
+  pointer-events: none;
+}
+
+.line-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.line-card:active { transform: translateY(0) scale(0.985); }
+
+.line-card__icon {
+  position: absolute;
+  right: -10px;
+  bottom: -18px;
+  color: #ffffff;
+  opacity: 0.22;
+  transform: rotate(-10deg);
+  transition: transform 0.3s ease;
+}
+
+.line-card:hover .line-card__icon { transform: rotate(-10deg) scale(1.06); }
+
+.line-card__title {
+  position: relative;
+  z-index: 1;
+  max-width: 72%;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #ffffff;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
+}
+
+.line-card--wide .line-card__title {
+  max-width: 62%;
+  font-size: 1.2rem;
+}
+
+@media (min-width: 640px) {
+  .line-card__title { font-size: 1.2rem; }
+  .line-card--wide .line-card__title { font-size: 1.5rem; }
+}
 
 /* ====== Product Card ====== */
 .product-card {
@@ -673,7 +783,8 @@ a { color: inherit; text-decoration: none; }
 /* ====== Catalog Category ====== */
 .catalog-category {
   display: flex;
-  min-width: 104px;
+  /* .category-card bilan bir xil qat'iy kenglik */
+  width: 124px;
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;
@@ -682,7 +793,9 @@ a { color: inherit; text-decoration: none; }
   padding: 0.9rem 0.7rem;
   color: var(--ink);
   background: var(--surface);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-align: center;
   font-weight: 700;
   transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   flex-shrink: 0;

@@ -33,6 +33,7 @@ bitta blokda hal bo'ladi.
 - `src/components/brand` — logotip komponenti.
 - `src/components` — qayta ishlatiluvchi layout, UI, mahsulot va buyurtma komponentlari.
 - `src/config/brand.ts` — brend va aloqa konstantalari.
+- `src/config/categories.ts` — uchta asosiy yo'nalish (bosh sahifadagi kartalar va katalog menyusi).
 - `src/hooks` — ilovaning UI holati va biznes harakatlari.
 - `src/i18n` — o'zbekcha (asosiy) va ruscha lug'atlar.
 - `src/types` — markazlashtirilgan TypeScript domen turlari.

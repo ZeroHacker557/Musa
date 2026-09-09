@@ -895,6 +895,7 @@ async def main():
     # Sozlama hujjatlari hali yo'q bo'lsa, boshlang'ich qiymatlar bilan yaratamiz
     db.ensure_payment_settings()
     db.ensure_delivery_settings()
+    db.ensure_main_categories()
 
     try:
         await bot.set_chat_menu_button(

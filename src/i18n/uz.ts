@@ -39,6 +39,7 @@ export const uz = {
   'home.heroTitle': "Uydagidek ta'm — bir necha daqiqada",
   'home.heroSubtitle': 'Yarim tayyor mahsulotlar, muzqaymoq va siroklar.',
   'home.heroCta': 'Buyurtma berish',
+  'home.lines': "Yo'nalishlar",
   'home.popular': 'Mashhur mahsulotlar',
   'home.seeAll': "Barchasini ko'rish",
   'home.emptyTitle': 'Mahsulotlar tez orada!',
