@@ -12,32 +12,14 @@
  * DIQQAT: bu yerdagi projectId bot ishlatadigan service account
  * (bot/config.py → FIREBASE_KEY_FILE) bilan BIR XIL loyihaga tegishli
  * bo'lishi shart. Aks holda bot bir bazaga yozadi, ilova boshqasidan
- * o'qiydi va katalog bo'sh ko'rinadi.
- *
- * ⚠️ TODO(MUSA): quyidagi qiymatlar BO'SH JOY TUTUVCHI. Eski V7
- * loyihasining kalitlari ataylab olib tashlandi — aks holda MUSA
- * ilovasi V7 bazasiga ulanib qolardi. MUSA uchun yangi Firebase
- * loyihasini oching va Config'ni shu yerga ko'chiring.
+ * o'qiydi va katalog bo'sh ko'rinadi. Hozir ikkalasi ham `musa-onlineshop`.
  */
 export const firebaseConfig = {
-  apiKey: 'TODO_MUSA_API_KEY',
-  authDomain: 'TODO-musa.firebaseapp.com',
-  projectId: 'TODO-musa',
-  storageBucket: 'TODO-musa.firebasestorage.app',
-  messagingSenderId: 'TODO_MUSA_SENDER_ID',
-  appId: 'TODO_MUSA_APP_ID',
-  measurementId: 'TODO_MUSA_MEASUREMENT_ID',
-}
-
-/**
- * Config to'ldirilmaganda tushunarli xato beradi — aks holda Firebase
- * "auth/invalid-api-key" deb yozadi va sabab noaniq qoladi.
- */
-export const firebaseConfigured = !firebaseConfig.apiKey.startsWith('TODO')
-
-if (!firebaseConfigured) {
-  console.error(
-    '[MUSA] Firebase config to’ldirilmagan — src/config/firebase.ts ' +
-      'faylini Firebase Console’dagi qiymatlar bilan almashtiring.',
-  )
+  apiKey: 'AIzaSyDGsAmf8pfHbFxyX2z5za_t3oWbTcbBQSk',
+  authDomain: 'musa-onlineshop.firebaseapp.com',
+  projectId: 'musa-onlineshop',
+  storageBucket: 'musa-onlineshop.firebasestorage.app',
+  messagingSenderId: '265389492045',
+  appId: '1:265389492045:web:46283533b7404304e01904',
+  measurementId: 'G-XW664F7E30',
 }

@@ -36,21 +36,18 @@ _load_env()
 # ── Telegram ──
 # Token .env dan keladi. Bo'sh bo'lsa bot ishga tushmaydi (bot.py tekshiradi).
 BOT_TOKEN    = os.environ.get("BOT_TOKEN", "")
-# TODO(MUSA): @BotFather dagi haqiqiy username
-BOT_USERNAME = "musa_shop_bot"
-# TODO(MUSA): MUSA adminlarining Telegram ID lari (@userinfobot beradi)
+BOT_USERNAME = "musauz_bot"
 ADMIN_IDS    = {7203124812}   # Egalar — panel orqali o'chirib bo'lmaydi
-# TODO(MUSA): Vercel'dagi haqiqiy domen + BotFather /setdomain
-MINI_APP_URL = "https://musa-shop.vercel.app"
+# BotFather /setdomain da ham aynan shu domen ko'rsatilgan bo'lishi kerak.
+MINI_APP_URL = "https://musa-delivery.vercel.app"
 
 # ── Kompaniya aloqa ma'lumotlari (bot javoblarida ko'rinadi) ──
-# TODO(MUSA): quyidagi aloqa qiymatlari bo'sh joy tutuvchi — to'ldiring.
 # Frontend tomonidagi nusxasi: src/config/brand.ts
 COMPANY_NAME     = "MUSA"
-COMPANY_TAGLINE  = "Yarim tayyor mahsulotlar"
-SUPPORT_PHONE    = "+998 00 000 00 00"
-SUPPORT_EMAIL    = "info@musa.uz"
-SUPPORT_TELEGRAM = "@musa_uz"
+COMPANY_TAGLINE  = "Muzlatilgan mahsulotlar"
+SUPPORT_PHONE    = "+998 97 400 98 77"
+SUPPORT_EMAIL    = "abubakrfrontend@gmail.com"
+SUPPORT_TELEGRAM = "@for_name"
 COMPANY_CITY     = "Toshkent, O'zbekiston"
 WORK_HOURS       = "09:00 — 20:00"
 
@@ -58,12 +55,11 @@ WORK_HOURS       = "09:00 — 20:00"
 # Service account JSON fayli (loyiha ildizida yoki bot/ papkasida).
 # Firebase Console → Project Settings → Service accounts →
 # "Generate new private key". Fayl .gitignore'da.
-# TODO(MUSA): MUSA loyihasidan yuklab olingan JSON faylning nomi.
-FIREBASE_KEY_FILE       = "musa-firebase-adminsdk.json"
+FIREBASE_KEY_FILE       = "musa-onlineshop-firebase-adminsdk-fbsvc-f51dff6a35.json"
 # Storage bucket — mahsulot rasmlari shu yerga yuklanadi.
 # Console → Storage → bucket nomi (odatda <project-id>.firebasestorage.app).
-# TODO(MUSA): src/config/firebase.ts dagi storageBucket bilan BIR XIL bo'lsin.
-FIREBASE_STORAGE_BUCKET = "TODO-musa.firebasestorage.app"
+# src/config/firebase.ts dagi storageBucket bilan bir xil bo'lishi shart.
+FIREBASE_STORAGE_BUCKET = "musa-onlineshop.firebasestorage.app"
 
 # ── Server ──
 API_HOST     = "0.0.0.0"
@@ -74,6 +70,5 @@ DB_FILE      = "database.json"
 # To'lov sozlamalari — faqat BOSHLANG'ICH qiymat.
 # Bot birinchi ishga tushganda bular Firestore'dagi settings/payment
 # hujjatiga ko'chiriladi. Undan keyin haqiqiy manba — o'sha hujjat (F-07).
-# TODO(MUSA): MUSA ning haqiqiy kartasi va egasining ismi.
-CARD_NUMBER = "0000 0000 0000 0000"
-CARD_OWNER  = "MUSA"
+CARD_NUMBER = "5614 6818 1872 7921"
+CARD_OWNER  = "Abubakir Abdulbositov"

@@ -1,7 +1,7 @@
 import {
-  Beef, Cake, Carrot, ChefHat, CookingPot, Croissant, Drumstick, Egg,
-  Fish, Grid2X2, Ham, IceCreamCone, Package, Pizza, Salad, Sandwich,
-  Snowflake, Soup, Vegan, Wheat,
+  Beef, Cake, Candy, Carrot, ChefHat, CookingPot, Croissant, Drumstick, Egg,
+  Fish, Grid2X2, Ham, IceCreamBowl, IceCreamCone, Milk, Package, Pizza,
+  Popsicle, Salad, Sandwich, Snowflake, Soup, Vegan, Wheat,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -13,8 +13,8 @@ import {
  * Ilgari faqat oldindan yozilgan nomlar bilan solishtirilardi, shuning
  * uchun har qanday yangi kategoriya doim quti bo'lib qolardi (F-17).
  *
- * Ro'yxat MUSA assortimentiga moslangan: muzlatilgan yarim tayyor
- * mahsulotlar — chuchvara, manti, somsa, kotlet, naggets va h.k.
+ * Ro'yxat MUSA assortimentiga moslangan: yarim tayyor mahsulotlar
+ * (chuchvara, manti, somsa, kotlet, naggets), muzqaymoq va siroklar.
  */
 const BY_KEY: Record<string, LucideIcon> = {
   all: Grid2X2,
@@ -49,6 +49,22 @@ const BY_KEY: Record<string, LucideIcon> = {
   burger: Sandwich,
   pizza: Pizza,
 
+  // Muzqaymoq va sut shirinliklari
+  muzqaymoq: IceCreamCone,
+  morojniy: IceCreamCone,
+  plombir: IceCreamCone,
+  eskimo: Popsicle,
+  popsicle: Popsicle,
+  rojok: IceCreamCone,
+  vedro: IceCreamBowl,
+  sirok: Candy,
+  syrok: Candy,
+  glazur: Candy,
+  tvorog: Milk,
+  sut: Milk,
+  dairy: Milk,
+  milk: Milk,
+
   // Boshqa
   fish: Fish,
   baliq: Fish,
@@ -60,7 +76,6 @@ const BY_KEY: Record<string, LucideIcon> = {
   vegan: Vegan,
   dessert: Cake,
   shirinlik: Cake,
-  muzqaymoq: IceCreamCone,
   frozen: Snowflake,
   muzlatilgan: Snowflake,
   set: ChefHat,
@@ -82,8 +97,11 @@ const BY_NAME: [RegExp, LucideIcon][] = [
   [/tuxum|egg|яйц/i, Egg],
   [/sabzavot|vegetable|овощ/i, Carrot],
   [/salat|salad|салат/i, Salad],
+  [/sirok|syrok|glazur|tvorog|сырок|сырк|творож|глазир/i, Candy],
+  [/eskimo|muzli tayoq|эскимо/i, Popsicle],
+  [/muzqaymoq|plombir|morojen|rojok|морожен|пломбир|рожок/i, IceCreamCone],
+  [/sut|dairy|молоч|молоко/i, Milk],
   [/shirinlik|dessert|tort|десерт|торт/i, Cake],
-  [/muzqaymoq|morojen|морожен/i, IceCreamCone],
   [/muzlatilgan|frozen|заморож/i, Snowflake],
   [/toʻplam|set|combo|набор/i, ChefHat],
   [/barcha|hamma|все|all/i, Grid2X2],

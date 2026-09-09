@@ -12,30 +12,28 @@
 
 ## 0. MUSA ga o'tish — to'ldiriladigan qiymatlar
 
-Loyiha MUSA brendiga moslandi: ranglar, matnlar, logotip va kategoriya
-ikonkalari almashtirildi. **Maxfiy va loyihaga xos qiymatlar esa bo'sh joy
-tutuvchi holida qoldi** — ularni to'ldirmasdan ilova ishlamaydi.
+Loyiha MUSA brendiga to'liq o'tkazildi: ranglar, matnlar, logotip, hero
+rasmi, kategoriya ikonkalari va barcha kalitlar.
 
-Barcha bo'sh joy tutuvchilar kodda `TODO(MUSA)` deb belgilangan:
-
-```bash
-grep -rn "TODO(MUSA)" src bot
-```
+Kodda `TODO(MUSA)` qolmadi — quyidagi jadvalda ❌ bilan belgilanganlar
+faqat tashqi xizmatlarda (Vercel, BotFather, Firebase Console) qilinadi.
 
 | Nima | Qayerga | Holat |
 |---|---|---|
-| **Bot tokeni** | `bot/.env` (git'ga tushmaydi) **va** Vercel env `BOT_TOKEN` | ❌ to'ldiriladi |
-| Firebase web config | `src/config/firebase.ts` | ❌ to'ldiriladi |
-| Firebase service account JSON | Loyiha ildiziga fayl (git'ga tushmaydi) + Vercel env `FIREBASE_SERVICE_ACCOUNT` | ❌ to'ldiriladi |
-| Service account fayl nomi va bucket | `bot/config.py` → `FIREBASE_KEY_FILE`, `FIREBASE_STORAGE_BUCKET` | ❌ to'ldiriladi |
-| Bot username | `bot/config.py` → `BOT_USERNAME`, `src/config/brand.ts` → `botUsername` | ❌ to'ldiriladi |
-| Mini app domeni | `bot/config.py` → `MINI_APP_URL` + BotFather `/setdomain` | ❌ to'ldiriladi |
-| Admin Telegram ID | `bot/config.py` → `ADMIN_IDS` | ❌ to'ldiriladi |
-| Aloqa raqami / email / Telegram | `src/config/brand.ts` va `bot/config.py` | ❌ to'ldiriladi |
-| To'lov kartasi | `bot/config.py` → `CARD_NUMBER`, `CARD_OWNER` (keyin Firestore `settings/payment`) | ❌ to'ldiriladi |
-| Favicon (`public/favicon-*.png`) | MUSA logosidan qayta yasaldi | ✅ tayyor |
-| Dasturchi kontaktlari | `src/config/brand.ts` → `DEVELOPER` | ✅ o'zgarmadi |
-| Brend ranglari va matnlar | `src/styles.css`, `src/i18n/*`, `src/config/brand.ts` | ✅ MUSA ga moslandi |
+| **Bot tokeni** | `bot/.env` (git'ga tushmaydi) | ✅ yozildi |
+| **Bot tokeni** | Vercel env `BOT_TOKEN` | ❌ **siz qo'shasiz** |
+| Firebase service account JSON | Vercel env `FIREBASE_SERVICE_ACCOUNT` | ❌ **siz qo'shasiz** |
+| BotFather `/setdomain` → `musa-delivery.vercel.app` | Telegram | ❌ **siz qilasiz** |
+| Firestore Rules (4-bo'lim) | Firebase Console | ❌ **siz qilasiz** |
+| Firebase web config | `src/config/firebase.ts` (`musa-onlineshop`) | ✅ yozildi |
+| Service account fayli va bucket | `bot/config.py`, loyiha ildizida JSON | ✅ yozildi |
+| Bot username `musauz_bot` | `bot/config.py`, `src/config/brand.ts` | ✅ yozildi |
+| Mini app domeni | `bot/config.py` → `MINI_APP_URL` | ✅ yozildi |
+| Admin Telegram ID `7203124812` | `bot/config.py` → `ADMIN_IDS` | ✅ yozildi |
+| Aloqa raqami / email / Telegram | `src/config/brand.ts` va `bot/config.py` | ✅ yozildi |
+| To'lov kartasi | `bot/config.py` (eskisi qoldirildi) | ✅ yozildi |
+| Logotip, hero rasmi, favicon | `src/images/`, `public/favicon-*.png` | ✅ yozildi |
+| Brend ranglari va matnlar | `src/styles.css`, `src/i18n/*` | ✅ MUSA ga moslandi |
 
 > **Bot tokeni hech qachon git'ga tushmaydi.** U `bot/.env` da, `.gitignore`
 > esa uni to'sadi. `bot/config.py` faqat `os.environ` dan o'qiydi. Yangi

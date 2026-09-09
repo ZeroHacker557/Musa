@@ -1,7 +1,7 @@
 """
 MUSA Shop Telegram Bot — Admin panel + Mini App + To'lov tizimi
 
-MUSA — muzlatilgan yarim tayyor mahsulotlar do'koni.
+MUSA — muzlatilgan mahsulotlar do'koni: yarim tayyor, muzqaymoq, sirok.
 """
 import asyncio
 import json
@@ -764,8 +764,8 @@ async def cmd_start(message: Message, state: FSMContext):
     text = (
         f"Assalomu alaykum, <b>{user.first_name}</b>! 👋\n\n"
         "🥟 <b>MUSA rasmiy do'koniga xush kelibsiz!</b>\n"
-        "<i>Yarim tayyor mahsulotlar — yangi xomashyo, shok muzlatish.</i>\n\n"
-        "🍽 <b>Chuchvara, manti, somsa, kotlet, naggets</b> va boshqalar.\n\n"
+        "<i>Muzlatilgan mahsulotlar — yangi xomashyo, shok muzlatish.</i>\n\n"
+        "🍽 <b>Yarim tayyor mahsulotlar, muzqaymoq va siroklar.</b>\n\n"
         "👇 <i>Buyurtmani boshlash uchun quyidagi tugmani bosing:</i>"
     )
     await message.answer(text, reply_markup=main_kb(admin))

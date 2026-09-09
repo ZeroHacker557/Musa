@@ -1,6 +1,7 @@
 # MUSA Shop — Telegram Mini App
 
-MUSA (yarim tayyor mahsulotlar) uchun Telegram mini app do'koni:
+MUSA (muzlatilgan mahsulotlar — yarim tayyor, muzqaymoq, sirok) uchun
+Telegram mini app do'koni:
 React + TypeScript + Tailwind CSS frontend, Vercel serverless API va aiogram
 asosidagi Telegram bot.
 
@@ -12,8 +13,8 @@ asosidagi Telegram bot.
 | Aksent | `#F2C94C` (logo sarig'i) / matn uchun `#A9760A` |
 | Uchinchi rang | `#16359E` (logodagi ko'k yozuv) |
 | Shriftlar | Archivo Black (sarlavha), Montserrat (matn) |
-| Logotip | `src/components/brand/BrandLogo.tsx` — CSS bilan chizilgan, rasm fayli kerak emas |
-| Hero rasm | Hozircha yo'q — `src/pages/HomePage.tsx` da logotip plitasi turibdi |
+| Logotip | `src/images/musa-mark.webp` (belgi), `public/favicon-*.png` |
+| Hero rasm | `src/images/hero-products.webp` |
 
 Kompaniya ma'lumotlari (telefon, email, Telegram, bot username) bitta joyda:
 [`src/config/brand.ts`](src/config/brand.ts). Bot tomonida — `bot/config.py`.
@@ -22,10 +23,9 @@ Ranglar `src/styles.css` dagi CSS o'zgaruvchilarida. Komponentlarda hex
 yozilmaydi — faqat `var(--brand)` kabi tokenlar, shu tufayli qorong'i rejim
 bitta blokda hal bo'ladi.
 
-> ⚠️ Loyihada `TODO(MUSA)` deb belgilangan bo'sh joy tutuvchi qiymatlar bor
-> (Firebase config, bot username, telefon, karta). Ishga tushirishdan oldin
-> [`DEPLOY.md`](./DEPLOY.md) → "0. MUSA ga o'tish" bo'limidagi ro'yxatni
-> to'ldiring. Ularni topish uchun: `grep -rn "TODO(MUSA)" src bot`.
+> Firebase loyihasi — `musa-onlineshop`, bot — [@musauz_bot](https://t.me/musauz_bot),
+> mini app — `https://musa-delivery.vercel.app`. Maxfiy qiymatlar (bot tokeni,
+> service account JSON) git'ga tushmaydi — [`DEPLOY.md`](./DEPLOY.md) ga qarang.
 
 ## Tuzilma
 

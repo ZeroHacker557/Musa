@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   Code2,
   ChefHat,
-  CookingPot,
+  IceCreamCone,
   Snowflake,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -25,11 +25,11 @@ type Props = {
 const faqs_uz = [
   {
     q: "MUSA mahsulotlari nimasi bilan ajralib turadi?",
-    a: "MUSA — yarim tayyor mahsulotlar: har kuni yangi go‘sht va xamirdan tayyorlanadi, so‘ng darhol shok muzlatishdan o‘tadi. Sun’iy qo‘shimchalar va konservantlar ishlatilmaydi.",
+    a: "MUSA — yarim tayyor mahsulotlar, muzqaymoq va siroklar ishlab chiqaradi. Xomashyo har kuni yangi, mahsulot tayyorlangan zahoti shok muzlatishdan o‘tadi. Sun’iy qo‘shimchalar va konservantlar ishlatilmaydi.",
   },
   {
     q: "Qanday mahsulotlar bor?",
-    a: "Chuchvara, manti, somsa, kotlet, naggets, lyulya-kabob, xamir mahsulotlari va boshqalar. To‘liq ro‘yxat va vaznlar katalogda ko‘rsatilgan.",
+    a: "Yarim tayyor: chuchvara, manti, somsa, kotlet, naggets, lyulya-kabob, xamir mahsulotlari. Shirinliklar: muzqaymoq va glazurlangan siroklar. To‘liq ro‘yxat va vaznlar katalogda ko‘rsatilgan.",
   },
   {
     q: "Mahsulot qanday yetkaziladi?",
@@ -37,7 +37,7 @@ const faqs_uz = [
   },
   {
     q: "Mahsulotni qanday saqlash kerak?",
-    a: "Muzlatgichda −18°C haroratda saqlanadi. Bir marta erigan mahsulotni qayta muzlatish tavsiya etilmaydi — uni darhol pishiring.",
+    a: "Barcha mahsulotlar muzlatgichda −18°C haroratda saqlanadi — muzqaymoq va siroklar ham. Bir marta erigan mahsulotni qayta muzlatish tavsiya etilmaydi.",
   },
   {
     q: "Eng kam buyurtma miqdori bormi?",
@@ -60,11 +60,11 @@ const faqs_uz = [
 const faqs_ru = [
   {
     q: "Чем отличается продукция MUSA?",
-    a: "MUSA — это полуфабрикаты из свежего мяса и теста, которые сразу после приготовления проходят шоковую заморозку. Без искусственных добавок и консервантов.",
+    a: "MUSA производит полуфабрикаты, мороженое и сырки. Сырьё свежее каждый день, продукт сразу после приготовления проходит шоковую заморозку. Без искусственных добавок и консервантов.",
   },
   {
     q: "Какие есть продукты?",
-    a: "Пельмени, манты, самса, котлеты, наггетсы, люля-кебаб, тестовые изделия и другое. Полный список и вес указаны в каталоге.",
+    a: "Полуфабрикаты: пельмени, манты, самса, котлеты, наггетсы, люля-кебаб, тестовые изделия. Десерты: мороженое и глазированные сырки. Полный список и вес указаны в каталоге.",
   },
   {
     q: "Как доставляется заказ?",
@@ -72,7 +72,7 @@ const faqs_ru = [
   },
   {
     q: "Как хранить продукт?",
-    a: "В морозильной камере при −18°C. Повторная заморозка размороженного продукта не рекомендуется — приготовьте его сразу.",
+    a: "Все продукты хранятся в морозильной камере при −18°C — мороженое и сырки тоже. Повторная заморозка размороженного продукта не рекомендуется.",
   },
   {
     q: "Есть ли минимальный заказ?",
@@ -167,13 +167,13 @@ export function SupportPage({ onBack }: Props) {
   const about = lang === 'ru'
     ? [
         { icon: Snowflake, title: 'Шоковая заморозка', text: 'Продукт замораживается сразу после приготовления.' },
-        { icon: ChefHat, title: 'Свежее сырьё', text: 'Мясо и тесто готовятся каждый день.' },
-        { icon: CookingPot, title: 'Готово за несколько минут', text: 'Отварите, обжарьте или приготовьте на пару.' },
+        { icon: ChefHat, title: 'Свежее сырьё', text: 'Мясо, тесто и молочные продукты — свежие каждый день.' },
+        { icon: IceCreamCone, title: 'Широкий ассортимент', text: 'Полуфабрикаты, мороженое и глазированные сырки.' },
       ]
     : [
         { icon: Snowflake, title: 'Shok muzlatish', text: "Mahsulot tayyorlangan zahoti −18°C da muzlatiladi." },
-        { icon: ChefHat, title: 'Yangi xomashyo', text: "Go‘sht va xamir har kuni yangidan tayyorlanadi." },
-        { icon: CookingPot, title: 'Bir necha daqiqada tayyor', text: 'Qaynating, qovuring yoki bug‘da pishiring.' },
+        { icon: ChefHat, title: 'Yangi xomashyo', text: "Go‘sht, xamir va sut mahsulotlari har kuni yangi." },
+        { icon: IceCreamCone, title: 'Keng assortiment', text: 'Yarim tayyor mahsulotlar, muzqaymoq va siroklar.' },
       ]
 
   const features = lang === 'ru'

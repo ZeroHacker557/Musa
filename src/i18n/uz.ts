@@ -2,9 +2,9 @@
  * O'zbekcha lug'at — asosiy (source of truth).
  * Boshqa tillar shu kalitlar to'plamiga amal qiladi.
  *
- * Matnlar MUSA — muzlatilgan yarim tayyor mahsulotlar do'koni uchun
- * yozilgan. "O'lcham" o'rniga vazn (gramm/kg), "rang" o'rniga
- * mahsulot turi ishlatiladi.
+ * Matnlar MUSA — muzlatilgan mahsulotlar do'koni uchun yozilgan:
+ * yarim tayyor mahsulotlar, muzqaymoq va siroklar. "O'lcham"
+ * o'rniga vazn (gramm/kg), "rang" o'rniga mahsulot turi ishlatiladi.
  */
 export const uz = {
   // ── Umumiy ──
@@ -23,7 +23,7 @@ export const uz = {
   'common.required': 'majburiy',
 
   // ── Brend ──
-  'brand.tagline': 'Yarim tayyor mahsulotlar',
+  'brand.tagline': 'Muzlatilgan mahsulotlar',
   'brand.slogan': "Uydagidek ta'm — tez va oson",
 
   // ── Navigatsiya ──
@@ -37,7 +37,7 @@ export const uz = {
   'home.searchPlaceholder': 'Mahsulot yoki turkum qidiring...',
   'home.heroBadge': 'Yangi va sifatli',
   'home.heroTitle': "Uydagidek ta'm — bir necha daqiqada",
-  'home.heroSubtitle': 'Muzlatilgan yarim tayyor mahsulotlar — chuchvara, manti, somsa va boshqalar.',
+  'home.heroSubtitle': 'Yarim tayyor mahsulotlar, muzqaymoq va siroklar.',
   'home.heroCta': 'Buyurtma berish',
   'home.popular': 'Mashhur mahsulotlar',
   'home.seeAll': "Barchasini ko'rish",

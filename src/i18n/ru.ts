@@ -18,7 +18,7 @@ export const ru: Record<TranslationKey, string> = {
   'common.required': 'обязательно',
 
   // ── Бренд ──
-  'brand.tagline': 'Полуфабрикаты',
+  'brand.tagline': 'Замороженные продукты',
   'brand.slogan': 'Домашний вкус — быстро и просто',
 
   // ── Навигация ──
@@ -32,7 +32,7 @@ export const ru: Record<TranslationKey, string> = {
   'home.searchPlaceholder': 'Поиск товара или категории...',
   'home.heroBadge': 'Свежо и качественно',
   'home.heroTitle': 'Домашний вкус — за несколько минут',
-  'home.heroSubtitle': 'Замороженные полуфабрикаты — пельмени, манты, самса и другое.',
+  'home.heroSubtitle': 'Полуфабрикаты, мороженое и сырки.',
   'home.heroCta': 'Заказать',
   'home.popular': 'Популярные товары',
   'home.seeAll': 'Смотреть все',
