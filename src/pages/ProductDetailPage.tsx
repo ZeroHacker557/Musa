@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, Heart, Minus, MessageSquare, Plus, ShoppingCart, Star, Truck, UserRound } from 'lucide-react'
+import { ArrowLeft, Heart, Minus, MessageSquare, Plus, ShoppingCart, Star, Truck, UserRound, ZoomIn } from 'lucide-react'
 import { formatPrice } from '../data'
 import { getImageUrl, hapticSuccess, getTelegramUser, showAlert } from '../utils/telegram'
 import { formatDate } from '../utils/date'
 import { CartButton } from '../components/ui/CartButton'
+import { ImageLightbox } from '../components/ui/ImageLightbox'
 import { subscribeToProductReviews } from '../lib/firebase'
 import { apiPost, ApiError } from '../lib/api'
 import { track } from '../lib/track'
@@ -28,6 +29,7 @@ export function ProductDetailPage({
 }: Props) {
   const t = useT()
   const [activeImage, setActiveImage] = useState(0)
+  const [zoomed, setZoomed] = useState(false)
   const [count, setCount] = useState(1)
 
   const colorsList = product.colors
@@ -145,12 +147,24 @@ export function ProductDetailPage({
           }}
         >
           {images[activeImage] ? (
-            <img
-              className="absolute inset-0 size-full object-contain p-4"
-              src={getImageUrl(images[activeImage])}
-              alt={product.name}
-              decoding="async"
-            />
+            <button
+              className="absolute inset-0 size-full"
+              style={{ cursor: 'zoom-in' }}
+              onClick={() => setZoomed(true)}
+              aria-label={t('product.zoom')}
+            >
+              {/* `cover` — kartadagidek to'liq to'ldiradi. To'liq rasmni
+                  ko'rish uchun bosiladi: lightbox uni `contain` bilan chizadi. */}
+              <img
+                className="size-full object-cover"
+                src={getImageUrl(images[activeImage])}
+                alt={product.name}
+                decoding="async"
+              />
+              <span className="detail-zoom-hint">
+                <ZoomIn size={18} />
+              </span>
+            </button>
           ) : (
             <span className="absolute inset-0 grid place-items-center">
               <ShoppingCart size={56} style={{ color: 'var(--faint)' }} />
@@ -392,6 +406,16 @@ export function ProductDetailPage({
           </div>
         </div>,
         document.body,
+      )}
+
+      {zoomed && images.length > 0 && (
+        <ImageLightbox
+          images={images.map(getImageUrl)}
+          index={activeImage}
+          alt={product.name}
+          onIndexChange={setActiveImage}
+          onClose={() => setZoomed(false)}
+        />
       )}
     </>
   )
