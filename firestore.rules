@@ -26,6 +26,23 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == string(userId);
     }
 
+    // ── Xodimlar (admin panel) ──────────────────────────────
+    // Rol Firebase custom claim'ida turadi — uni faqat Admin SDK
+    // yozadi (scripts/create-staff.mjs va /api/admin/*), shuning uchun
+    // mijoz uni o'zgartira olmaydi.
+    function role() {
+      return request.auth != null ? request.auth.token.get('role', '') : '';
+    }
+    function isStaff() {
+      return role() in ['owner', 'admin', 'courier'];
+    }
+    function isAdmin() {
+      return role() in ['owner', 'admin'];
+    }
+    function isSiteOwner() {
+      return role() == 'owner';
+    }
+
     // ── Katalog: hamma o'qiydi, hech kim yozmaydi ────────────
     match /products/{productId} {
       allow read: if true;
@@ -41,7 +58,8 @@ service cloud.firestore {
     // Foydalanuvchi ismi, telefoni va manzillarini o'zgartira oladi.
     // Boshqa maydonlarni (masalan rollarni) o'zgartira olmaydi.
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      // Mijoz o'zinikini, admin esa butun bazani ko'radi (admin panel)
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if false;  // /api/auth yaratadi
       allow update: if isOwner(userId)
                     && request.resource.data.diff(resource.data).affectedKeys()
@@ -49,12 +67,24 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+
     // ── Buyurtmalar: o'qish mumkin, yozish YO'Q ─────────────
     // Buyurtmani faqat /api/orders yaratadi (narx serverda hisoblanadi),
     // statusni faqat bot o'zgartiradi.
     match /orders/{orderId} {
-      allow read: if signedIn() && resource.data.userId == int(request.auth.uid);
+      // Mijoz — faqat o'zinikini; admin — hammasini; kuryer — faqat
+      // o'ziga biriktirilganini.
+      allow read: if (signedIn() && resource.data.userId == int(request.auth.uid))
+                  || isAdmin()
+                  || (role() == 'courier' && resource.data.get('courierId', '') == request.auth.uid);
+      // Yozish har doim server orqali: /api/orders va /api/admin/*.
       allow write: if false;
+
+      // Holat tarixi — faqat xodimga ko'rinadi
+      match /history/{entryId} {
+        allow read: if isStaff();
+        allow write: if false;
+      }
     }
 
     // ── Sharhlar ────────────────────────────────────────────
@@ -78,9 +108,11 @@ service cloud.firestore {
     }
 
     // ── Promokodlar: mijoz ko'ra olmaydi ────────────────────
-    // Tekshirish /api/promo va /api/orders orqali.
+    // Tekshirish /api/promo va /api/orders orqali. Admin panel esa
+    // ro'yxatni ko'rsatishi kerak, shuning uchun unga o'qish ochiq.
     match /promocodes/{promoId} {
-      allow read, write: if false;
+      allow read: if isAdmin();
+      allow write: if false;   // faqat /api/admin/action
     }
 
     // ── Sozlamalar: o'qish mumkin (karta raqami), yozish yo'q ──
@@ -95,6 +127,15 @@ service cloud.firestore {
     }
 
     // Yuqorida sanalmagan hamma narsa yopiq
+    // ── Xodimlar ro'yxati ───────────────────────────────────
+    // O'qish: har xodim o'zinikini ko'radi, ega hammasini.
+    // Yozish: faqat Admin SDK (/api/admin/*) — aks holda xodim
+    // o'ziga owner rolini yozib olardi.
+    match /staff/{uid} {
+      allow read: if isSiteOwner() || (isStaff() && request.auth.uid == uid);
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

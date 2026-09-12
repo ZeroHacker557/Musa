@@ -377,7 +377,9 @@ def listen_to_new_orders(callback, cancel_callback=None):
             doc_id = change.document.id
 
             # ── Yangi buyurtma ──
-            if change.type.name == 'ADDED':
+            # callback None — yangi buyurtma xabarnomasi endi /api/orders
+            # tomonidan yuboriladi, bot bunga aralashmaydi.
+            if callback and change.type.name == 'ADDED':
                 if order_data.get("notified") is False and claim_order_notification(doc_id):
                     order_data['_doc_id'] = doc_id
                     try:

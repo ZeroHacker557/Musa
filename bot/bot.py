@@ -1,5 +1,5 @@
 """
-MUSA Shop Telegram Bot — Admin panel + Mini App + To'lov tizimi
+MUSA Shop Telegram Bot — Mini App + To'lov tizimi
 
 MUSA — muzlatilgan mahsulotlar do'koni: yarim tayyor, muzqaymoq, sirok.
 """
@@ -25,7 +25,6 @@ from config import (
 )
 # Adminlar ro'yxati dinamik — panel orqali qo'shiladi/o'chiriladi
 from admins import all_admins, is_admin
-from admin import router as admin_router
 import firebase_db as db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -43,7 +42,6 @@ if not BOT_TOKEN:
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp  = Dispatcher(storage=MemoryStorage())
-dp.include_router(admin_router)
 
 
 # ─── FSM ─────────────────────────────────────────────────────
@@ -73,8 +71,6 @@ def main_kb(admin: bool = False):
         [KeyboardButton(text="📦 Buyurtmalarim")],
         [KeyboardButton(text="📞 Biz bilan aloqa"), KeyboardButton(text="ℹ️ Yordam")]
     ]
-    if admin:
-        rows.append([KeyboardButton(text="🛠 Admin Panel")])
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
@@ -271,108 +267,6 @@ def build_receipt_caption(order: dict | None, display_id: str) -> str:
 
 # ─── Yangi buyurtma: Admin + User bildirishnomasi ─────────────
 
-async def notify_admin_order(order_data: dict):
-    try:
-        customer   = order_data.get("customer", {})
-        products   = order_data.get("products", [])
-        total      = order_data.get("total", 0)
-        # Tugmalar uchun — Firestore hujjat id'si; matn uchun — ko'rsatish raqami (F-03)
-        doc_id     = order_data.get("_doc_id") or order_data.get("id", "")
-        order_id   = db.order_display_id(order_data)
-        pay_method = order_data.get("paymentMethod", "Naqd")
-        user_id    = order_data.get("userId")
-        total_str  = db.format_price(total) if isinstance(total, (int, float)) else str(total)
-        tg_name    = get_display_name(order_data)
-        has_location = order_has_location(order_data)
-        pay_label  = "💵 Naqd (yetkazganda)" if pay_method == "Naqd" else "💳 Karta o'tkazmasi"
-
-        # ── ADMIN XABARI ──────────────────────────────────────
-        text  = f"🛒 <b>YANGI BUYURTMA ({order_id})</b>\n"
-        text += "━" * 22 + "\n\n"
-        text += f"📱 <b>Telegram:</b> {tg_name}\n"
-        text += f"👤 <b>Ism:</b> {customer.get('name', '—')}\n"
-        text += f"📞 <b>Tel:</b> <code>{customer.get('phone', '—')}</code>\n"
-        text += f"📍 <b>Manzil:</b> {customer.get('address', '—')}\n"
-
-        if customer.get("location"):
-            lat = customer["location"].get("lat")
-            lng = customer["location"].get("lng")
-            if lat and lng:
-                text += f"🗺 <a href='https://www.google.com/maps?q={lat},{lng}'>Xaritada ko'rish</a>\n"
-
-        if customer.get("comment"):
-            text += f"💬 <b>Izoh:</b> {customer['comment']}\n"
-
-        text += f"\n💳 <b>To'lov:</b> {pay_label}\n"
-        text += f"\n📦 <b>Mahsulotlar:</b>\n{get_products_text(products)}"
-        text += "━" * 22 + "\n"
-
-        subtotal = order_data.get("subtotal")
-        discount = order_data.get("discount") or 0
-        delivery_fee = order_data.get("deliveryFee") or 0
-        if isinstance(subtotal, (int, float)) and (discount or delivery_fee):
-            text += f"🧾 Mahsulotlar: {db.format_price(subtotal)}\n"
-            if discount:
-                promo = order_data.get("promoCode")
-                promo_text = f" ({promo})" if promo else ""
-                text += f"🏷 Chegirma{promo_text}: -{db.format_price(discount)}\n"
-            if delivery_fee:
-                text += f"🚚 Yetkazib berish: {db.format_price(delivery_fee)}\n"
-            else:
-                text += "🚚 Yetkazib berish: bepul\n"
-
-        text += f"💰 <b>Jami: {total_str}</b>\n"
-        text += "⏰ <b>Status:</b> 🟡 Yangi"
-        if pay_method == "Karta":
-            text += "\n💳 <b>To'lov:</b> ⏳ Chek kutilmoqda"
-
-        for admin_id in all_admins():
-            try:
-                await bot.send_message(admin_id, text,
-                                       reply_markup=order_action_kb(doc_id, has_location),
-                                       disable_web_page_preview=True)
-            except Exception as e:
-                logger.warning(f"[ADMIN] {admin_id} ga yuborib bo'lmadi: {e}")
-        logger.info(f"[ADMIN] Yuborildi: {order_id} | {pay_method}")
-
-        # ── USER XABARI (faqat Karta) ─────────────────────────
-        if pay_method == "Karta":
-            if not user_id:
-                logger.warning(f"[USER] userId yo'q — xabar yuborib bo'lmaydi ({order_id})")
-                return
-            u_text  = "🎉 <b>Buyurtmangiz qabul qilindi!</b>\n"
-            u_text += "━" * 22 + "\n\n"
-            u_text += f"🆔 Buyurtma: <b>{order_id}</b>\n"
-            u_text += "📦 <b>Mahsulotlar:</b>\n"
-            for p in products:
-                qty  = p.get("quantity", 1)
-                prod = p.get("product") or p
-                u_text += f"  • {prod.get('name', '—')} × {qty}\n"
-            u_text += f"\n💰 Jami: <b>{total_str}</b>\n"
-            u_text += "━" * 22 + "\n\n"
-            pay_cfg = db.get_payment_settings()
-            u_text += "💳 <b>To'lov uchun karta:</b>\n"
-            u_text += f"<code>{pay_cfg['cardNumber']}</code>\n"
-            u_text += f"👤 Egasi: <b>{pay_cfg['cardOwner']}</b>\n\n"
-            u_text += (
-                "📸 Kartaga o'tkazma qilgandan so'ng "
-                "pastdagi tugmani bosib <b>chekni (screenshot)</b> yuboring.\n"
-                "Admin tekshirib tasdiqlaydi ✅"
-            )
-            try:
-                await bot.send_message(user_id, u_text, reply_markup=receipt_kb(doc_id))
-                logger.info(f"[USER] Karta xabari yuborildi → {user_id} ({order_id})")
-            except Exception as e:
-                logger.error(f"[USER] Xabar yuborib bo'lmadi {user_id}: {e}")
-
-    except Exception as e:
-        logger.error(f"[ADMIN] notify_admin_order xatosi: {e}", exc_info=True)
-        # Bayroqni qaytaramiz — buyurtma keyingi urinishda qayta yuboriladi (F-21)
-        failed_doc_id = order_data.get("_doc_id")
-        if failed_doc_id:
-            db.release_order_notification(failed_doc_id)
-
-
 async def notify_admin_cancel(order_data: dict):
     """Mijoz buyurtmani bekor qilganda adminga xabar (5-band)."""
     try:
@@ -411,54 +305,17 @@ async def notify_admin_cancel(order_data: dict):
 
 @dp.callback_query(F.data.startswith("os:"))
 async def cb_order_status(callback: CallbackQuery):
-    if not is_admin(callback.from_user.id):
-        return
+    """
+    Eski xabarlardagi holat tugmalari.
 
-    # order_id — Firestore hujjat id'si (F-03)
-    _, status, order_id = callback.data.split(":", 2)
-
-    if not db.update_order_status(order_id, status):
-        await callback.answer("❌ Firestore yangilanmadi", show_alert=True)
-        return
-
-    emoji = STATUS_EMOJI.get(status, "ℹ️")
-
-    # User'ga xabar
-    order = db.get_order_by_id(order_id)
-    display_id = db.order_display_id(order) if order else order_id
-    if order and order.get("userId"):
-        try:
-            u_text  = "📦 <b>Buyurtmangiz yangilandi!</b>\n"
-            u_text += "━" * 22 + "\n\n"
-            u_text += f"🆔 Buyurtma: <b>{display_id}</b>\n"
-            u_text += f"⏰ Yangi status: {emoji} <b>{status}</b>\n\n"
-            u_text += "Batafsil ko'rish uchun 👇"
-            await bot.send_message(order["userId"], u_text, reply_markup=mini_app_kb())
-        except Exception as e:
-            logger.warning(f"[USER] Status xabar xatosi: {e}")
-
-    # Admin xabarini yangilash
-    old = callback.message.html_text
-    if "⏰ <b>Status:</b>" in old:
-        new = old.split("⏰ <b>Status:</b>")[0] + f"⏰ <b>Status:</b> {emoji} {status}"
-    else:
-        new = old + f"\n⏰ <b>Status:</b> {emoji} {status}"
-
-    # Xabar rasmli bo'lishi mumkin (chek tasdiqlangandan keyin status
-    # tugmalari o'sha rasmga qo'shiladi) — u holda izohni tahrirlaymiz.
-    try:
-        if callback.message.photo:
-            await callback.message.edit_caption(
-                caption=new, reply_markup=callback.message.reply_markup
-            )
-        else:
-            await callback.message.edit_text(
-                new, reply_markup=callback.message.reply_markup,
-                disable_web_page_preview=True,
-            )
-    except Exception as e:
-        logger.warning(f"[STATUS] Admin xabarini yangilab bo'lmadi: {e}")
-    await callback.answer(f"✅ {status}")
+    Holat endi veb admin paneldan o'zgartiriladi. Tugmalar eski
+    xabarlarda qolib ketgan — bosilganda jim turmasin, tushuntirib
+    qo'yamiz.
+    """
+    await callback.answer(
+        "Holat endi admin paneldan o'zgartiriladi",
+        show_alert=True,
+    )
 
 
 # ─── Chek yuborish ────────────────────────────────────────────
@@ -815,12 +672,6 @@ async def handle_contact(message: Message):
         )
 
 
-@dp.message(F.text == "🛠 Admin Panel")
-async def handle_admin_btn(message: Message, state: FSMContext):
-    from admin import cmd_admin
-    await cmd_admin(message, state)
-
-
 @dp.message(F.text == "🥟 Katalogni ochish")
 async def handle_open_catalog(message: Message):
     """
@@ -876,7 +727,7 @@ async def handle_webapp_data(message: Message):
         data       = json.loads(message.web_app_data.data)
         pay_method = data.get("paymentMethod", "Naqd")
         order_id   = data.get("id", "")
-        await notify_admin_order(data)
+        # Xabarnomani /api/orders yuborgan — bu yerda takrorlamaymiz
         if pay_method == "Naqd":
             await message.answer(
                 f"🎉 <b>Buyurtmangiz qabul qilindi!</b>\n"
@@ -906,13 +757,14 @@ async def main():
 
     loop = asyncio.get_running_loop()
 
-    def on_new_order(order_data):
-        asyncio.run_coroutine_threadsafe(notify_admin_order(order_data), loop)
-
+    # Yangi buyurtma xabarnomasi bu yerda EMAS — uni /api/orders yuboradi
+    # (api/_lib/actions/orders.ts → notifyNewOrder). Sababi: bot shaxsiy
+    # kompyuterda ishlaydi va o'chiq bo'lishi mumkin, Vercel esa doim yoqiq.
+    # Bekor qilish xabari hozircha shu yerda qoladi.
     def on_order_cancelled(order_data):
         asyncio.run_coroutine_threadsafe(notify_admin_cancel(order_data), loop)
 
-    watch = db.listen_to_new_orders(on_new_order, on_order_cancelled)
+    watch = db.listen_to_new_orders(None, on_order_cancelled)
     logger.info("[BOT] Ishga tushdi ✅")
 
     try:

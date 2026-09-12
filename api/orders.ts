@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { notifyNewOrder } from './_lib/actions/orders.js'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
 
@@ -289,6 +290,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         duplicate: false,
       }
     })
+
+    // Xodimlarga xabar — javobni kutmasdan emas, ATAYLAB kutib.
+    // Serverless funksiya javob qaytargach to'xtaydi va "orqa fonda"
+    // boshlangan ish bajarilmay qolishi mumkin.
+    if (!result.duplicate) {
+      const snap = await db.collection('orders').doc(result.id).get()
+      await notifyNewOrder(result.id, snap.data() || {})
+    }
 
     return res.status(200).json(result)
   } catch (error) {
