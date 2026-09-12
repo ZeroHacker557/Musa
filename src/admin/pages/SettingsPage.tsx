@@ -44,7 +44,7 @@ export function SettingsPage() {
           onSave={save}
         />
         <CourierCard
-          key={`cour:${settings.courier.toCouriers}|${settings.courier.toGroup}|${settings.courier.groupChatId}|${settings.courier.notifyAdmins}`}
+          key={`cour:${settings.courier.channel}|${settings.courier.groupChatId}|${settings.courier.notifyAdmins}`}
           settings={settings.courier}
           busy={busy === 'courier'}
           onSave={save}
@@ -180,8 +180,7 @@ function CourierCard({
   settings, busy, onSave, onError, onOk,
 }: {
   settings: {
-    toCouriers: boolean
-    toGroup: boolean
+    channel: 'couriers' | 'group'
     groupChatId: string | null
     notifyAdmins: boolean
   }
@@ -190,12 +189,10 @@ function CourierCard({
   onError: (message: string) => void
   onOk: (message: string) => void
 }) {
-  const [toCouriers, setToCouriers] = useState(settings.toCouriers)
-  const [toGroup, setToGroup] = useState(settings.toGroup)
+  const [channel, setChannel] = useState(settings.channel)
   const [groupChatId, setGroupChatId] = useState(settings.groupChatId || '')
   const [notifyAdmins, setNotifyAdmins] = useState(settings.notifyAdmins)
   const [testing, setTesting] = useState(false)
-
 
   const test = async () => {
     setTesting(true)
@@ -222,21 +219,52 @@ function CourierCard({
         hint="Buyurtma tushishi bilan admin va egaga xabar boradi (tasdiqlash uchun)"
       />
 
-      <Toggle
-        checked={toCouriers}
-        onChange={setToCouriers}
-        label="Tasdiqlangach — kuryerlarga"
-        hint="«Qabul qilindi» bosilgach buyurtma kuryerga tushadi, «Oldim» tugmasi bilan"
-      />
+      <p className="adm-label mt-4">Tasdiqlangach — kuryerlarga qayerda tushsin</p>
+      <p className="mb-2 text-xs" style={{ color: 'var(--muted)' }}>
+        Faqat bittasi tanlanadi. Ikkalasi ham yoqilsa, kuryer bitta buyurtmani
+        ikki joyda ko‘rib, «Oldim» tugmasini ikki marta bosishi mumkin edi.
+      </p>
 
-      <Toggle
-        checked={toGroup}
-        onChange={setToGroup}
-        label="Tasdiqlangach — guruhga"
-        hint="Tasdiqlangan buyurtmalar umumiy Telegram guruhiga ham tushadi"
-      />
+      <div className="flex flex-col gap-2">
+        {(
+          [
+            {
+              key: 'couriers' as const,
+              label: 'Kuryerlarga shaxsiy xabar',
+              hint: 'Biriktirilgan kuryerga, biriktirilmagan bo‘lsa — barcha faol kuryerlarga',
+            },
+            {
+              key: 'group' as const,
+              label: 'Umumiy guruhga',
+              hint: 'Barcha kuryerlar bitta guruhda ko‘radi, kim birinchi «Oldim» bossa — o‘shaniki',
+            },
+          ]
+        ).map((item) => (
+          <label
+            key={item.key}
+            className="flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 transition"
+            style={{
+              borderColor: channel === item.key ? 'var(--brand-line)' : 'var(--line)',
+              background: channel === item.key ? 'var(--brand-soft)' : 'var(--surface)',
+            }}
+          >
+            <input
+              type="radio"
+              className="mt-0.5 size-4"
+              checked={channel === item.key}
+              onChange={() => setChannel(item.key)}
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-bold">{item.label}</span>
+              <span className="block text-xs" style={{ color: 'var(--muted)' }}>
+                {item.hint}
+              </span>
+            </span>
+          </label>
+        ))}
+      </div>
 
-      {toGroup && (
+      {channel === 'group' && (
         <div className="mt-3 rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
           <label className="adm-label">Guruh chat ID si</label>
           <input
@@ -262,7 +290,7 @@ function CourierCard({
 
       <button
         className="adm-btn adm-btn--primary mt-4 w-full"
-        onClick={() => onSave('courier', { toCouriers, toGroup, groupChatId, notifyAdmins })}
+        onClick={() => onSave('courier', { channel, groupChatId, notifyAdmins })}
         disabled={busy}
       >
         {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash

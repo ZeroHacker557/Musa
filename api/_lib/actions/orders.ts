@@ -1,5 +1,5 @@
 import { adminDb } from '../firebase-admin.js'
-import { escapeHtml, sendMessage } from '../telegram.js'
+import { escapeHtml, replaceButtons, sendMessage } from '../telegram.js'
 import type { Staff } from '../admin-auth.js'
 
 const STATUSES = [
@@ -116,6 +116,9 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
   // emas, tasdiqlash o'zi yuborish signali.
   if (status === 'Qabul qilindi') {
     await dispatchToCouriers(orderId, { ...order, status })
+  } else if (status === 'Bekor qilingan' || status === 'Rad etildi') {
+    // Kuryerlardagi «Oldim» tugmasi qolib ketmasin — buyurtma yopilgan
+    await clearDispatchButtons(orderId, order, `❌ ${status}`)
   }
 
   const label = order.orderNumber || `#${orderId.slice(0, 6)}`
@@ -260,7 +263,10 @@ ${orderSummary(orderId, order)}`
  *
  * Xato tashlamaydi — xabar ketmagani holat o'zgarishini bekor qilmaydi.
  */
-export async function dispatchToCouriers(orderId: string, order: OrderDoc): Promise<void> {
+export async function dispatchToCouriers(
+  orderId: string,
+  order: OrderDoc & { dispatchMessages?: { chatId: string; messageId: number }[] },
+): Promise<void> {
   try {
     const db = await adminDb()
 
@@ -320,6 +326,14 @@ ${orderSummary(orderId, order)}`
      * tugmasini ham yangilaydi — aks holda boshqa chatdagi «Oldim»
      * eskirib turaverardi va qayta bosilishi mumkin edi.
      */
+    // Qayta yuborilayotgan bo'lsa (masalan admin holatni qaytarib, yana
+    // tasdiqlagan bo'lsa), eski xabarlardagi tugmalarni o'chiramiz.
+    await clearDispatchButtons(
+      orderId,
+      order as OrderDoc & { dispatchMessages?: { chatId: string; messageId: number }[] },
+      null,
+    )
+
     const dispatchMessages: { chatId: string; messageId: number }[] = []
 
     for (const target of unique) {
@@ -336,5 +350,25 @@ ${orderSummary(orderId, order)}`
     )
   } catch (error) {
     console.error('[orders] kuryerga yuborilmadi:', error)
+  }
+}
+
+
+/**
+ * Kuryerlarga yuborilgan xabarlardagi tugmalarni o'chiradi.
+ *
+ * Buyurtma bekor qilinganda yoki qayta yuborilayotganda chaqiriladi:
+ * eski nusxalar shunchaki matn bo'lib qoladi, ulardagi «Oldim» bosilmaydi.
+ */
+export async function clearDispatchButtons(
+  orderId: string,
+  order: OrderDoc & { dispatchMessages?: { chatId: string; messageId: number }[] },
+  label: string | null,
+): Promise<void> {
+  const messages = order.dispatchMessages || []
+  for (const item of messages) {
+    if (!item?.chatId || !item?.messageId) continue
+    await replaceButtons(item.chatId, item.messageId, label)
+    await new Promise((resolve) => setTimeout(resolve, 30))
   }
 }

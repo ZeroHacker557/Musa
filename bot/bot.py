@@ -319,50 +319,61 @@ async def cb_courier(callback: CallbackQuery):
         await callback.answer("Siz kuryer emassiz yoki hisobingiz faol emas", show_alert=True)
         return
 
-    order = db.get_order_by_id(order_id)
-    if not order:
-        await callback.answer("Buyurtma topilmadi", show_alert=True)
-        return
-
     name = courier.get("name") or callback.from_user.first_name
     uid = courier["uid"]
-    owner = order.get("courierId")
 
     if action == "take":
-        # Biriktirilmagan buyurtmani hamma kuryer ko'radi — kim birinchi
-        # bo'lsa, o'shanga tegadi. Ikkinchisiga band ekani aytiladi.
-        if owner and owner != uid:
+        # Atomar band qilish: bir buyurtma bir necha chatga yuborilgan
+        # bo'lishi mumkin, ikki kuryer bir vaqtda bosishi ham mumkin.
+        outcome, order = db.claim_order_for_courier(order_id, uid, name)
+
+        if outcome == "not_found":
+            await callback.answer("Buyurtma topilmadi", show_alert=True)
+            return
+        if outcome == "taken":
             await callback.answer(
                 f"Bu buyurtmani {order.get('courierName') or 'boshqa kuryer'} oldi",
                 show_alert=True,
             )
+            await refresh_dispatch(order_id, order, "taken_by_other")
+            return
+        if outcome == "already":
+            # Boshqa chatdagi eskirgan tugmani bosdi — hech narsa
+            # o'zgarmaydi, mijozga takroriy xabar ham ketmaydi.
+            await callback.answer("Siz bu buyurtmani allaqachon olgansiz")
+            await refresh_dispatch(order_id, order, "taken", taker_chat=callback.message.chat.id)
             return
 
-        if not owner:
-            db.assign_courier(order_id, uid, name)
-
-        if not db.update_order_status(order_id, "Yetkazilmoqda"):
-            await callback.answer("Holatni o'zgartirib bo'lmadi", show_alert=True)
-            return
-
-        await notify_customer_status(order, "Yetkazilmoqda")
         await callback.answer("Qabul qilindi — yo'lga chiqing 🛵")
-        await swap_courier_button(callback, order, "Yetkazilmoqda", order_id)
+        await notify_customer_status(order, "Yetkazilmoqda")
+        await refresh_dispatch(order_id, order, "taken", taker_chat=callback.message.chat.id,
+                               courier_name=name)
         return
 
     if action == "done":
-        if owner != uid:
+        outcome, order = db.complete_order_by_courier(order_id, uid, name)
+
+        if outcome == "not_found":
+            await callback.answer("Buyurtma topilmadi", show_alert=True)
+            return
+        if outcome == "not_yours":
             await callback.answer("Bu buyurtma sizga biriktirilmagan", show_alert=True)
             return
-
-        if not db.update_order_status(order_id, "Yetkazildi"):
-            await callback.answer("Holatni o'zgartirib bo'lmadi", show_alert=True)
+        if outcome == "already":
+            await callback.answer("Bu buyurtma allaqachon yetkazilgan")
+            await refresh_dispatch(order_id, order, "done")
             return
 
-        await notify_customer_status(order, "Yetkazildi")
         await callback.answer("Yetkazildi ✅ Rahmat!")
-        await swap_courier_button(callback, order, "Yetkazildi", order_id)
+        await notify_customer_status(order, "Yetkazildi")
+        await refresh_dispatch(order_id, order, "done", courier_name=name)
         return
+
+
+@dp.callback_query(F.data == "noop")
+async def cb_noop(callback: CallbackQuery):
+    """Faqat holatni ko'rsatuvchi tugma — bosilganda hech narsa qilmaydi."""
+    await callback.answer()
 
 
 def route_button(order: dict):
@@ -382,32 +393,51 @@ def route_button(order: dict):
     )
 
 
-async def swap_courier_button(callback: CallbackQuery, order: dict, status: str, order_id: str):
+async def refresh_dispatch(order_id: str, order: dict, stage: str,
+                           taker_chat=None, courier_name: str | None = None):
     """
-    Xabardagi tugmani keyingi bosqichga almashtiradi.
+    Buyurtma yuborilgan BARCHA chatlardagi tugmalarni yangilaydi.
 
-    Marshrut tugmasi saqlanib qoladi: kuryer «Oldim» bosgandan keyin
-    ham manzilga yo'l olishi kerak.
+    Buyurtma bir necha joyga tushishi mumkin (kuryerlarning shaxsiy
+    chatlari yoki guruh). Faqat bosilgan xabarni yangilash yetarli emas:
+    qolgan nusxalarda «Oldim» tugmasi eskirib turaverardi va qayta
+    bosilishi mumkin edi. Xabarlar ro'yxatini /api/orders yozib qo'yadi
+    (dispatchMessages).
     """
-    try:
-        rows = []
-        if status == "Yetkazilmoqda":
-            rows.append([
-                InlineKeyboardButton(text="📦 Yetkazdim", callback_data=f"crr:done:{order_id}")
-            ])
+    messages = order.get("dispatchMessages") or []
+    who = courier_name or order.get("courierName") or "kuryer"
+
+    for item in messages:
+        chat_id = item.get("chatId")
+        message_id = item.get("messageId")
+        if not chat_id or not message_id:
+            continue
+
+        is_taker = taker_chat is not None and str(chat_id) == str(taker_chat)
+
+        if stage == "done":
+            rows = [[InlineKeyboardButton(text="✅ Yetkazildi", callback_data="noop")]]
+        elif is_taker:
+            # Olgan kuryer: keyingi qadam va marshrut
+            rows = [[InlineKeyboardButton(
+                text="📦 Yetkazdim", callback_data=f"crr:done:{order_id}"
+            )]]
             route = route_button(order)
             if route:
                 rows.append([route])
+        else:
+            # Qolganlarga — faqat kim olgani
+            rows = [[InlineKeyboardButton(text=f"🛵 {who} oldi", callback_data="noop")]]
 
-        markup = InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
-
-        suffix = "\n\n🛵 <b>Yo'lda</b>" if status == "Yetkazilmoqda" else "\n\n✅ <b>Yetkazildi</b>"
-        await callback.message.edit_text(
-            callback.message.html_text + suffix,
-            reply_markup=markup,
-        )
-    except Exception as e:
-        logger.warning(f"[COURIER] Tugmani yangilab bo'lmadi: {e}")
+        try:
+            await bot.edit_message_reply_markup(
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+            )
+        except Exception as e:
+            # Xabar o'chirilgan yoki o'zgarmagan bo'lishi mumkin — muhim emas
+            logger.debug(f"[COURIER] {chat_id}/{message_id} yangilanmadi: {e}")
 
 
 async def notify_customer_status(order: dict, status: str):

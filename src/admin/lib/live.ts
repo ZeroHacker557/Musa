@@ -214,10 +214,12 @@ export function useStaff(enabled: boolean) {
 }
 
 export type CourierSettings = {
-  toCouriers: boolean
-  toGroup: boolean
+  /** Buyurtma qayerga tushadi: kuryerlarning shaxsiy chatiga yoki guruhga. */
+  channel: 'couriers' | 'group'
   groupChatId: string | null
   notifyAdmins: boolean
+  /** Eski sozlamalar bilan mos qolish uchun. */
+  toGroup?: boolean
 }
 
 export type AllSettings = {
@@ -229,7 +231,7 @@ export type AllSettings = {
 const SETTINGS_FALLBACK: AllSettings = {
   payment: { cardNumber: '', cardOwner: '' },
   delivery: { fee: 0, freeFrom: 0 },
-  courier: { toCouriers: true, toGroup: false, groupChatId: null, notifyAdmins: true },
+  courier: { channel: 'couriers', groupChatId: null, notifyAdmins: true },
 }
 
 export function useSettings() {

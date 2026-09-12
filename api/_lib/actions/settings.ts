@@ -39,18 +39,31 @@ export async function settingsSave(actor: Staff, body: Record<string, unknown>) 
   }
 
   if (section === 'courier') {
-    // toCouriers — biriktirilgan kuryerga shaxsiy xabar
-    // toGroup     — barcha buyurtmalar umumiy guruhga tushadi
-    const data = {
-      toCouriers: body.toCouriers !== false,
-      toGroup: body.toGroup === true,
-      groupChatId: text(body.groupChatId) || null,
-      notifyAdmins: body.notifyAdmins !== false,
-    }
-    if (data.toGroup && !data.groupChatId) {
+    /*
+     * Kanal BITTA: shaxsiy xabar YOKI guruh.
+     *
+     * Ilgari ikkalasi mustaqil belgilanardi. Ikkalasi yoqilganda kuryer
+     * bir buyurtmani ikki marta olardi va har nusxada o'z «Oldim»
+     * tugmasi bo'lardi — biri bosilsa, ikkinchisi eskirib qolardi.
+     */
+    const channel = text(body.channel) === 'group' ? 'group' : 'couriers'
+    const groupChatId = text(body.groupChatId) || null
+
+    if (channel === 'group' && !groupChatId) {
       throw new Error('Guruhga yuborish uchun guruh ID si kerak')
     }
-    await db.collection('settings').doc('courier').set(data, { merge: true })
+
+    await db.collection('settings').doc('courier').set(
+      {
+        channel,
+        groupChatId,
+        notifyAdmins: body.notifyAdmins !== false,
+        // Eski maydonlar — mos qolishi uchun
+        toCouriers: channel === 'couriers',
+        toGroup: channel === 'group',
+      },
+      { merge: true },
+    )
     return { ok: true }
   }
 

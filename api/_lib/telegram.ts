@@ -99,3 +99,35 @@ export async function sendBulk(
 
   return { sent, failed, errors }
 }
+
+
+/**
+ * Yuborilgan xabarning tugmalarini almashtiradi.
+ *
+ * Buyurtma bekor qilinganda yoki qaytadan yuborilganda eski
+ * xabarlardagi «Oldim» tugmasi qolib ketmasligi kerak — aks holda
+ * kuryer allaqachon yopilgan buyurtmani olib qo'yardi.
+ */
+export async function replaceButtons(
+  chatId: number | string,
+  messageId: number,
+  label: string | null,
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${API}${token()}/editMessageReplyMarkup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: label
+          ? { inline_keyboard: [[{ text: label, callback_data: 'noop' }]] }
+          : { inline_keyboard: [] },
+      }),
+    })
+    const json = (await response.json()) as { ok: boolean }
+    return json.ok
+  } catch {
+    return false
+  }
+}
