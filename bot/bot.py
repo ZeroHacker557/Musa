@@ -365,15 +365,41 @@ async def cb_courier(callback: CallbackQuery):
         return
 
 
+def route_button(order: dict):
+    """
+    Marshrut havolasi — Google Maps'ni YO'NALISH rejimida ochadi.
+
+    `dir/?api=1&destination=` telefonda ilovani ishga tushirib
+    navigatsiyani boshlaydi; oddiy `?q=` esa faqat nuqtani ko'rsatadi.
+    """
+    loc = (order or {}).get("customer", {}).get("location") or {}
+    lat, lng = loc.get("lat"), loc.get("lng")
+    if lat is None or lng is None:
+        return None
+    return InlineKeyboardButton(
+        text="🗺 Manzilga yo'l olish",
+        url=f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}",
+    )
+
+
 async def swap_courier_button(callback: CallbackQuery, order: dict, status: str, order_id: str):
-    """Xabardagi tugmani keyingi bosqichga almashtiradi."""
+    """
+    Xabardagi tugmani keyingi bosqichga almashtiradi.
+
+    Marshrut tugmasi saqlanib qoladi: kuryer «Oldim» bosgandan keyin
+    ham manzilga yo'l olishi kerak.
+    """
     try:
+        rows = []
         if status == "Yetkazilmoqda":
-            markup = InlineKeyboardMarkup(inline_keyboard=[[
+            rows.append([
                 InlineKeyboardButton(text="📦 Yetkazdim", callback_data=f"crr:done:{order_id}")
-            ]])
-        else:
-            markup = None
+            ])
+            route = route_button(order)
+            if route:
+                rows.append([route])
+
+        markup = InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
 
         suffix = "\n\n🛵 <b>Yo'lda</b>" if status == "Yetkazilmoqda" else "\n\n✅ <b>Yetkazildi</b>"
         await callback.message.edit_text(

@@ -213,27 +213,27 @@ function CourierCard({
     <Section
       title="Buyurtma xabarnomalari"
       icon={Users2}
-      hint="Yangi buyurtma kimga va qayerga tushadi"
+      hint="Yangi buyurtma kimga va qachon tushadi"
     >
       <Toggle
         checked={notifyAdmins}
         onChange={setNotifyAdmins}
-        label="Adminlarga shaxsiy xabar"
-        hint="Har yangi buyurtma admin va egaga Telegram orqali boradi"
+        label="Yangi buyurtma — adminlarga"
+        hint="Buyurtma tushishi bilan admin va egaga xabar boradi (tasdiqlash uchun)"
       />
 
       <Toggle
         checked={toCouriers}
         onChange={setToCouriers}
-        label="Biriktirilgan kuryerga"
-        hint="Buyurtma kuryerga biriktirilganda unga xabar yuboriladi"
+        label="Tasdiqlangach — kuryerlarga"
+        hint="«Qabul qilindi» bosilgach buyurtma kuryerga tushadi, «Oldim» tugmasi bilan"
       />
 
       <Toggle
         checked={toGroup}
         onChange={setToGroup}
-        label="Umumiy guruhga"
-        hint="Barcha buyurtmalar bitta Telegram guruhiga tushadi"
+        label="Tasdiqlangach — guruhga"
+        hint="Tasdiqlangan buyurtmalar umumiy Telegram guruhiga ham tushadi"
       />
 
       {toGroup && (
@@ -246,8 +246,8 @@ function CourierCard({
             placeholder="-1001234567890"
           />
           <p className="mt-1.5 text-xs" style={{ color: 'var(--muted)' }}>
-            Botni guruhga qo‘shing va admin qiling. ID ni bilish uchun guruhga
-            <b> @getmyid_bot</b> ni qo‘shing — u manfiy raqam beradi.
+            Botni guruhga qo‘shing, admin qiling va guruhda <b>/group</b> deb
+            yozing — bot guruh ID sini o‘zi aytadi.
           </p>
           <button
             className="adm-btn adm-btn--ghost mt-2 w-full"

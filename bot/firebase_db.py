@@ -486,18 +486,90 @@ def get_courier_by_telegram(telegram_id: int):
     return None
 
 
-def assign_courier(order_id: str, uid: str, name: str) -> bool:
-    """Buyurtmani kuryerga biriktiradi (u «Oldim» bosganda)."""
-    try:
-        ref = db.collection("orders").document(str(order_id))
-        snap = ref.get()
+def claim_order_for_courier(order_id: str, uid: str, name: str):
+    """
+    Buyurtmani kuryerga BAND qiladi — atomar tarzda.
+
+    Nega tranzaksiya: bitta buyurtma bir necha chatga yuboriladi (shaxsiy
+    xabar va guruh), ya'ni «Oldim» tugmasi bir nechta nusxada turadi.
+    Oddiy o'qi-keyin-yoz usulida ikki kuryer bir vaqtda bossa, ikkalasi
+    ham muvaffaqiyat ko'rardi. Tranzaksiya faqat bittasini o'tkazadi.
+
+    Qaytaradi: ("claimed"|"already"|"taken"|"not_found", order_data)
+      claimed   — endi bu kuryerniki, holat «Yetkazilmoqda» ga o'tdi
+      already   — shu kuryer allaqachon olgan (tugmani ikkinchi marta bosdi)
+      taken     — boshqa kuryer olib bo'lgan
+      not_found — buyurtma yo'q
+    """
+    ref = db.collection("orders").document(str(order_id))
+    transaction = db.transaction()
+
+    @firestore.transactional
+    def _claim(tx):
+        snap = ref.get(transaction=tx)
         if not snap.exists:
-            return False
-        ref.update({"courierId": uid, "courierName": name})
-        return True
+            return "not_found", None
+
+        data = snap.to_dict() or {}
+        owner = data.get("courierId")
+
+        if owner and owner != uid:
+            return "taken", data
+
+        # Takroriy bosish: holat allaqachon o'zgargan bo'lsa, qayta
+        # yozmaymiz — aks holda mijozga ikkinchi marta xabar ketardi.
+        if owner == uid and data.get("status") in ("Yetkazilmoqda", "Yetkazildi"):
+            return "already", data
+
+        tx.update(ref, {
+            "courierId": uid,
+            "courierName": name,
+            "status": "Yetkazilmoqda",
+            "statusUpdatedAt": datetime.now(timezone.utc).isoformat(),
+            "statusUpdatedBy": {"uid": uid, "name": name, "role": "courier"},
+        })
+        return "claimed", data
+
+    try:
+        return _claim(transaction)
     except Exception as e:
-        print(f"[ERR] assign_courier: {e}")
-        return False
+        print(f"[ERR] claim_order_for_courier: {e}")
+        return "not_found", None
+
+
+def complete_order_by_courier(order_id: str, uid: str, name: str):
+    """
+    Kuryer «Yetkazdim» bosganda — ham atomar.
+
+    Qaytaradi: ("done"|"already"|"not_yours"|"not_found", order_data)
+    """
+    ref = db.collection("orders").document(str(order_id))
+    transaction = db.transaction()
+
+    @firestore.transactional
+    def _complete(tx):
+        snap = ref.get(transaction=tx)
+        if not snap.exists:
+            return "not_found", None
+
+        data = snap.to_dict() or {}
+        if data.get("courierId") != uid:
+            return "not_yours", data
+        if data.get("status") == "Yetkazildi":
+            return "already", data
+
+        tx.update(ref, {
+            "status": "Yetkazildi",
+            "statusUpdatedAt": datetime.now(timezone.utc).isoformat(),
+            "statusUpdatedBy": {"uid": uid, "name": name, "role": "courier"},
+        })
+        return "done", data
+
+    try:
+        return _complete(transaction)
+    except Exception as e:
+        print(f"[ERR] complete_order_by_courier: {e}")
+        return "not_found", None
 
 
 # ─── Notifications ────────────────────────────────────────────

@@ -32,7 +32,29 @@ type OrderDoc = {
   total?: number
   paymentMethod?: string
   products?: { product?: { name?: string; price?: number }; quantity?: number }[]
-  customer?: { name?: string; phone?: string; address?: string; comment?: string }
+  customer?: {
+    name?: string
+    phone?: string
+    address?: string
+    comment?: string
+    location?: { lat: number; lng: number } | null
+  }
+}
+
+/**
+ * Kuryer uchun marshrut havolasi.
+ *
+ * `dir/?api=1&destination=` — Google Maps'ni YO'NALISH rejimida ochadi:
+ * telefonda ilova o'zi ishga tushib, navigatsiyani boshlaydi. Oddiy
+ * `?q=` havolasi esa faqat nuqtani ko'rsatadi, marshrut qurmaydi.
+ */
+function routeButton(order: OrderDoc) {
+  const location = order.customer?.location
+  if (location?.lat == null || location?.lng == null) return null
+  return {
+    text: '🗺 Manzilga yo‘l olish',
+    url: `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lng}`,
+  }
 }
 
 /** Kuryerga va guruhga yuboriladigan to'liq tavsilot. */
@@ -150,9 +172,18 @@ export async function orderAssign(staff: Staff, body: Record<string, unknown>) {
 
   let notified = false
   if (courier.telegramId) {
+    // Qo'lda biriktirishda ham marshrut tugmasi bo'ladi. «Oldim» esa
+    // faqat buyurtma tasdiqlangan bo'lsa — aks holda kuryer hali
+    // tasdiqlanmagan buyurtmani yo'lga olib chiqib ketardi.
+    const route = routeButton(order)
+    const accepted = order.status === 'Qabul qilindi'
+
     const result = await sendMessage(
       courier.telegramId,
-      `🛵 <b>Sizga yangi buyurtma biriktirildi</b>\n\n${orderSummary(orderId, order)}`,
+      `🛵 <b>Sizga buyurtma biriktirildi</b>\n\n${orderSummary(orderId, order)}` +
+        (accepted ? '' : '\n\n<i>Tasdiqlangach yetkazishga chiqasiz.</i>'),
+      route ? [route] : undefined,
+      accepted ? [{ text: '✅ Oldim', callback_data: `crr:take:${orderId}` }] : undefined,
     )
     notified = result.ok
   }
@@ -176,11 +207,7 @@ export async function notifyNewOrder(orderId: string, order: OrderDoc): Promise<
     const db = await adminDb()
 
     const settingsSnap = await db.collection('settings').doc('courier').get()
-    const settings = (settingsSnap.data() || {}) as {
-      toGroup?: boolean
-      groupChatId?: string | null
-      notifyAdmins?: boolean
-    }
+    const settings = (settingsSnap.data() || {}) as { notifyAdmins?: boolean }
 
     const base = process.env.ADMIN_PANEL_URL || ''
     const buttons = base
@@ -204,7 +231,10 @@ ${orderSummary(orderId, order)}`
       }
     }
 
-    if (settings.toGroup && settings.groupChatId) targets.push(settings.groupChatId)
+    // Guruhga bu yerda YUBORILMAYDI. Guruh — kuryerlar uchun ish oqimi,
+    // u buyurtma «Qabul qilindi» bo'lgandan keyin xabar oladi
+    // (dispatchToCouriers). Aks holda guruhda hali tasdiqlanmagan
+    // buyurtmalar ham paydo bo'lib, kuryerlarni chalg'itardi.
 
     for (const target of targets) {
       await sendMessage(target, text, buttons)
@@ -236,47 +266,74 @@ export async function dispatchToCouriers(orderId: string, order: OrderDoc): Prom
 
     const settingsSnap = await db.collection('settings').doc('courier').get()
     const settings = (settingsSnap.data() || {}) as {
+      channel?: 'couriers' | 'group'
       toCouriers?: boolean
       toGroup?: boolean
       groupChatId?: string | null
     }
+
+    /*
+     * Kanal BITTA bo'ladi — shaxsiy xabar YOKI guruh.
+     *
+     * Ilgari ikkalasi mustaqil belgilanardi va ikkalasi yoqilganda
+     * kuryer bir buyurtmani ikki marta olardi: shaxsiy chatda va
+     * guruhda. Ikki nusxada esa «Oldim» tugmasi ham ikkita bo'lib,
+     * qaysidir biri eskirib qolardi.
+     *
+     * Eski sozlamalar uchun: toGroup yoqilgan bo'lsa — guruh.
+     */
+    const channel =
+      settings.channel ?? (settings.toGroup ? 'group' : 'couriers')
 
     const text = `🛵 <b>YETKAZISHGA TAYYOR</b>
 
 ${orderSummary(orderId, order)}`
     const targets: (number | string)[] = []
 
-    if (settings.toCouriers !== false) {
-      if (order.courierId) {
-        const snap = await db.collection('staff').doc(order.courierId).get()
-        const courier = snap.data() as { telegramId?: number; active?: boolean } | undefined
-        if (courier?.telegramId && courier.active !== false) targets.push(courier.telegramId)
-      } else {
-        // Biriktirilmagan — bo'sh kuryerlarning hammasiga, kim birinchi
-        // «Oldim» bossa, buyurtma o'shanga biriktiriladi.
-        const snap = await db.collection('staff').where('role', '==', 'courier').get()
-        for (const doc of snap.docs) {
-          const data = doc.data() as { telegramId?: number; active?: boolean }
-          if (data.active !== false && data.telegramId) targets.push(data.telegramId)
-        }
+    if (channel === 'group') {
+      if (settings.groupChatId) targets.push(settings.groupChatId)
+    } else if (order.courierId) {
+      const snap = await db.collection('staff').doc(order.courierId).get()
+      const courier = snap.data() as { telegramId?: number; active?: boolean } | undefined
+      if (courier?.telegramId && courier.active !== false) targets.push(courier.telegramId)
+    } else {
+      // Biriktirilmagan — barcha faol kuryerlarga. Kim birinchi «Oldim»
+      // bossa, o'shanga tegadi; qolganlarining tugmasi o'chiriladi.
+      const snap = await db.collection('staff').where('role', '==', 'courier').get()
+      for (const doc of snap.docs) {
+        const data = doc.data() as { telegramId?: number; active?: boolean }
+        if (data.active !== false && data.telegramId) targets.push(data.telegramId)
       }
     }
 
-    if (settings.toGroup && settings.groupChatId) targets.push(settings.groupChatId)
+    // Bir chatga ikki marta yuborilmasin
+    const unique = [...new Set(targets.map(String))]
 
-    for (const target of targets) {
-      await sendMessage(target, text, undefined, [
+    // Kuryerga «Admin paneldan ochish» tugmasi ATAYLAB berilmaydi —
+    // unda panelga kirish huquqi yo'q. O'rniga marshrut havolasi.
+    const route = routeButton(order)
+
+    /*
+     * Yuborilgan xabarlar ro'yxati saqlanadi.
+     *
+     * Kuryer birortasida «Oldim» bosganda bot QOLGAN nusxalarning
+     * tugmasini ham yangilaydi — aks holda boshqa chatdagi «Oldim»
+     * eskirib turaverardi va qayta bosilishi mumkin edi.
+     */
+    const dispatchMessages: { chatId: string; messageId: number }[] = []
+
+    for (const target of unique) {
+      const result = await sendMessage(target, text, route ? [route] : undefined, [
         { text: '✅ Oldim', callback_data: `crr:take:${orderId}` },
       ])
+      if (result.ok) dispatchMessages.push({ chatId: target, messageId: result.messageId })
       await new Promise((resolve) => setTimeout(resolve, 40))
     }
 
-    if (targets.length) {
-      await db.collection('orders').doc(orderId).set(
-        { dispatchedAt: new Date().toISOString() },
-        { merge: true },
-      )
-    }
+    await db.collection('orders').doc(orderId).set(
+      { dispatchedAt: new Date().toISOString(), dispatchMessages },
+      { merge: true },
+    )
   } catch (error) {
     console.error('[orders] kuryerga yuborilmadi:', error)
   }
