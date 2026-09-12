@@ -4,9 +4,13 @@ MUSA Shop Telegram Bot — Mini App + To'lov tizimi
 MUSA — muzlatilgan mahsulotlar do'koni: yarim tayyor, muzqaymoq, sirok.
 """
 import asyncio
+import hashlib
+import hmac
 import json
 import logging
+import time
 
+import aiohttp
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message, WebAppInfo, InlineKeyboardButton,
@@ -49,17 +53,6 @@ dp  = Dispatcher(storage=MemoryStorage())
 
 class PaymentUpload(StatesGroup):
     waiting_photo = State()
-
-
-# ─── Status emoji map ─────────────────────────────────────────
-
-STATUS_EMOJI = {
-    "Qabul qilindi":  "🟢",
-    "Yetkazilmoqda":  "🚚",
-    "Yetkazildi":     "🎉",
-    "Rad etildi":     "🔴",
-    "Bekor qilingan": "🔴",
-}
 
 
 # ─── Klaviaturalar ────────────────────────────────────────────
@@ -142,8 +135,13 @@ def payment_confirm_kb(order_id: str, user_id: int, has_location: bool = False) 
 
 
 def mini_app_kb() -> InlineKeyboardMarkup:
+    # Yorliq «Buyurtmalarimni ko'rish» bo'lgani uchun havola ham
+    # ilovaning aynan shu bo'limini ochadi.
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛍 Buyurtmalarimni ko'rish", web_app=WebAppInfo(url=MINI_APP_URL))]
+        [InlineKeyboardButton(
+            text="🛍 Buyurtmalarimni ko'rish",
+            web_app=WebAppInfo(url=f"{MINI_APP_URL}?page=orders"),
+        )]
     ])
 
 
@@ -303,6 +301,99 @@ async def notify_admin_cancel(order_data: dict):
 
 
 # ─── Status o'zgartirish → Usergа xabar ──────────────────────
+
+# ─── Admin tugmalari ───────────────────────────────
+#
+# Yangi buyurtma tushganda admin panel (Vercel) adminlarga shaxsiy
+# xabar yuboradi: tavsilotlar + «✅ Qabul qilindi» va «🖥 Admin
+# paneldan ochish» tugmalari. Birinchisini shu yerda ishlaymiz.
+
+
+async def api_order_status(telegram_id: int, order_id: str, status: str):
+    """
+    Admin panelning `/api/admin/action` funksiyasini chaqiradi.
+
+    Nega bot o'zi Firestore'ga yozmaydi? Holat o'zgarishi yolg'iz
+    yozuv emas: tarix qo'shiladi, kuryerga/guruhga xabar ketadi,
+    mijozga bildirishnoma boradi, boshqa adminlarning tugmasi
+    yangilanadi. Bularning hammasi allaqachon TypeScript'da yozilgan.
+    Botda qayta yozilsa ikki nusxa paydo bo'lib, vaqt o'tib
+    bir-biridan farq qilib ketardi.
+
+    So'rov BOT_TOKEN bilan imzolanadi — server shu imzoga qarab
+    «bu haqiqatan bizning botimiz» deb ishonadi, kim bosgani esa
+    `staff.telegramId` bo'yicha topiladi.
+    """
+    ts = str(int(time.time()))
+    payload = f"{telegram_id}.order.status.{order_id}.{ts}"
+    signature = hmac.new(
+        BOT_TOKEN.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
+
+    url = f"{MINI_APP_URL.rstrip('/')}/api/admin/action"
+    body = {"action": "order.status", "orderId": order_id, "status": status}
+    headers = {
+        "Content-Type": "application/json",
+        "x-bot-actor": str(telegram_id),
+        "x-bot-ts": ts,
+        "x-bot-signature": signature,
+    }
+
+    timeout = aiohttp.ClientTimeout(total=20)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.post(url, json=body, headers=headers) as response:
+            try:
+                data = await response.json()
+            except Exception:
+                data = {"error": await response.text()}
+            return response.status, data
+
+
+@dp.callback_query(F.data.startswith("adm:"))
+async def cb_admin(callback: CallbackQuery):
+    _, action, order_id = callback.data.split(":", 2)
+
+    if action != "acc":
+        await callback.answer()
+        return
+
+    await callback.answer("Yuborilmoqda…")
+
+    try:
+        code, data = await api_order_status(
+            callback.from_user.id, order_id, "Qabul qilindi"
+        )
+    except Exception as e:
+        logger.error(f"[ADMIN] {order_id} tasdiqlanmadi: {e}", exc_info=True)
+        await callback.answer(
+            "Server bilan bog'lanib bo'lmadi — admin paneldan urinib ko'ring",
+            show_alert=True,
+        )
+        return
+
+    if code != 200:
+        message = (data or {}).get("error") or "Bajarilmadi"
+        await callback.answer(message, show_alert=True)
+        return
+
+    if data.get("unchanged"):
+        await callback.answer("Bu buyurtma allaqachon tasdiqlangan")
+    else:
+        await callback.answer("✅ Tasdiqlandi — kuryerga yuborildi")
+
+    # Tugmani server o'zi yangilaydi (refreshAdminMessages). Lekin xabar
+    # boshqa adminga yuborilmagan bo'lishi ham mumkin — masalan admin
+    # buyurtmani /start dan keyin qo'lda topgan. Shunda hech bo'lmasa
+    # bosilgan xabarni o'zimiz yangilaymiz.
+    try:
+        await callback.message.edit_reply_markup(
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✅ Qabul qilindi", callback_data="noop")]
+            ])
+        )
+    except Exception:
+        pass
+
 
 # ─── Kuryer tugmalari ────────────────────────────────────────
 #
@@ -655,80 +746,76 @@ async def cb_send_location(callback: CallbackQuery):
         await callback.answer("Lokatsiyani yuborib bo'lmadi", show_alert=True)
 
 
-# ─── Buyurtmalarim ───────────────────────────────────────────
+# ─── Buyurtmalarim ─────────────────────────────
+#
+# Buyurtmalar botda KO'RSATILMAYDI — faqat ilovada.
+#
+# Ilgari bot har bir buyurtmani to'liq matn bilan chiqarardi:
+# mahsulotlar, holat, summa. Bir necha buyurtma bo'lsa xabar juda
+# uzun bo'lib ketardi, holat esa o'zgarganda xabardagi matn eski
+# holida qolib ketardi. Ilovada holat real vaqtda yangilanadi.
+
+
+def my_orders_kb() -> InlineKeyboardMarkup:
+    """Ilovaning «Buyurtmalarim» bo'limini bevosita ochadi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="📦 Buyurtmalarimni ochish",
+            web_app=WebAppInfo(url=f"{MINI_APP_URL}?page=orders"),
+        )]
+    ])
+
 
 @dp.message(F.text == "📦 Buyurtmalarim")
 async def handle_my_orders(message: Message):
-    user_id = message.from_user.id
-    orders  = db.get_user_orders(user_id)
+    orders = db.get_user_orders(message.from_user.id)
 
     if not orders:
         await message.answer(
-            "📦 <b>Sizda hozircha buyurtmalar mavjud emas.</b>\n\n"
-            "Katalogdan yoqqan mahsulotni tanlab, birinchi buyurtmangizni bering! 🥟"
+            "📦 <b>Buyurtmalarim</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "Sizda hozircha buyurtma yo'q.\n\n"
+            "🥟 Yarim tayyor mahsulotlar, 🍦 muzqaymoq va 🍫 siroklar.\n"
+            "Katalogdan tanlab, birinchi buyurtmangizni bering!",
+            reply_markup=my_orders_kb(),
         )
         return
 
-    text = f"📦 <b>Buyurtmalarim</b> ({len(orders)} ta)\n" + "━" * 22 + "\n\n"
-    btns = []
+    CLOSED = ("Yetkazildi", "Bekor qilingan", "Rad etildi")
+    active = [o for o in orders if o.get("status") not in CLOSED]
 
-    for o in orders[:10]:
-        # oid — ko'rsatish uchun, doc_id — tugmalar uchun (F-03)
-        oid    = db.order_display_id(o)
+    text = (
+        "📦 <b>Buyurtmalarim</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🧾 Jami buyurtma: <b>{len(orders)} ta</b>\n"
+        f"🔄 Jarayonda: <b>{len(active)} ta</b>\n\n"
+        "Har bir buyurtmaning holati, tarkibi va yetkazish manzili —\n"
+        "hammasi ilovada. Holat <b>real vaqtda</b> yangilanadi:\n\n"
+        "✅ Qabul qilindi → 🚚 Yetkazilmoqda → 🎉 Yetkazildi\n\n"
+        "👇 <i>Ko'rish uchun tugmani bosing:</i>"
+    )
+
+    rows = list(my_orders_kb().inline_keyboard)
+
+    # Chek yuborish ilovada EMAS, botda bo'lishi kerak: mijoz rasm
+    # jo'natadi. Shuning uchun karta to'lovi kutilayotgan
+    # buyurtmalar uchun tugma shu yerda qoladi.
+    for o in orders[:5]:
+        if o.get("paymentMethod") != "Karta":
+            continue
+        pay = o.get("paymentStatus", "")
+        if pay == "Tolangan":
+            continue
         doc_id = o.get("_doc_id", "")
-        tot  = o.get("total", 0)
-        st   = o.get("status", "Yangi")
-        pm   = o.get("paymentMethod", "Naqd")
-        ps   = o.get("paymentStatus", "")
-        e    = STATUS_EMOJI.get(st, "🟡")
-        tstr = db.format_price(tot) if isinstance(tot, (int, float)) else str(tot)
+        if not doc_id:
+            continue
+        label = "qayta chek" if pay == "Rad etildi" else "chek yuborish"
+        rows.append([InlineKeyboardButton(
+            text=f"💳 {db.order_display_id(o)} — {label}",
+            callback_data=f"receipt:{doc_id}",
+        )])
 
-        date_str = db.order_date_text(o)
-        
-        text += f"🧾 <b>Buyurtma:</b> {oid}\n"
-        if date_str != "—": text += f"📅 <b>Sana:</b> {date_str}\n"
-        text += f"📊 <b>Holat:</b> {e} {st}\n"
-        
-        if pm == "Karta":
-            if ps == "Tolangan":
-                text += "💳 <b>To'lov turi:</b> Karta (✅ Tasdiqlangan)\n"
-            elif ps == "Rad etildi":
-                text += "💳 <b>To'lov turi:</b> Karta (❌ Rad etilgan)\n"
-                btns.append([InlineKeyboardButton(
-                    text=f"💳 {oid} — qayta chek",
-                    callback_data=f"receipt:{doc_id}"
-                )])
-            else:
-                text += "💳 <b>To'lov turi:</b> Karta (⏳ Chek kutilmoqda)\n"
-                btns.append([InlineKeyboardButton(
-                    text=f"💳 {oid} — chek yuborish",
-                    callback_data=f"receipt:{doc_id}"
-                )])
-        else:
-            text += "💳 <b>To'lov turi:</b> 💵 Naqd (yetkazganda)\n"
-
-        text += "\n🛍 <b>Mahsulotlar:</b>\n"
-        
-        products = o.get("products", [])
-        for idx, p in enumerate(products, 1):
-            qty   = p.get("quantity", 1)
-            size  = p.get("size")
-            color = p.get("color")
-            prod  = p.get("product") or p
-            name  = prod.get("name", "—")
-            
-            variant = []
-            if size: variant.append(f"Vazn: {size}")
-            if color: variant.append(f"Turi: {color}")
-            v_text = f" ({', '.join(variant)})" if variant else ""
-            
-            text += f"  {idx}. {name}{v_text} — <b>{qty} ta</b>\n"
-            
-        text += f"\n💰 <b>Jami summa:</b> {tstr}\n"
-        text += "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-
-    kb = InlineKeyboardMarkup(inline_keyboard=btns) if btns else None
-    await message.answer(text, reply_markup=kb)
+    await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
 
 
 # ─── /start ──────────────────────────────────────────────────

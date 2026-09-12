@@ -7,7 +7,6 @@ import heroProducts from '../images/hero-products.webp'
 import { BrandLogo } from '../components/brand/BrandLogo'
 import { ProductCard } from '../components/product/ProductCard'
 import { ProductRowSkeleton } from '../components/ui/ProductCardSkeleton'
-import { CartButton } from '../components/ui/CartButton'
 import { IconButton } from '../components/ui/IconButton'
 import { categoryIcon } from '../utils/category-icons'
 import { MAIN_LINES, isMainLine } from '../config/categories'
@@ -27,18 +26,16 @@ type Props = ProductActions & {
   products: Product[]
   categories: Category[]
   loading: boolean
-  cartCount: number
   onSearch: () => void
   onNavigate: (page: AppPage) => void
   onOpenCategory: (category: string) => void
-  onOpenCart: () => void
   unreadNotificationsCount: number
   onNotify: (message: string) => void
 }
 
 export function HomePage({
-  products, categories, loading, cartCount, onSearch, onNavigate,
-  onOpenCategory, onOpenCart, unreadNotificationsCount, onNotify, ...productActions
+  products, categories, loading, onSearch, onNavigate,
+  onOpenCategory, unreadNotificationsCount, onNotify, ...productActions
 }: Props) {
   const t = useT()
 
@@ -65,10 +62,12 @@ export function HomePage({
               )}
             </span>
           </IconButton>
+          {/* Savat pastdagi menyuga ko'chdi — tepada yurak qoldi.
+              Ilgari savat faqat shu kichik ikonka edi va foydalanuvchilar
+              uni topolmasdi. */}
           <IconButton label={t('favorites.title')} onClick={() => onNavigate('favorites')}>
             <Heart />
           </IconButton>
-          <CartButton count={cartCount} onClick={onOpenCart} />
         </div>
       </header>
 

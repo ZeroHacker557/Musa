@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import { adminAuth, adminDb } from './firebase-admin.js'
 import { fail } from './http.js'
 
@@ -92,6 +93,116 @@ export async function requireStaff(
 
   if (!atLeast(staff.role, required)) {
     fail(res, 403, 'Bu amal uchun huquqingiz yetarli emas')
+    return null
+  }
+
+  return staff
+}
+
+
+/** Bot imzosi shuncha soniya amal qiladi. */
+const BOT_SIGNATURE_TTL = 300
+
+/**
+ * Telegram botidan kelgan so'rovni tekshiradi.
+ *
+ * Nega kerak? Admin botdagi «Qabul qilindi» tugmasini bosganda buyurtma
+ * xuddi paneldagidek qayta ishlanishi kerak: holat, tarix, kuryerga
+ * yuborish, mijozga xabar. Bu mantiq shu yerda — TypeScript'da. Botda
+ * qayta yozilsa ikki nusxa paydo bo'lib, vaqt o'tib bir-biridan farq
+ * qilib ketardi.
+ *
+ * Bot Firebase ID token olmaydi (u foydalanuvchi seansi), shuning uchun
+ * o'zaro ma'lum sir — BOT_TOKEN — bilan imzolaydi:
+ *
+ *   payload   = "<telegramId>.<action>.<orderId>.<unix vaqt>"
+ *   signature = HMAC-SHA256(payload, BOT_TOKEN)
+ *
+ * Vaqt imzoga kiritilgani uchun eski so'rovni qayta yuborib bo'lmaydi
+ * (5 daqiqadan keyin qabul qilinmaydi). Kim ekanligi Firestore'dan
+ * `staff.telegramId` bo'yicha topiladi — ya'ni bot faqat «kim bosdi»
+ * deb ayta oladi, huquqni baribir staff hujjati beradi.
+ *
+ * Sarlavhalar yo'q bo'lsa `undefined` qaytaradi — chaqiruvchi oddiy
+ * token tekshiruviga o'tadi. Sarlavha bor-u imzo noto'g'ri bo'lsa
+ * javobni o'zi yozadi va `null` qaytaradi.
+ */
+export async function staffFromBot(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<Staff | null | undefined> {
+  const signature = String(req.headers['x-bot-signature'] || '')
+  const actor = String(req.headers['x-bot-actor'] || '')
+  const ts = String(req.headers['x-bot-ts'] || '')
+  if (!signature && !actor && !ts) return undefined
+
+  const secret = process.env.BOT_TOKEN
+  if (!secret) {
+    fail(res, 500, 'BOT_TOKEN sozlanmagan')
+    return null
+  }
+  if (!signature || !actor || !ts) {
+    fail(res, 401, 'Bot imzosi to‘liq emas')
+    return null
+  }
+
+  const age = Math.abs(Math.floor(Date.now() / 1000) - Number(ts))
+  if (!Number.isFinite(age) || age > BOT_SIGNATURE_TTL) {
+    fail(res, 401, 'Bot imzosi muddati tugagan')
+    return null
+  }
+
+  const action = typeof req.body?.action === 'string' ? req.body.action : ''
+  const orderId = typeof req.body?.orderId === 'string' ? req.body.orderId : ''
+  const expected = createHmac('sha256', secret)
+    .update(`${actor}.${action}.${orderId}.${ts}`)
+    .digest('hex')
+
+  const a = Buffer.from(expected)
+  const b = Buffer.from(signature)
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    fail(res, 401, 'Bot imzosi noto‘g‘ri')
+    return null
+  }
+
+  const telegramId = Number(actor)
+  if (!Number.isFinite(telegramId)) {
+    fail(res, 401, 'Bot foydalanuvchisi noto‘g‘ri')
+    return null
+  }
+
+  let snap
+  try {
+    snap = await (await adminDb())
+      .collection('staff')
+      .where('telegramId', '==', telegramId)
+      .limit(1)
+      .get()
+  } catch (error) {
+    console.error('[admin-auth] bot uchun staff o‘qilmadi:', error)
+    fail(res, 500, 'Server xatosi')
+    return null
+  }
+
+  if (snap.empty) {
+    fail(res, 403, 'Sizda ruxsat yo‘q')
+    return null
+  }
+
+  const doc = snap.docs[0]
+  const data = doc.data() as Partial<Staff>
+  const staff: Staff = {
+    uid: doc.id,
+    email: String(data.email || ''),
+    name: String(data.name || ''),
+    role: (data.role as StaffRole) || 'courier',
+    telegramId,
+    phone: data.phone ?? null,
+    active: data.active !== false,
+  }
+
+  if (!staff.active) {
+    fail(res, 403, 'Hisobingiz bloklangan')
     return null
   }
 

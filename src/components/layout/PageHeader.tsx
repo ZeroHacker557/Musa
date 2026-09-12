@@ -1,5 +1,4 @@
-import { ArrowLeft, Search } from 'lucide-react'
-import { CartButton } from '../ui/CartButton'
+import { ArrowLeft, Heart, Search } from 'lucide-react'
 import { IconButton } from '../ui/IconButton'
 import { useT } from '../../i18n'
 
@@ -11,11 +10,15 @@ type Props = {
    */
   onBack?: () => void
   onSearch?: () => void
-  cartCount: number
-  onCart?: () => void
+  /**
+   * Sevimlilar. Savat pastdagi menyuga ko'chgani uchun tepada endi
+   * yurak turadi. Sevimlilar sahifasining O'ZIDA berilmaydi — o'ziga
+   * olib boradigan tugma keraksiz.
+   */
+  onFavorites?: () => void
 }
 
-export function PageHeader({ title, onBack, onSearch, cartCount, onCart }: Props) {
+export function PageHeader({ title, onBack, onSearch, onFavorites }: Props) {
   const t = useT()
 
   return (
@@ -31,7 +34,7 @@ export function PageHeader({ title, onBack, onSearch, cartCount, onCart }: Props
       )}
 
       <h1
-        /* Orqaga tugmasi, qidiruv va savat bilan birga uzun sarlavha
+        /* Orqaga tugmasi, qidiruv va sevimlilar bilan birga uzun sarlavha
            telefonda sig'maydi — shuning uchun kichikroq boshlanadi. */
         className="min-w-0 flex-1 truncate text-xl font-extrabold tracking-tight sm:text-3xl"
         style={{ color: 'var(--ink)' }}
@@ -45,7 +48,11 @@ export function PageHeader({ title, onBack, onSearch, cartCount, onCart }: Props
             <Search />
           </IconButton>
         )}
-        <CartButton count={cartCount} onClick={onCart} />
+        {onFavorites && (
+          <IconButton label={t('favorites.title')} onClick={onFavorites}>
+            <Heart />
+          </IconButton>
+        )}
       </div>
     </header>
   )

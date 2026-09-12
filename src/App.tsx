@@ -125,12 +125,10 @@ function App() {
                 categories={shop.categories}
                 loading={shop.loading}
                 {...productActions}
-                cartCount={shop.cartCount}
                 unreadNotificationsCount={shop.unreadNotificationsCount}
                 onSearch={() => shop.setSearchOpen(true)}
                 onNavigate={shop.navigate}
                 onOpenCategory={shop.openCategory}
-                onOpenCart={shop.openCart}
                 onNotify={shop.notify}
               />
             </div>
@@ -145,9 +143,8 @@ function App() {
                 loading={shop.loading}
                 initialCategory={shop.catalogCategory}
                 {...productActions}
-                cartCount={shop.cartCount}
                 onSearch={() => shop.setSearchOpen(true)}
-                onOpenCart={shop.openCart}
+                onFavorites={() => shop.navigate('favorites')}
                 onBack={shop.goBack}
               />
             </div>
@@ -158,8 +155,6 @@ function App() {
               <FavoritesPage
                 products={shop.products}
                 {...productActions}
-                cartCount={shop.cartCount}
-                onOpenCart={shop.openCart}
                 onGoToCatalog={goToCatalog}
                 onBack={shop.goBack}
               />
@@ -172,9 +167,8 @@ function App() {
                 orders={shop.myOrders}
                 authReady={shop.authReady}
                 isAuthenticated={shop.isAuthenticated}
-                cartCount={shop.cartCount}
                 onSearch={() => shop.setSearchOpen(true)}
-                onOpenCart={shop.openCart}
+                onFavorites={() => shop.navigate('favorites')}
                 onGoToCatalog={goToCatalog}
                 onNotify={shop.notify}
                 onBack={shop.goBack}
@@ -266,7 +260,13 @@ function App() {
         </div>
 
         {!FULLSCREEN_PAGES.includes(shop.page) && (
-          <BottomNav page={shop.page} onNavigate={shop.navigate} cartCount={shop.cartCount} />
+          <BottomNav
+            page={shop.page}
+            onNavigate={shop.navigate}
+            onOpenCart={shop.openCart}
+            cartOpen={shop.isCartOpen}
+            cartCount={shop.cartCount}
+          />
         )}
       </div>
     </main>

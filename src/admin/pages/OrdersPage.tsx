@@ -47,6 +47,18 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
    * bergan #/orders/<id> dagi identifikator.
    */
   const [openId, setOpenId] = useState<string | null>(focusId ?? null)
+  /*
+   * Havola panel OCHIQ turganda bosilsa, hash o'zgaradi-yu komponent
+   * qayta yaratilmaydi — boshlang'ich qiymat esa faqat bir marta
+   * o'qiladi. Shuning uchun `focusId` ning o'zgarishini kuzatamiz.
+   * useEffect emas: render paytida solishtirish React uchun to'g'ri
+   * yo'l va ortiqcha ikkinchi render bo'lmaydi.
+   */
+  const [lastFocus, setLastFocus] = useState(focusId ?? null)
+  if (focusId !== lastFocus) {
+    setLastFocus(focusId ?? null)
+    if (focusId) setOpenId(focusId)
+  }
   const [busyId, setBusyId] = useState<string | null>(null)
   const { show, node: toast } = useToast()
 

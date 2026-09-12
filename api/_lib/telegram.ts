@@ -63,6 +63,35 @@ export async function sendMessage(
   }
 }
 
+/**
+ * Yuborilgan xabarning klaviaturasini to'liq almashtiradi.
+ *
+ * `replaceButtons` faqat bitta yorliq qo'yadi; bu yerda esa qatorlar
+ * o'zimizda — masalan admin xabarida «Qabul qilindi» tugmasi holat
+ * yorlig'iga aylanadi, lekin «Admin paneldan ochish» havolasi qoladi.
+ */
+export async function setKeyboard(
+  chatId: number | string,
+  messageId: number,
+  rows: (InlineButton | CallbackButton)[][],
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${API}${token()}/editMessageReplyMarkup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: { inline_keyboard: rows },
+      }),
+    })
+    const json = (await response.json()) as { ok: boolean }
+    return json.ok
+  } catch {
+    return false
+  }
+}
+
 /** HTML'ga xavfsiz qo'shish uchun matnni tozalaydi. */
 export function escapeHtml(value: unknown): string {
   return String(value ?? '')

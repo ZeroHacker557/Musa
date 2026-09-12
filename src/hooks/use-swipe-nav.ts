@@ -2,7 +2,13 @@ import { useEffect, useRef } from 'react'
 import type { AppPage } from '../types/domain'
 
 /** Barmoq bilan o'tish mumkin bo'lgan sahifalar — pastki menyu tartibida. */
-export const SWIPE_PAGES: AppPage[] = ['home', 'catalog', 'favorites', 'orders', 'profile']
+/*
+ * Surish tartibi pastdagi menyuga MOS bo'lishi kerak. Sevimlilar
+ * menyudan chiqib tepaga ko'chgani uchun bu ro'yxatdan ham olindi:
+ * aks holda surishda menyuda ko'rinmaydigan sahifa oralab qolardi.
+ * Savat esa sahifa emas (chekka oyna), shuning uchun bu yerda yo'q.
+ */
+export const SWIPE_PAGES: AppPage[] = ['home', 'catalog', 'orders', 'profile']
 
 /** Shu masofadan ko'p surilsa — sahifa almashadi. */
 const MIN_DISTANCE = 70

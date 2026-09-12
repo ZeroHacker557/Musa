@@ -1,5 +1,5 @@
 import { adminDb } from '../firebase-admin.js'
-import { escapeHtml, replaceButtons, sendMessage } from '../telegram.js'
+import { escapeHtml, replaceButtons, sendMessage, setKeyboard } from '../telegram.js'
 import type { Staff } from '../admin-auth.js'
 
 const STATUSES = [
@@ -23,6 +23,8 @@ const CUSTOMER_TEXT: Record<Status, (n: string) => string> = {
   'Bekor qilingan': (n) => `❌ <b>${n}</b> buyurtmangiz bekor qilindi.`,
   'Rad etildi': (n) => `⛔️ <b>${n}</b> buyurtmangiz rad etildi. Batafsil ma’lumot uchun bog‘laning.`,
 }
+
+type ChatMessage = { chatId: string; messageId: number }
 
 type OrderDoc = {
   orderNumber?: string
@@ -59,6 +61,61 @@ function routeButton(order: OrderDoc) {
   }
 }
 
+/**
+ * «Admin paneldan ochish» havolasi — AYNAN shu buyurtmani ochadi.
+ *
+ * `#/orders/<id>` — admin panelning hash-routeri (src/admin/lib/router.ts)
+ * ikkinchi bo'lakni `focusId` sifatida OrdersPage'ga beradi va oyna
+ * darhol ochiladi. Hash ishlatiladi, chunki /admin bitta statik faylga
+ * qayta yoziladi.
+ */
+function panelButtons(orderId: string) {
+  const base = process.env.ADMIN_PANEL_URL || ''
+  if (!base) return undefined
+
+  /*
+   * ADMIN_PANEL_URL qo'lda sozlanadi, shuning uchun uchta ko'rinishga
+   * ham tayyor bo'lamiz: `.../admin`, `.../admin/` va shunchaki domen.
+   * Oxirgisida `/admin` o'zi qo'shiladi — aks holda havola mini
+   * appni ochib qo'yardi.
+   */
+  const root = base.replace(/\/+$/, '')
+  const panel = /\/admin$/.test(root) ? root : `${root}/admin`
+
+  return [{ text: '🖥 Admin paneldan ochish', url: `${panel}/#/orders/${orderId}` }]
+}
+
+/**
+ * Adminlarga yuborilgan «yangi buyurtma» xabarlarini yangilaydi.
+ *
+ * Buyurtma tasdiqlangandan keyin «✅ Qabul qilindi» tugmasi bosilib
+ * turmasligi kerak — u holat yorlig'iga aylanadi. Panelga havola esa
+ * qoladi: admin baribir buyurtmani ochib ko'rishi mumkin.
+ *
+ * Xato tashlamaydi — xabar tahrirlanmagani holat o'zgarishini bekor
+ * qilmasligi kerak.
+ */
+export async function refreshAdminMessages(
+  orderId: string,
+  label: string,
+): Promise<void> {
+  const db = await adminDb()
+  const snap = await db.collection('dispatch').doc(orderId).get()
+  const messages = ((snap.data() || {}).adminMessages || []) as ChatMessage[]
+  if (!messages.length) return
+
+  const rows: ({ text: string; url: string } | { text: string; callback_data: string })[][] = [
+    [{ text: label, callback_data: 'noop' }],
+  ]
+  for (const button of panelButtons(orderId) || []) rows.push([button])
+
+  for (const item of messages) {
+    if (!item?.chatId || !item?.messageId) continue
+    await setKeyboard(item.chatId, item.messageId, rows)
+    await new Promise((resolve) => setTimeout(resolve, 30))
+  }
+}
+
 /** Kuryerga va guruhga yuboriladigan to'liq tavsilot. */
 export function orderSummary(id: string, order: OrderDoc): string {
   const lines = (order.products || [])
@@ -80,6 +137,19 @@ export function orderSummary(id: string, order: OrderDoc): string {
     `\n${lines}\n\n` +
     `💰 <b>${Number(order.total || 0).toLocaleString('ru-RU')} so‘m</b> — ${escapeHtml(order.paymentMethod || 'Naqd')}`
   )
+}
+
+/** Holat yorliqlari uchun belgi. */
+function statusIcon(status: Status): string {
+  const icons: Record<Status, string> = {
+    'Yangi': '🆕',
+    'Qabul qilindi': '✅',
+    'Yetkazilmoqda': '🚚',
+    'Yetkazildi': '🎉',
+    'Bekor qilingan': '❌',
+    'Rad etildi': '⛔',
+  }
+  return icons[status]
 }
 
 export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
@@ -128,6 +198,14 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
     // Kuryerlardagi «Oldim» tugmasi qolib ketmasin — buyurtma yopilgan
     await clearDispatchButtons(orderId, order, `❌ ${status}`)
   }
+
+  /*
+   * Adminlarning «yangi buyurtma» xabaridagi «Qabul qilindi» tugmasi
+   * endi kerak emas — holat yorlig'iga aylanadi. Bu panelda ham, botda
+   * ham bir xil ishlaydi: tasdiqlash qaysi yo'ldan bo'lganidan qat'i
+   * nazar boshqa adminlarda tugma eskirib qolmaydi.
+   */
+  await refreshAdminMessages(orderId, `${statusIcon(status)} ${status} — ${staff.name}`)
 
   const label = order.orderNumber || `#${orderId.slice(0, 6)}`
   let notified = false
@@ -220,10 +298,7 @@ export async function notifyNewOrder(orderId: string, order: OrderDoc): Promise<
     const settingsSnap = await db.collection('settings').doc('courier').get()
     const settings = (settingsSnap.data() || {}) as { notifyAdmins?: boolean }
 
-    const base = process.env.ADMIN_PANEL_URL || ''
-    const buttons = base
-      ? [{ text: '🖥 Admin paneldan ochish', url: `${base}#/orders/${orderId}` }]
-      : undefined
+    const buttons = panelButtons(orderId)
 
     const text = `🔔 <b>YANGI BUYURTMA</b>
 
@@ -247,14 +322,41 @@ ${orderSummary(orderId, order)}`
     // (dispatchToCouriers). Aks holda guruhda hali tasdiqlanmagan
     // buyurtmalar ham paydo bo'lib, kuryerlarni chalg'itardi.
 
+    /*
+     * Admin xabarida IKKI yo'l bo'ladi:
+     *   «✅ Qabul qilindi» — to'g'ridan-to'g'ri botdan tasdiqlash
+     *   «🖥 Admin paneldan ochish» — aynan shu buyurtmani panelda ochadi
+     *
+     * Birinchisi bot jarayoni orqali ishlaydi (bot/bot.py → cb_admin),
+     * ikkinchisi esa botga umuman bog'liq emas.
+     */
+    const accept = [{ text: '✅ Qabul qilindi', callback_data: `adm:acc:${orderId}` }]
+
+    const adminMessages: ChatMessage[] = []
     for (const target of targets) {
-      await sendMessage(target, text, buttons)
+      const result = await sendMessage(target, text, buttons, accept)
+      if (result.ok) adminMessages.push({ chatId: String(target), messageId: result.messageId })
       await new Promise((resolve) => setTimeout(resolve, 40))
     }
 
     if (targets.length) {
-      // Bot endi bu buyurtmani qayta yubormasin
       await db.collection('orders').doc(orderId).set({ notified: true }, { merge: true })
+
+      /*
+       * `adminMessages` saqlanadi: buyurtma tasdiqlangach (panelda yoki
+       * botda) BARCHA adminlarning xabaridagi tugma yangilanadi, aks
+       * holda boshqa adminda «Qabul qilindi» eskirib turaverardi.
+       *
+       * ATAYLAB alohida `dispatch/{orderId}` hujjatida, buyurtma ichida
+       * emas: mijoz o'z buyurtmasini Firestore'dan bevosita o'qiydi
+       * (Rules shunga ruxsat beradi), ya'ni buyurtma ichidagi hamma
+       * narsa unga ko'rinadi. Adminlarning Telegram ID si esa mijozga
+       * kerak emas — `dispatch` to'plami faqat xodimga ochiq.
+       */
+      await db.collection('dispatch').doc(orderId).set(
+        { adminMessages, updatedAt: new Date().toISOString() },
+        { merge: true },
+      )
     }
   } catch (error) {
     console.error('[orders] xabarnoma yuborilmadi:', error)

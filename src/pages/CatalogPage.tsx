@@ -15,17 +15,17 @@ type Props = ProductActions & {
   products: Product[]
   categories: Category[]
   loading: boolean
-  cartCount: number
   /** Bosh sahifadan kelgan kategoriya filtri. */
   initialCategory?: string | null
   onSearch: () => void
-  onOpenCart: () => void
+  /** Tepadagi yurak — savat pastdagi menyuga ko'chgan. */
+  onFavorites: () => void
   onBack: () => void
 }
 
 export function CatalogPage({
-  products, categories, loading, cartCount, initialCategory,
-  onSearch, onOpenCart, onBack, ...actions
+  products, categories, loading, initialCategory,
+  onSearch, onFavorites, onBack, ...actions
 }: Props) {
   const t = useT()
   const ALL = t('common.all')
@@ -72,8 +72,7 @@ export function CatalogPage({
         title={t('catalog.title')}
         onBack={onBack}
         onSearch={onSearch}
-        onCart={onOpenCart}
-        cartCount={cartCount}
+        onFavorites={onFavorites}
       />
 
       {/* Kategoriyalar */}

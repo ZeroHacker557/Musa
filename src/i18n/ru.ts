@@ -28,6 +28,7 @@ export const ru: Record<TranslationKey, string> = {
   'nav.home': 'Главная',
   'nav.catalog': 'Каталог',
   'nav.favorites': 'Избранное',
+  'nav.cart': 'Корзина',
   'nav.orders': 'Заказы',
   'nav.profile': 'Профиль',
 

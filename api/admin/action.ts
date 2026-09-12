@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireStaff, type Staff } from '../_lib/admin-auth.js'
+import { atLeast, requireStaff, staffFromBot, type Staff } from '../_lib/admin-auth.js'
 import { fail, requirePost } from '../_lib/http.js'
 import { orderAssign, orderStatus } from '../_lib/actions/orders.js'
 import {
@@ -48,9 +48,35 @@ const HANDLERS: Record<string, Handler> = {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requirePost(req, res)) return
 
-  // Eng past rol bilan kiritamiz — har amal o'z cheklovini o'zi qo'yadi
-  const staff = await requireStaff(req, res, 'courier')
+  /*
+   * Ikki xil kiruvchi bor:
+   *   1. Admin panel — `Authorization: Bearer <Firebase ID token>`
+   *   2. Telegram bot — `x-bot-*` sarlavhalari bilan imzolangan so'rov
+   *
+   * Ikkinchisi kerak, chunki admin botdagi «Qabul qilindi» tugmasini
+   * bossa ham buyurtma xuddi paneldagidek qayta ishlanishi kerak:
+   * holat, tarix, kuryerga yuborish, mijozga xabar. Mantiqni botda
+   * qayta yozish o'rniga bot shu funksiyani chaqiradi.
+   *
+   * Eng past rol bilan kiritamiz — har amal o'z cheklovini o'zi qo'yadi.
+   */
+  const fromBot = await staffFromBot(req, res)
+  if (fromBot === null) return
+
+  const staff = fromBot ?? (await requireStaff(req, res, 'courier'))
   if (!staff) return
+
+  // Bot orqali faqat buyurtma holati o'zgartiriladi. Xodim qo'shish,
+  // ommaviy xabar va sozlamalar — faqat panelda, haqiqiy seans bilan.
+  if (fromBot) {
+    const action = typeof req.body?.action === 'string' ? req.body.action : ''
+    if (action !== 'order.status') {
+      return fail(res, 403, 'Bu amal bot orqali bajarilmaydi')
+    }
+    if (!atLeast(staff.role, 'admin')) {
+      return fail(res, 403, 'Buyurtmani faqat admin tasdiqlaydi')
+    }
+  }
 
   const action = typeof req.body?.action === 'string' ? req.body.action : ''
   const run = HANDLERS[action]

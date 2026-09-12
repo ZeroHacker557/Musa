@@ -33,6 +33,7 @@ export const uz = {
   'nav.home': 'Bosh sahifa',
   'nav.catalog': 'Katalog',
   'nav.favorites': 'Sevimlilar',
+  'nav.cart': 'Savat',
   'nav.orders': 'Buyurtmalar',
   'nav.profile': 'Profil',
 

@@ -87,6 +87,15 @@ service cloud.firestore {
       }
     }
 
+    // ── Telegram xabarlari hisobi ───────────────
+    // Buyurtma haqida qaysi chatga qanday xabar yuborilgani. Faqat
+    // xodimga ko'rinadi: mijoz o'z buyurtmasini o'qiy oladi, adminlar
+    // va kuryerlar guruhining Telegram ID lari esa unga kerak emas.
+    match /dispatch/{orderId} {
+      allow read: if isStaff();
+      allow write: if false;   // faqat server (Admin SDK)
+    }
+
     // ── Sharhlar ────────────────────────────────────────────
     // Hamma o'qiydi. Yozishda: faqat o'z nomidan, 1-5 oralig'ida baho.
     // Sharhni /api/reviews yaratadi: u sotib olganini tekshiradi va

@@ -45,9 +45,30 @@ function loadCart(): CartItems {
   } catch { return {} }
 }
 
+/**
+ * Havola bilan ochiladigan boshlang'ich sahifa: `?page=orders`.
+ *
+ * Botdagi «Buyurtmalarim» tugmasi mini appni shu ko'rinishda ochadi —
+ * buyurtmalar botda emas, ilovada ko'riladi.
+ *
+ * Query ishlatiladi, hash emas: Telegram mini appni ochganda
+ * fragmentga o'z parametrlarini (`tgWebAppData` va boshqalar) qo'shadi,
+ * query esa o'zgarmay qoladi.
+ */
+function initialPage(): AppPage {
+  try {
+    const requested = new URLSearchParams(window.location.search).get('page')
+    const allowed: AppPage[] = ['home', 'catalog', 'favorites', 'orders', 'profile']
+    if (requested && (allowed as string[]).includes(requested)) return requested as AppPage
+  } catch {
+    // URL o'qilmasa — oddiy bosh sahifa
+  }
+  return 'home'
+}
+
 export function useShopStore() {
   const t = useT()
-  const [page, setPage] = useState<AppPage>('home')
+  const [page, setPage] = useState<AppPage>(initialPage)
   // Telegram BackButton shu tarix bo'yicha ishlaydi (D-03)
   const [history, setHistory] = useState<AppPage[]>([])
   // Bosh sahifadan tanlangan kategoriya katalogga uzatiladi (F-16)

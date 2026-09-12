@@ -30,9 +30,9 @@ type Props = {
   orders: Order[]
   authReady: boolean
   isAuthenticated: boolean
-  cartCount: number
   onSearch: () => void
-  onOpenCart: () => void
+  /** Tepadagi yurak — savat pastdagi menyuga ko'chgan. */
+  onFavorites: () => void
   onGoToCatalog: () => void
   onNotify: (message: string) => void
   onBack: () => void
@@ -42,7 +42,7 @@ type Props = {
 const CANCELLABLE: OrderStatus[] = ['Yangi', 'Qabul qilindi']
 
 export function OrdersPage({
-  orders, authReady, isAuthenticated, cartCount, onSearch, onOpenCart,
+  orders, authReady, isAuthenticated, onSearch, onFavorites,
   onGoToCatalog, onNotify, onBack,
 }: Props) {
   const t = useT()
@@ -97,8 +97,7 @@ export function OrdersPage({
         title={t('orders.title')}
         onBack={onBack}
         onSearch={onSearch}
-        onCart={onOpenCart}
-        cartCount={cartCount}
+        onFavorites={onFavorites}
       />
 
       {/* Tablar */}
