@@ -82,10 +82,15 @@
   --shadow-lg: 0 4px 8px rgb(6 26 16 / 0.05), 0 16px 36px rgb(6 26 16 / 0.1);
   --shadow-brand: 0 6px 20px rgb(10 122 61 / 0.26);
 
-  /* Tepadagi yumshoq yashil tus — navbar ortidan kategoriyalargacha.
-     Telegram paneli ham shu rangga bo'yaladi (utils/theme.ts). */
-  --tint-top: #cfeddd;
-  --tint-mid: #e6f5ec;
+  /* Tepadagi yashil tus — navbar ortidan kategoriyalargacha.
+     Telegram paneli ham `--tint-top` ga bo'yaladi (utils/theme.ts).
+
+     Tus ataylab sezilarli: oldingi juda och variant panelda oqdan
+     deyarli farq qilmasdi. Hozirgisi bir xil ohangda (H≈148°), faqat
+     to'qroq — yashilligi bilinadi, lekin brend yashili kabi to'q emas,
+     ustidagi qora matn ham bemalol o'qiladi. */
+  --tint-top: #b8e0cb;
+  --tint-mid: #d4ede0;
 
   /* Telegram xavfsiz zonasi (JS to'ldiradi) */
   --safe-bottom: 0px;
@@ -320,8 +325,15 @@ a { color: inherit; text-decoration: none; }
   height: 340px;
   pointer-events: none;
   background:
-    radial-gradient(130% 70% at 18% 0%, var(--tint-top) 0%, transparent 62%),
-    radial-gradient(110% 60% at 88% 4%, var(--tint-top) 0%, transparent 58%),
+    /* Eng tepada TEKIS tus bandi.
+       Telegram paneli ham aynan shu rangga bo'yaladi (utils/theme.ts),
+       shuning uchun bot nomi turgan qator bilan sahifa o'rtasida chok
+       ko'rinmaydi. Radial gradientlar band tugagach ishga tushadi —
+       ular gorizontal bo'yicha notekis, ya'ni tepa chetida bo'lsa
+       panel rangi bilan hech qachon to'liq mos kelmaydi. */
+    linear-gradient(180deg, var(--tint-top) 0px, var(--tint-top) 64px, transparent 210px),
+    radial-gradient(130% 70% at 18% 6%, var(--tint-top) 0%, transparent 62%),
+    radial-gradient(110% 60% at 88% 10%, var(--tint-top) 0%, transparent 58%),
     linear-gradient(180deg, var(--tint-mid) 0%, transparent 88%);
 }
 

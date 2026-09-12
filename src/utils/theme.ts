@@ -42,10 +42,16 @@ export function applyTheme(mode: ThemeMode) {
 
     /*
      * Telegram paneli ilova tepasidagi tus bilan bir xil bo'ladi —
-     * shunda bot nomi turgan qator va navbar bir butun ko'rinadi.
+     * shunda bot nomi turgan qator va sahifa bir butun ko'rinadi.
+     *
+     * AYNAN `--tint-top` olinadi, `--tint-mid` emas: sahifaning eng
+     * yuqori 64px'i shu rangdagi tekis band (styles.css `.app-tint`).
+     * Ochroq `--tint-mid` olinsa panel bilan sahifa o'rtasida ko'zga
+     * tashlanadigan chok paydo bo'ladi.
+     *
      * Qorong'i rejimda tus shaffof, shuning uchun yuza rangi olinadi.
      */
-    const tint = cs.getPropertyValue('--tint-mid').trim()
+    const tint = cs.getPropertyValue('--tint-top').trim()
     const headerColor = tint && tint !== 'transparent' ? tint : surface
     if (headerColor) tg?.setHeaderColor?.(headerColor)
     if (bg) {
