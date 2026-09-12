@@ -15,10 +15,19 @@ type Draft = {
   telegramId: string
   phone: string
   active: boolean
+  /**
+   * Panelga kirish kerakmi.
+   *
+   * Kuryer Telegramda ishlaydi — unga email/parol shart emas, shuning
+   * uchun bu maydon alohida turadi va formada nima ko'rinishini
+   * belgilaydi. Admin va ega uchun doim true.
+   */
+  webAccess: boolean
 }
 
 const EMPTY: Draft = {
-  email: '', name: '', password: '', role: 'courier', telegramId: '', phone: '', active: true,
+  email: '', name: '', password: '', role: 'courier', telegramId: '',
+  phone: '', active: true, webAccess: false,
 }
 
 const ROLE_LABEL: Record<StaffRole, string> = {
@@ -45,7 +54,13 @@ export function StaffPage({ me }: { me: Staff }) {
     if (!draft) return
     setBusy(true)
     try {
-      await apiPost('action', { action: 'staff.save', ...draft })
+      await apiPost('action', {
+        action: 'staff.save',
+        ...draft,
+        // Telegram-only kuryerda email yuborilmaydi — server shu bo'yicha
+        // Auth hisobi kerakmi-yo'qmi deb qaror qiladi.
+        email: draft.webAccess ? draft.email : '',
+      })
       show(draft.uid ? 'Xodim yangilandi' : 'Xodim qo‘shildi')
       setDraft(null)
     } catch (error) {
@@ -172,6 +187,7 @@ export function StaffPage({ me }: { me: Staff }) {
                           telegramId: person.telegramId ? String(person.telegramId) : '',
                           phone: person.phone || '',
                           active: person.active,
+                          webAccess: person.webAccess ?? Boolean(person.email),
                         })
                       }
                       aria-label="Tahrirlash"
@@ -218,6 +234,24 @@ export function StaffPage({ me }: { me: Staff }) {
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
+              <label className="adm-label">Rol</label>
+              <select
+                className="adm-input"
+                value={draft.role}
+                onChange={(e) => {
+                  const role = e.target.value as StaffRole
+                  // Admin va ega panelsiz ishlay olmaydi — ularga
+                  // email/parol doim kerak.
+                  setDraft({ ...draft, role, webAccess: role !== 'courier' || draft.webAccess })
+                }}
+              >
+                <option value="courier">Kuryer — Telegramda ishlaydi</option>
+                <option value="admin">Admin — panelga kiradi</option>
+                <option value="owner">Ega — to‘liq huquq</option>
+              </select>
+            </div>
+
+            <div className="sm:col-span-2">
               <label className="adm-label">Ism</label>
               <input
                 className="adm-input"
@@ -227,44 +261,71 @@ export function StaffPage({ me }: { me: Staff }) {
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="adm-label">Email — kirish uchun</label>
-              <input
-                className="adm-input"
-                type="email"
-                autoCapitalize="none"
-                value={draft.email}
-                onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                placeholder="sardor@musa.uz"
-              />
-            </div>
+            {/*
+              Kuryerga veb panel shart emas — u Telegramda ishlaydi.
+              Shuning uchun email/parol faqat so'ralganda ko'rinadi:
+              ortiqcha maydon xodim qo'shishni sekinlashtiradi.
+            */}
+            {draft.webAccess ? (
+              <>
+                <div className="sm:col-span-2">
+                  <label className="adm-label">Email — panelga kirish uchun</label>
+                  <input
+                    className="adm-input"
+                    type="email"
+                    autoCapitalize="none"
+                    value={draft.email}
+                    onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                    placeholder="sardor@musa.uz"
+                  />
+                </div>
 
-            <div className="sm:col-span-2">
-              <label className="adm-label">
-                {draft.uid ? 'Yangi parol — bo‘sh qoldirsangiz o‘zgarmaydi' : 'Parol'}
-              </label>
-              <input
-                className="adm-input"
-                type="text"
-                autoComplete="new-password"
-                value={draft.password}
-                onChange={(e) => setDraft({ ...draft, password: e.target.value })}
-                placeholder="Kamida 8 belgi"
-              />
-            </div>
+                <div className="sm:col-span-2">
+                  <label className="adm-label">
+                    {draft.uid && draft.email ? 'Yangi parol — bo‘sh qoldirsangiz o‘zgarmaydi' : 'Parol'}
+                  </label>
+                  <input
+                    className="adm-input"
+                    type="text"
+                    autoComplete="new-password"
+                    value={draft.password}
+                    onChange={(e) => setDraft({ ...draft, password: e.target.value })}
+                    placeholder="Kamida 8 belgi"
+                  />
+                </div>
 
-            <div>
-              <label className="adm-label">Rol</label>
-              <select
-                className="adm-input"
-                value={draft.role}
-                onChange={(e) => setDraft({ ...draft, role: e.target.value as StaffRole })}
+                {draft.role === 'courier' && (
+                  <button
+                    type="button"
+                    className="text-left text-xs font-bold sm:col-span-2"
+                    style={{ color: 'var(--muted)' }}
+                    onClick={() =>
+                      setDraft({ ...draft, webAccess: false, email: '', password: '' })
+                    }
+                  >
+                    ← Panelsiz, faqat Telegram orqali
+                  </button>
+                )}
+              </>
+            ) : (
+              <div
+                className="rounded-xl p-3 sm:col-span-2"
+                style={{ background: 'var(--surface-2)' }}
               >
-                <option value="courier">Kuryer</option>
-                <option value="admin">Admin</option>
-                <option value="owner">Ega</option>
-              </select>
-            </div>
+                <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                  Kuryer buyurtmalarni <b>Telegram orqali</b> oladi — panelga kirishi
+                  shart emas, shuning uchun email va parol so‘ralmaydi.
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-bold"
+                  style={{ color: 'var(--brand)' }}
+                  onClick={() => setDraft({ ...draft, webAccess: true })}
+                >
+                  + Panelga kirish ham berilsin
+                </button>
+              </div>
+            )}
 
             <div>
               <label className="adm-label">Telefon</label>
@@ -277,7 +338,12 @@ export function StaffPage({ me }: { me: Staff }) {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="adm-label">Telegram ID</label>
+              <label className="adm-label">
+                Telegram ID{' '}
+                {draft.role === 'courier' && (
+                  <span style={{ color: 'var(--danger)' }}>*</span>
+                )}
+              </label>
               <input
                 className="adm-input"
                 inputMode="numeric"
@@ -289,6 +355,7 @@ export function StaffPage({ me }: { me: Staff }) {
               />
               <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
                 Buyurtmalar shu Telegram hisobiga tushadi. ID ni @userinfobot beradi.
+                {draft.role === 'courier' && ' Kuryer uchun majburiy.'}
               </p>
             </div>
 
@@ -299,7 +366,9 @@ export function StaffPage({ me }: { me: Staff }) {
                 checked={draft.active}
                 onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
               />
-              <span className="text-sm font-semibold">Faol — tizimga kira oladi</span>
+              <span className="text-sm font-semibold">
+                Faol — {draft.webAccess ? 'tizimga kira oladi' : 'buyurtma oladi'}
+              </span>
             </label>
           </div>
         </Modal>

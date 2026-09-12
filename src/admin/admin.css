@@ -34,7 +34,16 @@
   padding: 1.25rem 1rem 3rem;
   max-width: 1400px;
   margin: 0 auto;
-  animation: admFade 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /*
+   * `backwards`, `both` EMAS.
+   *
+   * `both` bilan animatsiya tugagach ham `transform` animatsiya
+   * nazoratida qoladi va element `position: fixed` avlodlar uchun
+   * containing block bo'lib qolaveradi — natijada modal yoki drawer
+   * viewport o'rniga shu blokka yopishadi. Ko'rinishi bir xil,
+   * lekin bu nojo'ya ta'sir yo'q.
+   */
+  animation: admFade 0.32s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 @media (min-width: 640px) { .adm-content { padding: 1.75rem 1.5rem 4rem; } }
@@ -175,7 +184,7 @@
   position: relative;
   overflow: hidden;
   padding: 1rem 1.1rem;
-  animation: admFade 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: admFade 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 .adm-stat__label {
   font-size: 0.76rem;
@@ -503,4 +512,77 @@
   border-radius: 50%;
   background: rgb(0 0 0 / 0.55);
   color: #fff;
+}
+
+/* ══════════ Buyurtma paneli (drawer) ══════════
+   DIQQAT: bu tugun document.body ga portal orqali chiziladi.
+   .adm-content da transform'ni o'zgartiruvchi animatsiya bor va u
+   "fill: both" bilan doimiy qoladi — ya'ni o'sha blok fixed elementlar
+   uchun containing block bo'lib qoladi. Portalsiz drawer viewport
+   o'rniga shu blokka yopishib, ekranning yarmi bo'sh qolardi. */
+
+.adm-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.adm-drawer__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+
+.adm-drawer__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 440px;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: admSlideRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.adm-drawer__head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  padding-top: max(0.9rem, env(safe-area-inset-top));
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+/* ══════════ Chek chop etish ══════════
+   Ekranda ko'rinmaydi; chop etishda esa faqat SHU tugun chiqadi. */
+
+.adm-receipt { display: none; }
+
+@media print {
+  /* Panelning hamma qismini yashiramiz — chekdan boshqasi qog'ozga chiqmasin */
+  body > *:not(.adm-receipt) { display: none !important; }
+
+  .adm-receipt {
+    display: block;
+    position: static;
+    width: 100%;
+    padding: 0;
+    background: #ffffff;
+    color: #000000;
+    font-family: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  @page { size: A4; margin: 14mm; }
 }

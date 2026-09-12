@@ -458,6 +458,48 @@ def add_promocode(code: str, discount: int):
 def delete_promocode(code_id: str):
     db.collection("promocodes").document(code_id).delete()
 
+# ─── Kuryerlar (admin panel bilan umumiy `staff` kolleksiyasi) ──
+
+def get_courier_by_telegram(telegram_id: int):
+    """
+    Telegram foydalanuvchisi kuryermi? Bo'lsa — uning `staff` hujjati.
+
+    Kuryerni admin panel qo'shadi. Unda Firebase Auth hisobi bo'lmasligi
+    mumkin (Telegram-only kuryer), shuning uchun qidiruv telegramId
+    bo'yicha boradi, hujjat identifikatori bo'yicha emas.
+    """
+    try:
+        docs = (
+            db.collection("staff")
+            .where("telegramId", "==", int(telegram_id))
+            .limit(1)
+            .get()
+        )
+        for doc in docs:
+            data = doc.to_dict() or {}
+            if data.get("role") != "courier" or data.get("active") is False:
+                return None
+            data["uid"] = doc.id
+            return data
+    except Exception as e:
+        print(f"[ERR] get_courier_by_telegram: {e}")
+    return None
+
+
+def assign_courier(order_id: str, uid: str, name: str) -> bool:
+    """Buyurtmani kuryerga biriktiradi (u «Oldim» bosganda)."""
+    try:
+        ref = db.collection("orders").document(str(order_id))
+        snap = ref.get()
+        if not snap.exists:
+            return False
+        ref.update({"courierId": uid, "courierName": name})
+        return True
+    except Exception as e:
+        print(f"[ERR] assign_courier: {e}")
+        return False
+
+
 # ─── Notifications ────────────────────────────────────────────
 
 def send_notification(user_id: int, title: str, body: str, type: str = 'system'):

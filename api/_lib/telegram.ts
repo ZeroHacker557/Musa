@@ -12,6 +12,8 @@ const API = 'https://api.telegram.org/bot'
 export type SendResult = { ok: true; messageId: number } | { ok: false; error: string }
 
 type InlineButton = { text: string; url: string }
+/** Bot ichida ishlov beriladigan tugma (bot/bot.py dagi cb_courier). */
+type CallbackButton = { text: string; callback_data: string }
 
 function token(): string {
   const value = process.env.BOT_TOKEN
@@ -29,6 +31,7 @@ export async function sendMessage(
   chatId: number | string,
   text: string,
   buttons?: InlineButton[],
+  callbackButtons?: CallbackButton[],
 ): Promise<SendResult> {
   try {
     const body: Record<string, unknown> = {
@@ -37,9 +40,10 @@ export async function sendMessage(
       parse_mode: 'HTML',
       disable_web_page_preview: true,
     }
-    if (buttons?.length) {
-      body.reply_markup = { inline_keyboard: buttons.map((b) => [b]) }
-    }
+    const rows: unknown[][] = []
+    if (callbackButtons?.length) rows.push(callbackButtons)
+    if (buttons?.length) for (const button of buttons) rows.push([button])
+    if (rows.length) body.reply_markup = { inline_keyboard: rows }
 
     const response = await fetch(`${API}${token()}/sendMessage`, {
       method: 'POST',

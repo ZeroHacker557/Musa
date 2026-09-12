@@ -13,6 +13,7 @@ from aiogram.types import (
     InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton,
     MenuButtonWebApp, CallbackQuery
 )
+from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -302,6 +303,104 @@ async def notify_admin_cancel(order_data: dict):
 
 
 # ─── Status o'zgartirish → Usergа xabar ──────────────────────
+
+# ─── Kuryer tugmalari ────────────────────────────────────────
+#
+# Buyurtma «Qabul qilindi» bo'lganda admin panel (api/_lib/actions/
+# orders.ts → dispatchToCouriers) kuryerlarga «Oldim» tugmasi bilan
+# xabar yuboradi. Tugmalarni shu yerda qayta ishlaymiz.
+
+@dp.callback_query(F.data.startswith("crr:"))
+async def cb_courier(callback: CallbackQuery):
+    _, action, order_id = callback.data.split(":", 2)
+
+    courier = db.get_courier_by_telegram(callback.from_user.id)
+    if not courier:
+        await callback.answer("Siz kuryer emassiz yoki hisobingiz faol emas", show_alert=True)
+        return
+
+    order = db.get_order_by_id(order_id)
+    if not order:
+        await callback.answer("Buyurtma topilmadi", show_alert=True)
+        return
+
+    name = courier.get("name") or callback.from_user.first_name
+    uid = courier["uid"]
+    owner = order.get("courierId")
+
+    if action == "take":
+        # Biriktirilmagan buyurtmani hamma kuryer ko'radi — kim birinchi
+        # bo'lsa, o'shanga tegadi. Ikkinchisiga band ekani aytiladi.
+        if owner and owner != uid:
+            await callback.answer(
+                f"Bu buyurtmani {order.get('courierName') or 'boshqa kuryer'} oldi",
+                show_alert=True,
+            )
+            return
+
+        if not owner:
+            db.assign_courier(order_id, uid, name)
+
+        if not db.update_order_status(order_id, "Yetkazilmoqda"):
+            await callback.answer("Holatni o'zgartirib bo'lmadi", show_alert=True)
+            return
+
+        await notify_customer_status(order, "Yetkazilmoqda")
+        await callback.answer("Qabul qilindi — yo'lga chiqing 🛵")
+        await swap_courier_button(callback, order, "Yetkazilmoqda", order_id)
+        return
+
+    if action == "done":
+        if owner != uid:
+            await callback.answer("Bu buyurtma sizga biriktirilmagan", show_alert=True)
+            return
+
+        if not db.update_order_status(order_id, "Yetkazildi"):
+            await callback.answer("Holatni o'zgartirib bo'lmadi", show_alert=True)
+            return
+
+        await notify_customer_status(order, "Yetkazildi")
+        await callback.answer("Yetkazildi ✅ Rahmat!")
+        await swap_courier_button(callback, order, "Yetkazildi", order_id)
+        return
+
+
+async def swap_courier_button(callback: CallbackQuery, order: dict, status: str, order_id: str):
+    """Xabardagi tugmani keyingi bosqichga almashtiradi."""
+    try:
+        if status == "Yetkazilmoqda":
+            markup = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="📦 Yetkazdim", callback_data=f"crr:done:{order_id}")
+            ]])
+        else:
+            markup = None
+
+        suffix = "\n\n🛵 <b>Yo'lda</b>" if status == "Yetkazilmoqda" else "\n\n✅ <b>Yetkazildi</b>"
+        await callback.message.edit_text(
+            callback.message.html_text + suffix,
+            reply_markup=markup,
+        )
+    except Exception as e:
+        logger.warning(f"[COURIER] Tugmani yangilab bo'lmadi: {e}")
+
+
+async def notify_customer_status(order: dict, status: str):
+    """Mijozga holat o'zgargani haqida xabar va bildirishnoma."""
+    user_id = order.get("userId")
+    if not user_id:
+        return
+
+    label = db.order_display_id(order)
+    texts = {
+        "Yetkazilmoqda": f"🚚 <b>{label}</b> buyurtmangiz yo'lga chiqdi. Kuryer tez orada bog'lanadi.",
+        "Yetkazildi": f"🎉 <b>{label}</b> buyurtmangiz yetkazildi. Xaridingiz uchun rahmat!",
+    }
+    try:
+        db.send_notification(user_id, "Buyurtma holati", f"{label} — {status}", "order")
+        await bot.send_message(user_id, texts.get(status, f"{label} — {status}"))
+    except Exception as e:
+        logger.warning(f"[COURIER] Mijozga xabar bormadi: {e}")
+
 
 @dp.callback_query(F.data.startswith("os:"))
 async def cb_order_status(callback: CallbackQuery):
@@ -702,6 +801,35 @@ async def cmd_contact(message: Message):
         f"📍 <b>Manzil:</b> {COMPANY_CITY}\n"
         f"⏰ <b>Ish vaqti:</b> {WORK_HOURS}\n\n"
         "<i>Ulgurji xarid va hamkorlik bo'yicha ham shu raqamga murojaat qiling.</i>"
+    )
+
+
+@dp.message(Command("group"))
+async def cmd_group(message: Message):
+    """
+    Guruh identifikatorini aytadi.
+
+    Admin panelda «Umumiy guruhga yuborish» uchun chat ID kerak. Uni
+    qo'lda topish noqulay (manfiy raqam, oson xato qilinadi), shuning
+    uchun botning o'zi aytadi: guruhga qo'shib, /group deb yozish kifoya.
+    """
+    chat = message.chat
+    if chat.type == "private":
+        await message.answer(
+            "ℹ️ Bu buyruq <b>guruhda</b> ishlaydi.\n\n"
+            "1️⃣ Botni guruhga qo'shing\n"
+            "2️⃣ Uni admin qiling\n"
+            "3️⃣ Guruhda <code>/group</code> deb yozing\n\n"
+            "Bot guruh ID sini beradi — uni admin panel → Sozlamalar →\n"
+            "«Umumiy guruhga» maydoniga qo'yasiz."
+        )
+        return
+
+    await message.answer(
+        f"🆔 <b>Guruh ID si:</b>\n\n<code>{chat.id}</code>\n\n"
+        f"Nomi: {chat.title}\n\n"
+        "Shu raqamni admin panel → Sozlamalar → «Umumiy guruhga» "
+        "maydoniga nusxalang."
     )
 
 

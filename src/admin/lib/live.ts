@@ -181,6 +181,8 @@ export type StaffRow = {
   telegramId?: number | null
   phone?: string | null
   active: boolean
+  /** Panelga kira oladimi. false — faqat Telegram orqali ishlaydigan kuryer. */
+  webAccess?: boolean
 }
 
 /**

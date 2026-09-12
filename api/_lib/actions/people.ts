@@ -11,9 +11,18 @@ function text(value: unknown): string {
 /**
  * Xodim qo'shadi yoki yangilaydi.
  *
- * Rol IKKI joyga yoziladi: Firebase custom claim (Firestore Rules shuni
- * o'qiydi) va `staff/{uid}` hujjati (panel ro'yxati). Ikkalasi ham faqat
- * Admin SDK orqali yoziladi — xodim o'ziga rol qo'yib ololmaydi.
+ * Ikki xil xodim bo'lishi mumkin:
+ *
+ *   • Veb xodim (ega, admin) — email va parol bilan, Firebase Auth'da
+ *     hisobi bor, panelga kiradi. Rol IKKI joyga yoziladi: custom claim
+ *     (Firestore Rules shuni o'qiydi) va `staff/{uid}` hujjati.
+ *
+ *   • Telegram kuryeri — email/parolsiz. Auth'da hisobi YO'Q, faqat
+ *     `staff` hujjati sifatida yashaydi va buyurtmalarni Telegram orqali
+ *     oladi. Kuryerga panel kerak emas, shuning uchun undan email so'rash
+ *     ortiqcha to'siq bo'lardi.
+ *
+ * Kuryerga keyinchalik email qo'shilsa, unga panel ham ochiladi.
  */
 export async function staffSave(actor: Staff, body: Record<string, unknown>) {
   if (actor.role !== 'owner') throw new Error('Faqat ega xodim qo‘sha oladi')
@@ -28,10 +37,7 @@ export async function staffSave(actor: Staff, body: Record<string, unknown>) {
   const active = body.active !== false
 
   if (!ROLES.includes(role)) throw new Error('Rol noto‘g‘ri')
-  if (!email || !email.includes('@')) throw new Error('Email manzili noto‘g‘ri')
   if (!name) throw new Error('Ism kerak')
-  if (!uid && password.length < 8) throw new Error('Parol kamida 8 belgidan iborat bo‘lsin')
-  if (password && password.length < 8) throw new Error('Parol kamida 8 belgidan iborat bo‘lsin')
 
   const telegramId = telegramRaw ? Number(telegramRaw) : null
   if (telegramRaw && !Number.isInteger(telegramId)) {
@@ -41,54 +47,82 @@ export async function staffSave(actor: Staff, body: Record<string, unknown>) {
   const auth = await adminAuth()
   const db = await adminDb()
 
+  const webAccess = Boolean(email)
+
+  if (!webAccess) {
+    if (role !== 'courier') throw new Error('Admin va ega uchun email majburiy')
+    if (!telegramId) throw new Error('Kuryerga Telegram ID kerak — busiz buyurtma bormaydi')
+  } else if (!email.includes('@')) {
+    throw new Error('Email manzili noto‘g‘ri')
+  }
+
+  // Telegram ID ikki xodimda takrorlanmasin — aks holda «Oldim» tugmasi
+  // qaysi kuryerniki ekani aniqlanmay qoladi.
+  if (telegramId) {
+    const clash = await db.collection('staff').where('telegramId', '==', telegramId).get()
+    if (clash.docs.some((doc) => doc.id !== uid)) {
+      throw new Error('Bu Telegram ID boshqa xodimga biriktirilgan')
+    }
+  }
+
+  const existing = uid ? await db.collection('staff').doc(uid).get() : null
+  const hadAuth = existing?.exists ? existing.data()?.webAccess !== false : false
+
   let targetUid = uid
-  if (targetUid) {
-    // O'zini o'zi ega bo'lmagan rolga tushirib, panelni qulflab qo'ymasin
+
+  if (webAccess && targetUid && hadAuth) {
     if (targetUid === actor.uid && role !== 'owner') {
       throw new Error('O‘z rolingizni pasaytira olmaysiz')
     }
-    if (targetUid === actor.uid && !active) {
-      throw new Error('O‘zingizni bloklay olmaysiz')
-    }
+    if (targetUid === actor.uid && !active) throw new Error('O‘zingizni bloklay olmaysiz')
+
     await auth.updateUser(targetUid, {
       email,
       displayName: name,
       disabled: !active,
       ...(password ? { password } : {}),
     })
-  } else {
-    const created = await auth.createUser({ email, password, displayName: name })
-    targetUid = created.uid
-  }
+    await auth.setCustomUserClaims(targetUid, { role })
+  } else if (webAccess) {
+    // Yangi veb hisob — yoki Telegram-only kuryerga endi panel ochilmoqda
+    if (password.length < 8) throw new Error('Parol kamida 8 belgidan iborat bo‘lsin')
 
-  await auth.setCustomUserClaims(targetUid, { role })
+    const created = await auth.createUser({ email, password, displayName: name })
+    // Eski Telegram-only hujjat yangi identifikatorga ko'chadi
+    if (targetUid && existing?.exists) await db.collection('staff').doc(targetUid).delete()
+    targetUid = created.uid
+    await auth.setCustomUserClaims(targetUid, { role })
+  } else if (!targetUid) {
+    // Telegram-only kuryer: Auth hisobisiz, o'z identifikatori bilan
+    targetUid = db.collection('staff').doc().id
+  }
 
   await db.collection('staff').doc(targetUid).set(
     {
       uid: targetUid,
-      email,
+      email: email || null,
       name,
       role,
       phone: phone || null,
       telegramId,
       active,
+      webAccess,
       updatedAt: new Date().toISOString(),
       ...(uid ? {} : { createdAt: new Date().toISOString() }),
     },
     { merge: true },
   )
 
-  // Yangi xodimga Telegram orqali xush kelibsiz xabari
   if (!uid && telegramId) {
     await sendMessage(
       telegramId,
-      `👋 <b>Siz MUSA jamoasiga qo‘shildingiz</b>\n\n` +
+      '👋 <b>Siz MUSA jamoasiga qo‘shildingiz</b>\n\n' +
         `Rol: <b>${role === 'courier' ? 'Kuryer' : role === 'admin' ? 'Admin' : 'Ega'}</b>\n` +
-        `Buyurtmalar shu chatga tushadi.`,
+        'Buyurtmalar shu chatga tushadi.',
     )
   }
 
-  return { uid: targetUid, created: !uid }
+  return { uid: targetUid, created: !uid, webAccess }
 }
 
 export async function staffDelete(actor: Staff, body: Record<string, unknown>) {
@@ -110,7 +144,7 @@ export async function staffDelete(actor: Staff, body: Record<string, unknown>) {
   try {
     await (await adminAuth()).deleteUser(uid)
   } catch {
-    // Auth hisobi allaqachon yo'q bo'lishi mumkin — hujjat o'chdi, yetarli
+    // Telegram-only kuryerda Auth hisobi bo'lmaydi — bu normal holat
   }
 
   return { uid, unassigned: assigned.size }

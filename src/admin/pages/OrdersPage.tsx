@@ -1,7 +1,8 @@
 import {
-  Bike, ChevronDown, Loader2, MapPin, Phone, Search, ShoppingBag, X,
+  Bike, ChevronDown, Loader2, MapPin, Phone, Printer, Search, ShoppingBag, X,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { formatPrice } from '../../data'
 import type { OrderStatus } from '../../types/domain'
 import { apiPost } from '../lib/api'
@@ -9,6 +10,7 @@ import { useOrders, useStaff, type AdminOrder, type StaffRow } from '../lib/live
 import { StatusBadge } from '../components/StatusBadge'
 import { can, type Staff } from '../lib/auth'
 import { useToast } from '../components/Toast'
+import { Receipt } from '../components/Receipt'
 
 const ALL_STATUSES: OrderStatus[] = [
   'Yangi',
@@ -283,24 +285,43 @@ function OrderDrawer({
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
 
-  return (
-    <div className="fixed inset-0 z-[65] flex justify-end" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" onClick={onClose} />
+  // Ochiq turganda orqa sahifa aylanmasin
+  useEffect(() => {
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [])
 
-      <div
-        className="relative flex h-full w-full max-w-md flex-col overflow-y-auto"
-        style={{ background: 'var(--surface)', animation: 'admSlideRight 0.28s cubic-bezier(0.22,1,0.36,1)' }}
-      >
-        <div
-          className="sticky top-0 z-10 flex items-center gap-3 border-b px-4 py-3.5"
-          style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}
-        >
+  /*
+   * document.body ga PORTAL — bu majburiy.
+   * .adm-content da transform'li animatsiya bor (fill: both), shuning
+   * uchun u fixed elementlar uchun containing block bo'lib qoladi.
+   * Portalsiz drawer viewport o'rniga o'sha blokka yopishib, ekranning
+   * bir qismi bo'sh oq bo'lib qolardi.
+   */
+  return createPortal(
+    <div className="adm-drawer" role="dialog" aria-modal="true">
+      <div className="adm-drawer__backdrop" onClick={onClose} />
+
+      <div className="adm-drawer__panel">
+        <div className="adm-drawer__head">
           <div className="min-w-0 flex-1">
             <p className="truncate text-lg font-extrabold">{order.orderNumber}</p>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>
               {order.createdAt ? new Date(order.createdAt).toLocaleString('ru-RU') : '—'}
             </p>
           </div>
+          <button
+            className="grid size-9 shrink-0 place-items-center rounded-xl transition active:scale-90"
+            style={{ background: 'var(--surface-2)' }}
+            onClick={() => window.print()}
+            aria-label="Chekni chop etish"
+            title="Chekni chop etish"
+          >
+            <Printer size={17} />
+          </button>
           <button
             className="grid size-9 shrink-0 place-items-center rounded-xl transition active:scale-90"
             style={{ background: 'var(--surface-2)' }}
@@ -437,6 +458,13 @@ function OrderDrawer({
             </p>
           </section>
 
+          <button
+            className="adm-btn adm-btn--ghost w-full"
+            onClick={() => window.print()}
+          >
+            <Printer size={16} /> Chekni chop etish
+          </button>
+
           {canAssign && (
             <section>
               <p className="adm-label">
@@ -478,8 +506,12 @@ function OrderDrawer({
             </section>
           )}
         </div>
+
+        {/* Chop etish uchun — ekranda ko'rinmaydi */}
+        <Receipt order={order} />
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

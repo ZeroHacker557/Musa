@@ -12,14 +12,10 @@
  *
  * Rollar: owner | admin | courier   (ko'rsatilmasa — owner)
  *
- * Service account JSON loyiha ildizida turishi kerak (bot/config.py dagi
- * FIREBASE_KEY_FILE bilan bir xil fayl). U .gitignore'da.
+ * Loyiha src/config/firebase.ts dagi projectId bo'yicha tanlanadi —
+ * ildizda bir nechta service account fayli bo'lsa ham to'g'risi olinadi.
  */
-import { readFileSync, readdirSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { cert, initializeApp } from 'firebase-admin/app'
-import { getAuth } from 'firebase-admin/auth'
-import { getFirestore } from 'firebase-admin/firestore'
+import { connect } from './_firebase.mjs'
 
 const ROLES = ['owner', 'admin', 'courier']
 
@@ -38,26 +34,7 @@ if (password.length < 8) {
   process.exit(1)
 }
 
-// Ildizdagi service account faylini o'zi topadi
-const keyFile = readdirSync(process.cwd()).find(
-  (f) => f.includes('firebase-adminsdk') && f.endsWith('.json'),
-)
-if (!keyFile) {
-  console.error("Service account JSON topilmadi (loyiha ildizida *firebase-adminsdk*.json bo'lishi kerak).")
-  process.exit(1)
-}
-
-const key = JSON.parse(readFileSync(resolve(process.cwd(), keyFile), 'utf8'))
-initializeApp({
-  credential: cert({
-    projectId: key.project_id,
-    clientEmail: key.client_email,
-    privateKey: key.private_key.replace(/\\n/g, '\n'),
-  }),
-})
-
-const auth = getAuth()
-const db = getFirestore()
+const { auth, db } = connect()
 
 let user
 try {

@@ -89,6 +89,13 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
     by: { uid: staff.uid, name: staff.name, role: staff.role },
   })
 
+  // «Qabul qilindi» — buyurtma shu zahoti kuryerga ketadi.
+  // Bu yerda ataylab: admin alohida «yuborish» tugmasini bosishi shart
+  // emas, tasdiqlash o'zi yuborish signali.
+  if (status === 'Qabul qilindi') {
+    await dispatchToCouriers(orderId, { ...order, status })
+  }
+
   const label = order.orderNumber || `#${orderId.slice(0, 6)}`
   let notified = false
 
@@ -210,5 +217,67 @@ ${orderSummary(orderId, order)}`
     }
   } catch (error) {
     console.error('[orders] xabarnoma yuborilmadi:', error)
+  }
+}
+
+
+/**
+ * Buyurtmani kuryerlarga yetkazadi.
+ *
+ * Biriktirilgan kuryer bo'lsa — faqat unga. Bo'lmasa, sozlamaga qarab
+ * barcha faol kuryerlarga va/yoki umumiy guruhga. Xabarda «Oldim»
+ * tugmasi bo'ladi: kuryer bosganda buyurtma «Yetkazilmoqda» ga o'tadi.
+ *
+ * Xato tashlamaydi — xabar ketmagani holat o'zgarishini bekor qilmaydi.
+ */
+export async function dispatchToCouriers(orderId: string, order: OrderDoc): Promise<void> {
+  try {
+    const db = await adminDb()
+
+    const settingsSnap = await db.collection('settings').doc('courier').get()
+    const settings = (settingsSnap.data() || {}) as {
+      toCouriers?: boolean
+      toGroup?: boolean
+      groupChatId?: string | null
+    }
+
+    const text = `🛵 <b>YETKAZISHGA TAYYOR</b>
+
+${orderSummary(orderId, order)}`
+    const targets: (number | string)[] = []
+
+    if (settings.toCouriers !== false) {
+      if (order.courierId) {
+        const snap = await db.collection('staff').doc(order.courierId).get()
+        const courier = snap.data() as { telegramId?: number; active?: boolean } | undefined
+        if (courier?.telegramId && courier.active !== false) targets.push(courier.telegramId)
+      } else {
+        // Biriktirilmagan — bo'sh kuryerlarning hammasiga, kim birinchi
+        // «Oldim» bossa, buyurtma o'shanga biriktiriladi.
+        const snap = await db.collection('staff').where('role', '==', 'courier').get()
+        for (const doc of snap.docs) {
+          const data = doc.data() as { telegramId?: number; active?: boolean }
+          if (data.active !== false && data.telegramId) targets.push(data.telegramId)
+        }
+      }
+    }
+
+    if (settings.toGroup && settings.groupChatId) targets.push(settings.groupChatId)
+
+    for (const target of targets) {
+      await sendMessage(target, text, undefined, [
+        { text: '✅ Oldim', callback_data: `crr:take:${orderId}` },
+      ])
+      await new Promise((resolve) => setTimeout(resolve, 40))
+    }
+
+    if (targets.length) {
+      await db.collection('orders').doc(orderId).set(
+        { dispatchedAt: new Date().toISOString() },
+        { merge: true },
+      )
+    }
+  } catch (error) {
+    console.error('[orders] kuryerga yuborilmadi:', error)
   }
 }

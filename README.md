@@ -63,6 +63,17 @@ skript rolni custom claim va `staff/{uid}` hujjatiga ham yozadi):
 node scripts/create-staff.mjs sizning@email.com "Kuchli-Parol-123" owner "Ismingiz"
 ```
 
+Kira olmasangiz — sababini shu topadi (hech narsani o'zgartirmaydi):
+
+```bash
+node scripts/check-admin.mjs sizning@email.com
+```
+
+> ⚠️ Loyiha ildizida bir nechta `*firebase-adminsdk*.json` bo'lsa, skriptlar
+> `src/config/firebase.ts` dagi `projectId` ga mos keladiganini tanlaydi.
+> Eski V7 kalitlarini (`ecommercytest`, `v7-savdo`) o'chirib tashlagan
+> ma'qul — ular chalkashlik va xavfsizlik muammosi.
+
 Bo'limlar: boshqaruv paneli (jonli statistika), buyurtmalar (holat va kuryer
 biriktirish), mahsulotlar, kategoriyalar, promokodlar, mijozlar bazasi,
 ommaviy xabar, xodimlar va sozlamalar.
