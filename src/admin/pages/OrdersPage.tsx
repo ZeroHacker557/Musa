@@ -10,6 +10,8 @@ import { useOrders, useStaff, type AdminOrder, type StaffRow } from '../lib/live
 import { StatusBadge } from '../components/StatusBadge'
 import { can, type Staff } from '../lib/auth'
 import { useToast } from '../components/Toast'
+import { DateFilter } from '../components/DateFilter'
+import { dayKey, inRange, type Range } from '../lib/date-range'
 import { Receipt } from '../components/Receipt'
 
 const ALL_STATUSES: OrderStatus[] = [
@@ -31,6 +33,8 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
   const { orders, loading, error } = useOrders(courierId)
 
   const [filter, setFilter] = useState<Filter>('all')
+  // Kun bo'yicha ko'rish — sukut bo'yicha bugungi buyurtmalar
+  const [range, setRange] = useState<Range>('today')
   const [query, setQuery] = useState('')
   /**
    * Ochiq buyurtma HOLATDA emas, identifikator bo'yicha hisoblanadi.
@@ -55,13 +59,32 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
     [team],
   )
 
-  const counts = useMemo(() => {
-    const map = new Map<Filter, number>([['all', orders.length]])
-    for (const status of ALL_STATUSES) {
-      map.set(status, orders.filter((o) => o.status === status).length)
+  // Taqvim uchun: qaysi kunda nechta buyurtma bo'lgan
+  const dayCounts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const order of orders) {
+      const time = Date.parse(order.createdAt)
+      if (!Number.isFinite(time)) continue
+      const key = dayKey(new Date(time))
+      map.set(key, (map.get(key) || 0) + 1)
     }
     return map
   }, [orders])
+
+  // Holat filtri sanadan KEYIN hisoblanadi — chiplardagi sonlar
+  // tanlangan kunga tegishli bo'lsin
+  const inPeriod = useMemo(
+    () => orders.filter((order) => inRange(order.createdAt, range)),
+    [orders, range],
+  )
+
+  const counts = useMemo(() => {
+    const map = new Map<Filter, number>([['all', inPeriod.length]])
+    for (const status of ALL_STATUSES) {
+      map.set(status, inPeriod.filter((o) => o.status === status).length)
+    }
+    return map
+  }, [inPeriod])
 
   const open = useMemo(
     () => (openId ? (orders.find((order) => order.id === openId) ?? null) : null),
@@ -70,7 +93,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    return orders.filter((order) => {
+    return inPeriod.filter((order) => {
       if (filter !== 'all' && order.status !== filter) return false
       if (!needle) return true
       return (
@@ -79,7 +102,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
         (order.customer?.phone || '').toLowerCase().includes(needle)
       )
     })
-  }, [orders, filter, query])
+  }, [inPeriod, filter, query])
 
   const changeStatus = async (order: AdminOrder, status: OrderStatus) => {
     if (order.status === status || busyId) return
@@ -149,6 +172,11 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+      </div>
+
+      {/* Kun bo'yicha */}
+      <div className="mt-3">
+        <DateFilter value={range} onChange={setRange} counts={dayCounts} />
       </div>
 
       {/* Holat filtrlari */}

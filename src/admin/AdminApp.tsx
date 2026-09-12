@@ -1,5 +1,5 @@
 import { Loader2, ShieldAlert } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiGet } from './lib/api'
 import { logout, watchUser, type Staff } from './lib/auth'
 import { useRoute } from './lib/router'
@@ -17,6 +17,7 @@ import { StaffPage } from './pages/StaffPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { can } from './lib/auth'
 import { applyTheme, getStoredTheme } from '../utils/theme'
+import { playNewOrderChime, unlockAudio } from './lib/chime'
 
 type State =
   | { phase: 'loading' }
@@ -97,6 +98,28 @@ function AdminPanel({
   const courierId = staff.role === 'courier' ? staff.uid : undefined
   const { orders } = useOrders(courierId)
   const newOrders = useMemo(() => orders.filter((o) => o.status === 'Yangi').length, [orders])
+
+  /*
+   * Yangi buyurtma kelganda ovoz.
+   *
+   * Faqat SON OSHGANDA chalinadi — birinchi yuklanishda ham, holat
+   * o'zgarganda ham emas. `null` boshlang'ich qiymati shu uchun:
+   * sahifa ochilganda 5 ta kutayotgan buyurtma bo'lsa, 5 marta
+   * jaranglab yubormasin.
+   */
+  const lastCount = useRef<number | null>(null)
+  useEffect(() => {
+    if (lastCount.current !== null && newOrders > lastCount.current) {
+      playNewOrderChime()
+    }
+    lastCount.current = newOrders
+  }, [newOrders])
+
+  // Brauzer birinchi bosishgacha ovozga ruxsat bermaydi
+  useEffect(() => {
+    window.addEventListener('pointerdown', unlockAudio, { once: true })
+    return () => window.removeEventListener('pointerdown', unlockAudio)
+  }, [])
 
   return (
     <Shell staff={staff} route={route} onNavigate={navigate} newOrders={newOrders}>

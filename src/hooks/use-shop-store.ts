@@ -62,6 +62,14 @@ export function useShopStore() {
   const [isCartOpen, setCartOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+  /**
+   * Savatga qo'shilgandan keyingi so'rov: «Rasmiylashtirasizmi?».
+   *
+   * Oddiy bildirishnomadan ajratilgan — chunki bu javob kutadi va
+   * o'zi yo'qolib ketmasligi kerak (uzoqroq turadi).
+   */
+  const [cartPrompt, setCartPrompt] = useState<string | null>(null)
+  const toastTimer = useRef<number | null>(null)
   const [myOrders, setMyOrders] = useState<Order[]>([])
   const [checkoutDone, setCheckoutDone] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
@@ -73,6 +81,7 @@ export function useShopStore() {
   const [isAuthenticated, setAuthenticated] = useState(false)
   const [orderForm, setOrderForm] = useState<OrderForm>({
     name: '', phone: '', address: '', location: null, comment: '', paymentMethod: 'Naqd',
+    recipientName: '', recipientPhone: '',
   })
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -240,7 +249,14 @@ export function useShopStore() {
     hapticFeedback('light')
   }, [])
 
-  /** Orqaga: avval ochiq oyna yopiladi, keyin sahifa tarixi. */
+  /**
+   * Orqaga: avval ochiq oyna yopiladi, keyin sahifa tarixi.
+   *
+   * Ildiz sahifalarda (katalog, sevimlilar, buyurtmalar) tarix ataylab
+   * tozalanadi — aks holda pastdagi menyudan yurganda tarix cheksiz
+   * o'sib ketardi. Lekin tarix bo'sh bo'lgani orqaga tugmasi ishlamasligi
+   * degani emas: bunday holatda bosh sahifaga qaytamiz.
+   */
   const goBack = useCallback(() => {
     if (isSearchOpen) {
       setSearchOpen(false)
@@ -251,7 +267,11 @@ export function useShopStore() {
       return
     }
     setHistory((h) => {
-      if (h.length === 0) return h
+      if (h.length === 0) {
+        setPage((current) => (current === 'home' ? current : 'home'))
+        window.scrollTo({ top: 0 })
+        return h
+      }
       setPage(h[h.length - 1])
       window.scrollTo({ top: 0 })
       return h.slice(0, -1)
@@ -279,8 +299,16 @@ export function useShopStore() {
   }, [])
 
   const notify = useCallback((message: string) => {
+    // Eski taymer bekor qilinadi — aks holda oldingi xabarning
+    // taymeri yangisini vaqtidan oldin o'chirib yuborardi.
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
     setToast(message)
-    window.setTimeout(() => setToast(null), 2600)
+    toastTimer.current = window.setTimeout(() => setToast(null), 2600)
+  }, [])
+
+  const clearToast = useCallback(() => {
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    setToast(null)
   }, [])
 
   const addToCart = useCallback((product: Product, size?: string, color?: string) => {
@@ -295,10 +323,12 @@ export function useShopStore() {
         color: color || product.color
       }
     }))
-    notify(t('product.addedToCart', { name: product.name }))
+    // Bildirishnoma o'rniga so'rov: mijoz savat qayerdaligini
+    // qidirib yurmasin, to'g'ridan-to'g'ri rasmiylashtirishga o'ta olsin.
+    setCartPrompt(product.name)
     hapticFeedback('medium')
     track('cart_add', product.id)
-  }, [notify, t])
+  }, [])
 
   const updateCartQuantity = useCallback((cartKey: string, nextQuantity: number) => {
     setCartItems((current) => {
@@ -364,6 +394,9 @@ export function useShopStore() {
           location: orderForm.location,
           comment: orderForm.comment,
           paymentMethod: orderForm.paymentMethod,
+          // Buyurtmani boshqa odam oladigan bo'lsa
+          recipientName: orderForm.recipientName?.trim() || '',
+          recipientPhone: orderForm.recipientPhone?.trim() || '',
         },
         promoCode: orderForm.promoCode,
       })
@@ -389,11 +422,14 @@ export function useShopStore() {
   }, [isSubmitting, orderForm, cartProducts, notify, t])
 
   return {
-    page, history, canGoBack: history.length > 0 || isCartOpen || isSearchOpen,
+    page, history,
+    // Bosh sahifadan boshqa har qanday sahifada orqaga qaytish mumkin —
+    // shuning uchun Telegram'ning o'z orqaga tugmasi ham ko'rinib turadi.
+    canGoBack: page !== 'home' || history.length > 0 || isCartOpen || isSearchOpen,
     products, categories, loading,
     cartItems, cartCount, cartTotal, cartProducts,
     likedIds, selectedProduct,
-    isSearchOpen, isCartOpen, query, searchResults, toast,
+    isSearchOpen, isCartOpen, query, searchResults, toast, cartPrompt,
     myOrders, checkoutDone, isSubmitting, authReady, isAuthenticated, orderForm, userProfile,
     notifications, unreadNotificationsCount,
     catalogCategory, openCategory,
@@ -403,6 +439,7 @@ export function useShopStore() {
     addToCart, updateCartQuantity,
     openCart, closeCart, goToCheckout,
     updateOrderForm, submitOrder,
-    notify, clearToast: () => setToast(null),
+    notify, clearToast,
+    dismissCartPrompt: () => setCartPrompt(null),
   }
 }

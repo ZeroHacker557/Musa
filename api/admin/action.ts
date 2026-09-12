@@ -3,8 +3,8 @@ import { requireStaff, type Staff } from '../_lib/admin-auth.js'
 import { fail, requirePost } from '../_lib/http.js'
 import { orderAssign, orderStatus } from '../_lib/actions/orders.js'
 import {
-  categoryDelete, categorySave, productDelete, productSave, promoDelete, promoSave,
-  requireCatalogAccess,
+  categoryDelete, categorySave, orderSave, productDelete, productSave,
+  promoDelete, promoSave, requireCatalogAccess,
 } from '../_lib/actions/catalog.js'
 import { broadcast, staffDelete, staffSave } from '../_lib/actions/people.js'
 import { settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
@@ -33,6 +33,7 @@ const HANDLERS: Record<string, Handler> = {
   'category.delete': (staff, body) => (requireCatalogAccess(staff), categoryDelete(body)),
   'promo.save': (staff, body) => (requireCatalogAccess(staff), promoSave(body)),
   'promo.delete': (staff, body) => (requireCatalogAccess(staff), promoDelete(body)),
+  'order.sort': (staff, body) => (requireCatalogAccess(staff), orderSave(body)),
 
   // Odamlar
   'staff.save': staffSave,

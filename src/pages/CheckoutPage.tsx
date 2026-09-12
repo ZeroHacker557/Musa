@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   ArrowLeft, Banknote, Check, Copy, CreditCard, Loader2, MapPin,
-  MessageSquare, Phone, Send, ShoppingBag, Tag, User,
+  MessageSquare, Phone, Send, ShoppingBag, Tag, User, UserRound,
 } from 'lucide-react'
 import { formatPrice } from '../data'
 import { getImageUrl, hapticFeedback } from '../utils/telegram'
@@ -34,6 +34,10 @@ export function CheckoutPage({
 }: Props) {
   const t = useT()
   const [copied, setCopied] = useState(false)
+  /* Qabul qiluvchi boshqa odammi — qo'shimcha maydonlar shunga qarab ochiladi */
+  const [otherRecipient, setOtherRecipient] = useState(
+    Boolean(orderForm.recipientName || orderForm.recipientPhone),
+  )
   const [promoInput, setPromoInput] = useState('')
   const [promoLoading, setPromoLoading] = useState(false)
   const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null)
@@ -296,11 +300,9 @@ export function CheckoutPage({
                           onUpdateForm('location', addr.location)
                           hapticFeedback('light')
                         }}
-                        className="flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition"
-                        style={{
-                          borderColor: isSelected ? 'var(--brand)' : 'var(--line)',
-                          background: isSelected ? 'var(--brand-soft)' : 'var(--surface)',
-                        }}
+                        /* 2px chegara va yon chiziq — 1px juda nozik edi,
+                           mijoz qaysi manzil tanlanganini ilg'amasdi. */
+                        className={'address-option ' + (isSelected ? 'selected' : '')}
                       >
                         <div
                           className="grid size-10 shrink-0 place-items-center rounded-full"
@@ -317,7 +319,17 @@ export function CheckoutPage({
                           </p>
                           <p className="truncate text-xs" style={{ color: 'var(--muted)' }}>{addr.address}</p>
                         </div>
-                        {isSelected && <Check size={20} style={{ color: 'var(--brand)' }} />}
+                        <span
+                          className="grid size-6 shrink-0 place-items-center self-center rounded-full border-2 transition"
+                          style={{
+                            borderColor: isSelected ? 'var(--brand)' : 'var(--line)',
+                            background: isSelected ? 'var(--brand)' : 'transparent',
+                            color: 'var(--brand-ink)',
+                          }}
+                          aria-hidden="true"
+                        >
+                          {isSelected && <Check size={14} strokeWidth={3} />}
+                        </span>
                       </button>
                     )
                   })}
@@ -328,6 +340,69 @@ export function CheckoutPage({
                   >
                     {t('checkout.addAnotherAddress')}
                   </button>
+                </div>
+              )}
+            </div>
+
+            {/* Buyurtmani boshqa odam oladimi */}
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  // O'chirilganda maydonlar tozalanadi — aks holda
+                  // ko'rinmay turgan eski qiymat buyurtmaga tushardi
+                  if (otherRecipient) {
+                    onUpdateForm('recipientName', '')
+                    onUpdateForm('recipientPhone', '')
+                  }
+                  setOtherRecipient((v) => !v)
+                }}
+                className="flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition"
+                style={{
+                  borderColor: otherRecipient ? 'var(--brand)' : 'var(--line)',
+                  background: otherRecipient ? 'var(--brand-soft)' : 'var(--surface)',
+                }}
+              >
+                <span
+                  className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-md border-2 transition"
+                  style={{
+                    borderColor: otherRecipient ? 'var(--brand)' : 'var(--line)',
+                    background: otherRecipient ? 'var(--brand)' : 'transparent',
+                    color: 'var(--brand-ink)',
+                  }}
+                >
+                  {otherRecipient && <Check size={13} strokeWidth={3} />}
+                </span>
+                <span className="min-w-0">
+                  <b className="block text-sm" style={{ color: 'var(--ink)' }}>
+                    {t('checkout.otherRecipient')}
+                  </b>
+                  <span className="block text-xs" style={{ color: 'var(--muted)' }}>
+                    {t('checkout.otherRecipientHint')}
+                  </span>
+                </span>
+              </button>
+
+              {otherRecipient && (
+                <div className="mt-3 space-y-3" style={{ animation: 'fadeInUp 0.25s ease' }}>
+                  <div className="field">
+                    <UserRound size={19} className="shrink-0" style={{ color: 'var(--faint)' }} />
+                    <input
+                      value={orderForm.recipientName || ''}
+                      onChange={(e) => onUpdateForm('recipientName', e.target.value)}
+                      placeholder={t('checkout.recipientName')}
+                    />
+                  </div>
+                  <div className="field">
+                    <Phone size={19} className="shrink-0" style={{ color: 'var(--faint)' }} />
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      value={orderForm.recipientPhone || ''}
+                      onChange={(e) => onUpdateForm('recipientPhone', e.target.value)}
+                      placeholder={t('checkout.recipientPhone')}
+                    />
+                  </div>
                 </div>
               )}
             </div>

@@ -76,16 +76,20 @@ export function useProducts() {
       onSnapshot(
         collection(db, 'products'),
         (snapshot) => {
-          setProducts(
-            snapshot.docs.map((doc) => {
+          const rows = snapshot.docs.map((doc) => {
               const data = doc.data()
               return {
                 ...data,
                 id: typeof data.id === 'number' ? data.id : Number(data.id) || 0,
                 docId: doc.id,
               } as ProductRow
-            }),
+          })
+          // Admin belgilagan tartib (src/admin/lib/sort.ts)
+          rows.sort(
+            (a, b) =>
+              (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER),
           )
+          setProducts(rows)
           setLoading(false)
         },
         () => setLoading(false),
@@ -139,7 +143,12 @@ export function useCategories() {
           const rows = snapshot.docs.map(
             (d) => ({ ...d.data(), id: d.id }) as unknown as Category & { id: string },
           )
-          rows.sort((a, b) => String(a.name).localeCompare(String(b.name)))
+          // Admin belgilagan tartib; belgilanmaganlari nom bo'yicha
+          rows.sort(
+            (a, b) =>
+              (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
+              String(a.name).localeCompare(String(b.name)),
+          )
           setCategories(rows as unknown as Category[])
           setLoading(false)
         },

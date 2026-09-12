@@ -170,3 +170,36 @@ export async function promoDelete(body: Record<string, unknown>): Promise<Result
 export function requireCatalogAccess(staff: Staff) {
   if (staff.role === 'courier') throw new Error('Kuryer katalogni o‘zgartira olmaydi')
 }
+
+
+/**
+ * Mahsulot yoki kategoriya tartibini saqlaydi.
+ *
+ * Ro'yxatdagi joylashuv `order` maydoniga yoziladi (0, 1, 2...).
+ * Mijoz ilovasi shu maydon bo'yicha saralaydi, ya'ni katalogdagi
+ * tartibni do'kon o'zi belgilaydi.
+ *
+ * Bitta batch bilan yoziladi: yarim yozilib qolgan tartib ro'yxatni
+ * chalkashtirib yuborardi.
+ */
+export async function orderSave(body: Record<string, unknown>): Promise<Result> {
+  const entity = text(body.entity)
+  if (entity !== 'product' && entity !== 'category') {
+    throw new Error('entity noto‘g‘ri')
+  }
+
+  const ids = Array.isArray(body.ids) ? body.ids.map((v) => String(v)) : []
+  if (!ids.length) throw new Error('Tartib bo‘sh')
+  if (ids.length > 500) throw new Error('Juda ko‘p element')
+
+  const db = await adminDb()
+  const collection = entity === 'product' ? 'products' : 'categories'
+  const batch = db.batch()
+
+  ids.forEach((id, index) => {
+    batch.set(db.collection(collection).doc(id), { order: index }, { merge: true })
+  })
+
+  await batch.commit()
+  return { count: ids.length }
+}

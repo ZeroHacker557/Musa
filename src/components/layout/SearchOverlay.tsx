@@ -22,10 +22,7 @@ export function SearchOverlay({ query, results, onQueryChange, onClose, onOpenPr
           <button onClick={onClose} className="icon-button shrink-0" aria-label={t('common.back')}>
             <ArrowLeft />
           </button>
-          <div
-            className="flex flex-1 items-center gap-2 rounded-2xl px-4"
-            style={{ background: 'var(--surface-2)' }}
-          >
+          <div className="search-field">
             <Search style={{ color: 'var(--faint)' }} />
             <input
               type="search"

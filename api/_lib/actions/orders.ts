@@ -38,6 +38,8 @@ type OrderDoc = {
     address?: string
     comment?: string
     location?: { lat: number; lng: number } | null
+    recipientName?: string
+    recipientPhone?: string
   }
 }
 
@@ -68,6 +70,12 @@ export function orderSummary(id: string, order: OrderDoc): string {
     `👤 ${escapeHtml(order.customer?.name)}\n` +
     `📞 ${escapeHtml(order.customer?.phone)}\n` +
     `📍 ${escapeHtml(order.customer?.address)}\n` +
+    // Buyurtmani boshqa odam oladigan bo'lsa — kuryer kimga topshirishini
+    // va kim bilan bog'lanishini bilishi kerak
+    (order.customer?.recipientName || order.customer?.recipientPhone
+      ? `🤝 <b>Qabul qiladi:</b> ${escapeHtml(order.customer.recipientName)} ` +
+        `${escapeHtml(order.customer.recipientPhone)}\n`
+      : '') +
     (order.customer?.comment ? `💬 ${escapeHtml(order.customer.comment)}\n` : '') +
     `\n${lines}\n\n` +
     `💰 <b>${Number(order.total || 0).toLocaleString('ru-RU')} so‘m</b> — ${escapeHtml(order.paymentMethod || 'Naqd')}`
@@ -344,8 +352,16 @@ ${orderSummary(orderId, order)}`
       await new Promise((resolve) => setTimeout(resolve, 40))
     }
 
+    /*
+     * Matn ham saqlanadi.
+     *
+     * Kuryer «Oldim» bosganda bot BARCHA nusxalarning matniga «kim
+     * oldi» qatorini qo'shadi. Bosilgan xabarning matnini Telegram
+     * o'zi beradi, qolganlariniki esa bu yerdan olinadi — aks holda
+     * guruhdagi xabar eski holida qolib ketardi.
+     */
     await db.collection('orders').doc(orderId).set(
-      { dispatchedAt: new Date().toISOString(), dispatchMessages },
+      { dispatchedAt: new Date().toISOString(), dispatchMessages, dispatchText: text },
       { merge: true },
     )
   } catch (error) {

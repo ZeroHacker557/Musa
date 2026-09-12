@@ -2,9 +2,11 @@ import { Suspense, lazy, useEffect } from 'react'
 import { BottomNav } from './components/layout/BottomNav'
 import { SearchOverlay } from './components/layout/SearchOverlay'
 import { CartDrawer } from './components/cart/CartDrawer'
+import { CartPrompt } from './components/cart/CartPrompt'
 import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
 import { useShopStore } from './hooks/use-shop-store'
+import { useSwipeNav } from './hooks/use-swipe-nav'
 import { CatalogPage } from './pages/CatalogPage'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { FavoritesPage } from './pages/FavoritesPage'
@@ -57,6 +59,11 @@ function App() {
 
   // Telegram BackButton — Android'ning tizim tugmasi ham shu bilan ishlaydi
   useEffect(() => setupBackButton(shop.goBack), [shop.goBack])
+
+  // Chap-o'ngga surish bilan asosiy sahifalar orasida yurish.
+  // Oyna ochiq bo'lsa o'chiriladi — savat yoki qidiruv ustida surish
+  // sahifani almashtirmasligi kerak.
+  useSwipeNav(shop.page, shop.navigate, !shop.isCartOpen && !shop.isSearchOpen)
   useEffect(() => toggleBackButton(shop.canGoBack), [shop.canGoBack])
 
   // Profilda saqlangan til — boshqa qurilmada ham o'sha tilda ochiladi
@@ -72,6 +79,9 @@ function App() {
   return (
     <main className="app-shell">
       <div className="app-container">
+        {/* Tepadagi yumshoq yashil tus (faqat yorug' rejimda ko'rinadi) */}
+        <div className="app-tint" aria-hidden="true" />
+
         {shop.isSearchOpen && (
           <SearchOverlay
             query={shop.query}
@@ -94,6 +104,17 @@ function App() {
         )}
 
         {shop.toast && <Toast message={shop.toast} onClose={shop.clearToast} />}
+
+        {/* Savatga qo'shilgach — «Rasmiylashtirasizmi?» so'rovi.
+            Savat ochiq bo'lsa ko'rsatilmaydi: u yerda tugma allaqachon bor. */}
+        {shop.cartPrompt && !shop.isCartOpen && (
+          <CartPrompt
+            key={shop.cartPrompt}
+            productName={shop.cartPrompt}
+            onCheckout={shop.goToCheckout}
+            onDismiss={shop.dismissCartPrompt}
+          />
+        )}
         {shop.checkoutDone && <CheckoutSuccess onViewOrders={() => shop.navigate('orders')} />}
 
         <div className="page-wrapper">
@@ -127,6 +148,7 @@ function App() {
                 cartCount={shop.cartCount}
                 onSearch={() => shop.setSearchOpen(true)}
                 onOpenCart={shop.openCart}
+                onBack={shop.goBack}
               />
             </div>
           )}
@@ -139,6 +161,7 @@ function App() {
                 cartCount={shop.cartCount}
                 onOpenCart={shop.openCart}
                 onGoToCatalog={goToCatalog}
+                onBack={shop.goBack}
               />
             </div>
           )}
@@ -154,6 +177,7 @@ function App() {
                 onOpenCart={shop.openCart}
                 onGoToCatalog={goToCatalog}
                 onNotify={shop.notify}
+                onBack={shop.goBack}
               />
             </div>
           )}

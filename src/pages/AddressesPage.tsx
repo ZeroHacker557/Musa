@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, LocateFixed, Loader2, MapPin, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, Loader2, LocateFixed, MapPin, Maximize2, Minimize2, Plus, Trash2 } from 'lucide-react'
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -48,7 +48,18 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
   const t = useT()
   const addresses = profile?.addresses || []
 
-  const [isAdding, setIsAdding] = useState(false)
+  /**
+   * Manzil qo'shish bosqichi.
+   *
+   *   null     — ro'yxat
+   *   'choose' — «men turgan joy» yoki «boshqa joy» tanlovi
+   *   'form'   — maydonlar va xarita
+   *
+   * Tanlov alohida bosqich qilingan: ko'pchilik hozir turgan joyiga
+   * buyurtma beradi va ularga xaritani titkilash shart emas.
+   */
+  const [step, setStep] = useState<null | 'choose' | 'form'>(null)
+  const [mapFull, setMapFull] = useState(false)
   const [loading, setLoading] = useState(false)
   const [newName, setNewName] = useState('')
   const [newFullAddress, setNewFullAddress] = useState('')
@@ -111,7 +122,7 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
         location,
       }
       await updateUserProfile(Number(uid), { addresses: [...addresses, newAddress] })
-      setIsAdding(false)
+      setStep(null)
       setNewName('')
       setNewFullAddress('')
       setLocation(null)
@@ -145,18 +156,79 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
     <>
       <header className="flex items-center gap-3 px-5 pt-8 sm:px-10">
         <button
-          onClick={() => (isAdding ? setIsAdding(false) : onBack())}
+          onClick={() => {
+            // Formadan tanlovga, tanlovdan ro'yxatga, ro'yxatdan chiqish
+            if (step === 'form') setStep('choose')
+            else if (step === 'choose') setStep(null)
+            else onBack()
+          }}
           className="icon-button"
           aria-label={t('common.back')}
         >
           <ChevronLeft size={22} />
         </button>
         <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>
-          {isAdding ? t('address.new') : t('address.title')}
+          {step ? t('address.new') : t('address.title')}
         </h1>
       </header>
 
-      {isAdding ? (
+      {step === 'choose' ? (
+        /*
+         * Manzil turini tanlash.
+         *
+         * Ko'pchilik mijoz hozir turgan joyiga buyurtma beradi va ular
+         * uchun xaritani titkilash ortiqcha ish. Shuning uchun avval
+         * shu savol beriladi: «shu yerdami yoki boshqa joyga?».
+         */
+        <div className="flex flex-col gap-3 px-5 pb-32 pt-6 sm:px-10 page-animate">
+          <p className="mb-1 text-sm" style={{ color: 'var(--muted)' }}>
+            {t('address.chooseMode')}
+          </p>
+
+          <button
+            type="button"
+            className="mode-card"
+            onClick={async () => {
+              setStep('form')
+              // Joylashuvni darhol so'raymiz — mijozga faqat
+              // ism va manzil matnini yozish qoladi
+              await handleCurrentLocation()
+            }}
+          >
+            <span
+              className="grid size-12 shrink-0 place-items-center rounded-2xl"
+              style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+            >
+              <LocateFixed size={22} />
+            </span>
+            <span className="min-w-0">
+              <b className="block text-base" style={{ color: 'var(--ink)' }}>
+                {t('address.here')}
+              </b>
+              <span className="block text-xs" style={{ color: 'var(--muted)' }}>
+                {t('address.hereHint')}
+              </span>
+            </span>
+          </button>
+
+          <button type="button" className="mode-card" onClick={() => setStep('form')}>
+            <span
+              className="grid size-12 shrink-0 place-items-center rounded-2xl"
+              style={{ background: 'var(--royal-soft)', color: 'var(--royal)' }}
+            >
+              <MapPin size={22} />
+            </span>
+            <span className="min-w-0">
+              <b className="block text-base" style={{ color: 'var(--ink)' }}>
+                {t('address.other')}
+              </b>
+              <span className="block text-xs" style={{ color: 'var(--muted)' }}>
+                {t('address.otherHint')}
+              </span>
+            </span>
+          </button>
+        </div>
+      ) : step === 'form' ? (
         <form onSubmit={handleSaveAddress} className="px-5 pb-32 pt-6 sm:px-10 page-animate">
           <div className="space-y-5">
             <div>
@@ -192,8 +264,8 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
                 {t('address.pickOnMap')} <span style={{ color: 'var(--danger)' }}>*</span>
               </label>
               <div
-                className="relative mt-2 h-[280px] w-full overflow-hidden rounded-2xl border"
-                style={{ borderColor: 'var(--line)' }}
+                className={'map-box ' + (mapFull ? 'map-box--full' : '')}
+                style={{ borderColor: location ? 'var(--brand)' : 'var(--line)' }}
               >
                 <MapContainer center={[mapCenter.lat, mapCenter.lng]} zoom={12} style={{ height: '100%', width: '100%', zIndex: 1 }}>
                   <MapUpdater center={mapCenter} />
@@ -217,8 +289,41 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
                     <LocateFixed size={22} />
                   )}
                 </button>
+
+                {/* Kichik oynada aniq nuqta tanlash qiyin — to'liq ekran kerak */}
+                <button
+                  type="button"
+                  onClick={() => setMapFull((v) => !v)}
+                  className="absolute right-4 top-4 z-[400] grid size-10 place-items-center rounded-xl transition active:scale-95"
+                  style={{ background: 'var(--surface)', color: 'var(--ink)', boxShadow: 'var(--shadow-md)' }}
+                  aria-label={mapFull ? t('common.close') : t('address.expandMap')}
+                >
+                  {mapFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                </button>
               </div>
-              <p className="mt-2 text-center text-xs" style={{ color: 'var(--faint)' }}>{t('address.mapHint')}</p>
+              {/*
+                Xaritadagi kichik ikonka ko'pchilikka ko'rinmay qolardi —
+                shuning uchun pastda to'liq yozuvli tugma turadi.
+              */}
+              <button
+                type="button"
+                onClick={handleCurrentLocation}
+                disabled={locating}
+                className="btn-ghost mt-3 w-full justify-center py-3 text-sm"
+              >
+                {locating ? <Loader2 size={17} className="animate-spin" /> : <LocateFixed size={17} />}
+                {t('address.useCurrent')}
+              </button>
+
+              <p
+                className="mt-2 text-center text-xs font-bold"
+                style={{ color: location ? 'var(--brand)' : 'var(--faint)' }}
+              >
+                {location ? t('address.picked') : t('address.notPicked')}
+              </p>
+              <p className="mt-1 text-center text-xs" style={{ color: 'var(--faint)' }}>
+                {t('address.mapHint')}
+              </p>
             </div>
           </div>
 
@@ -271,7 +376,7 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
           )}
 
           <button
-            onClick={() => setIsAdding(true)}
+            onClick={() => setStep('choose')}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed py-4 font-bold transition"
             style={{ borderColor: 'var(--brand-line)', background: 'var(--brand-soft)', color: 'var(--brand)' }}
           >

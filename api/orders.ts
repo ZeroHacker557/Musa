@@ -21,6 +21,9 @@ type IncomingOrder = {
     location: { lat: number; lng: number } | null
     comment: string
     paymentMethod: 'Naqd' | 'Karta'
+    /** Buyurtmani boshqa odam oladigan bo'lsa. */
+    recipientName?: string
+    recipientPhone?: string
   }
   promoCode?: string
   /** Takroriy buyurtmani to'sish uchun mijoz yaratadigan noyob kalit. */
@@ -67,6 +70,8 @@ function readOrder(body: unknown): IncomingOrder {
           : null,
       comment: String(customer.comment || '').slice(0, 500),
       paymentMethod,
+      recipientName: String(customer.recipientName || '').trim().slice(0, 120),
+      recipientPhone: String(customer.recipientPhone || '').trim().slice(0, 40),
     },
     promoCode: b?.promoCode ? String(b.promoCode).trim().toUpperCase().slice(0, 40) : undefined,
     clientOrderId: b?.clientOrderId ? String(b.clientOrderId).slice(0, 64) : undefined,

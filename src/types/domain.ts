@@ -19,6 +19,8 @@ export type Product = {
   sizes?: string[]
   /** Ombordagi qoldiq. undefined — hisob yuritilmaydi (eski mahsulotlar). */
   stock?: number
+  /** Ro'yxatdagi tartib — admin panelda belgilanadi. Kichik raqam oldinda. */
+  order?: number
 }
 
 export type Category = {
@@ -26,6 +28,8 @@ export type Category = {
   name: string
   icon: string
   image?: string
+  /** Ro'yxatdagi tartib — admin panelda belgilanadi. */
+  order?: number
 }
 
 export type OrderStatus = 'Yangi' | 'Qabul qilindi' | 'Yetkazilmoqda' | 'Yetkazildi' | 'Bekor qilingan' | 'Rad etildi'
@@ -81,6 +85,14 @@ export type OrderForm = {
   comment: string
   paymentMethod: 'Naqd' | 'Karta'
   promoCode?: string
+  /**
+   * Buyurtmani boshqa odam oladigan bo'lsa — uning ismi va raqami.
+   *
+   * Ko'pincha buyurtmani uydagilar yoki qo'shni qabul qiladi. Kuryer
+   * kimga topshirishini va kim bilan bog'lanishini bilishi kerak.
+   */
+  recipientName?: string
+  recipientPhone?: string
 }
 
 export type ProductActions = {

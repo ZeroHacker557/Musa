@@ -35,13 +35,15 @@ type Props = {
   onOpenCart: () => void
   onGoToCatalog: () => void
   onNotify: (message: string) => void
+  onBack: () => void
 }
 
 /** Mijoz faqat shu statuslardagi buyurtmani bekor qila oladi. */
 const CANCELLABLE: OrderStatus[] = ['Yangi', 'Qabul qilindi']
 
 export function OrdersPage({
-  orders, authReady, isAuthenticated, cartCount, onSearch, onOpenCart, onGoToCatalog, onNotify,
+  orders, authReady, isAuthenticated, cartCount, onSearch, onOpenCart,
+  onGoToCatalog, onNotify, onBack,
 }: Props) {
   const t = useT()
   const [active, setActive] = useState('all')
@@ -91,7 +93,13 @@ export function OrdersPage({
 
   return (
     <>
-      <PageHeader title={t('orders.title')} onSearch={onSearch} onCart={onOpenCart} cartCount={cartCount} />
+      <PageHeader
+        title={t('orders.title')}
+        onBack={onBack}
+        onSearch={onSearch}
+        onCart={onOpenCart}
+        cartCount={cartCount}
+      />
 
       {/* Tablar */}
       <div

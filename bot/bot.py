@@ -396,16 +396,24 @@ def route_button(order: dict):
 async def refresh_dispatch(order_id: str, order: dict, stage: str,
                            taker_chat=None, courier_name: str | None = None):
     """
-    Buyurtma yuborilgan BARCHA chatlardagi tugmalarni yangilaydi.
+    Buyurtma yuborilgan BARCHA chatlardagi xabarni yangilaydi.
 
     Buyurtma bir necha joyga tushishi mumkin (kuryerlarning shaxsiy
-    chatlari yoki guruh). Faqat bosilgan xabarni yangilash yetarli emas:
-    qolgan nusxalarda «Oldim» tugmasi eskirib turaverardi va qayta
-    bosilishi mumkin edi. Xabarlar ro'yxatini /api/orders yozib qo'yadi
-    (dispatchMessages).
+    chatlari yoki umumiy guruh). Faqat bosilgan xabarni yangilash
+    yetarli emas: qolgan nusxalarda «Oldim» tugmasi eskirib turaverardi.
+
+    Matnga ham «kim biriktirildi» qatori qo'shiladi — ayniqsa guruhda
+    muhim: u yerda bir necha kuryer turadi va kim olganini ko'rishi kerak.
+    Asl matn /api/orders tomonidan `dispatchText` ga yozib qo'yilgan.
     """
     messages = order.get("dispatchMessages") or []
-    who = courier_name or order.get("courierName") or "kuryer"
+    base_text = order.get("dispatchText") or ""
+    who = courier_name or order.get("courierName") or "Kuryer"
+
+    if stage == "done":
+        suffix = f"\n\n✅ <b>{who} yetkazdi</b>"
+    else:
+        suffix = f"\n\n🛵 <b>{who} bu buyurtmaga biriktirildi</b>"
 
     for item in messages:
         chat_id = item.get("chatId")
@@ -426,15 +434,24 @@ async def refresh_dispatch(order_id: str, order: dict, stage: str,
             if route:
                 rows.append([route])
         else:
-            # Qolganlarga — faqat kim olgani
             rows = [[InlineKeyboardButton(text=f"🛵 {who} oldi", callback_data="noop")]]
 
+        markup = InlineKeyboardMarkup(inline_keyboard=rows)
+
         try:
-            await bot.edit_message_reply_markup(
-                chat_id=chat_id,
-                message_id=message_id,
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
-            )
+            if base_text:
+                await bot.edit_message_text(
+                    base_text + suffix,
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    reply_markup=markup,
+                )
+            else:
+                # Eski buyurtmalarda matn saqlanmagan — hech bo'lmasa
+                # tugmani yangilaymiz
+                await bot.edit_message_reply_markup(
+                    chat_id=chat_id, message_id=message_id, reply_markup=markup,
+                )
         except Exception as e:
             # Xabar o'chirilgan yoki o'zgarmagan bo'lishi mumkin — muhim emas
             logger.debug(f"[COURIER] {chat_id}/{message_id} yangilanmadi: {e}")

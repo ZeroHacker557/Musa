@@ -1,10 +1,11 @@
-import { LayoutGrid, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, LayoutGrid, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { categoryIcon } from '../../utils/category-icons'
 import { apiPost } from '../lib/api'
 import { useCategories, useProducts } from '../lib/live'
 import { ConfirmDialog, Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
+import { useSortable } from '../lib/sort'
 
 type Draft = { id?: string; name: string; icon: string }
 
@@ -24,6 +25,13 @@ export function CategoriesPage() {
   const [busy, setBusy] = useState(false)
 
   const countIn = (name: string) => products.filter((p) => p.category === name).length
+
+  // Katalogdagi tartib shu yerda belgilanadi (mini app `order` bo'yicha saralaydi)
+  const { move } = useSortable(
+    'category',
+    categories.map((c) => ({ id: String(c.id) })),
+    (m) => show(m, 'error'),
+  )
 
   const save = async () => {
     if (!draft) return
@@ -87,7 +95,7 @@ export function CategoriesPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {categories.map((category) => {
+          {categories.map((category, index) => {
             const Icon = categoryIcon(category.icon, category.name)
             const id = String(category.id)
             return (
@@ -104,6 +112,24 @@ export function CategoriesPage() {
                     {countIn(category.name)} ta mahsulot
                   </p>
                 </div>
+                <button
+                  className="grid size-8 shrink-0 place-items-center rounded-lg transition active:scale-90 disabled:opacity-30"
+                  style={{ background: 'var(--surface-2)' }}
+                  onClick={() => move(index, -1)}
+                  disabled={index === 0}
+                  aria-label="Yuqoriga"
+                >
+                  <ArrowUp size={15} />
+                </button>
+                <button
+                  className="grid size-8 shrink-0 place-items-center rounded-lg transition active:scale-90 disabled:opacity-30"
+                  style={{ background: 'var(--surface-2)' }}
+                  onClick={() => move(index, 1)}
+                  disabled={index === categories.length - 1}
+                  aria-label="Pastga"
+                >
+                  <ArrowDown size={15} />
+                </button>
                 <button
                   className="grid size-8 shrink-0 place-items-center rounded-lg transition active:scale-90"
                   style={{ background: 'var(--surface-2)' }}

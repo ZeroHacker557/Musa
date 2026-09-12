@@ -11,6 +11,8 @@ import { CartButton } from '../components/ui/CartButton'
 import { IconButton } from '../components/ui/IconButton'
 import { categoryIcon } from '../utils/category-icons'
 import { MAIN_LINES, isMainLine } from '../config/categories'
+import { useRef } from 'react'
+import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { useT, type TranslationKey } from '../i18n'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
 
@@ -40,6 +42,12 @@ export function HomePage({
 }: Props) {
   const t = useT()
 
+  // Ikkala lenta ham sekin o'ziga surilib turadi (karusel)
+  const stripRef = useRef<HTMLDivElement>(null)
+  const popularRef = useRef<HTMLDivElement>(null)
+  useAutoScroll(stripRef, { speed: 16, enabled: categories.length > 3 })
+  useAutoScroll(popularRef, { speed: 11, enabled: products.length > 2 })
+
   return (
     <>
       {/* Header */}
@@ -68,8 +76,8 @@ export function HomePage({
       <section className="px-5 pt-6 sm:px-10">
         <button
           onClick={onSearch}
-          className="flex h-13 w-full items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition"
-          style={{ borderColor: 'var(--line)', color: 'var(--faint)', background: 'var(--surface-2)' }}
+          className="search-trigger"
+          style={{ color: 'var(--faint)' }}
         >
           <Search className="shrink-0" size={20} />
           <span className="truncate text-sm">{t('home.searchPlaceholder')}</span>
@@ -152,7 +160,7 @@ export function HomePage({
           Yo'nalishlar yuqorida kartada turibdi, bu yerda takrorlanmaydi. */}
       {categories.some((c) => !isMainLine(c.name)) && (
         <section className="mt-5">
-          <div className="category-strip scrollbar-none">
+          <div ref={stripRef} className="category-strip category-strip--compact scrollbar-none">
             {categories.filter((c) => !isMainLine(c.name)).map((category) => {
               const Icon = categoryIcon(category.icon, category.name)
               return (
@@ -215,7 +223,7 @@ export function HomePage({
         {loading ? (
           <ProductRowSkeleton />
         ) : products.length > 0 ? (
-          <div className="mt-5 flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+          <div ref={popularRef} className="mt-5 flex gap-4 overflow-x-auto pb-2 scrollbar-none">
             {products.slice(0, 8).map((product) => (
               <ProductCard key={product.id} product={product} compact {...productActions} />
             ))}

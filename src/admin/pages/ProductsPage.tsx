@@ -1,5 +1,5 @@
 import {
-  Boxes, ImagePlus, Loader2, Pencil, Plus, Search, Trash2, X,
+  ArrowDown, ArrowUp, Boxes, ImagePlus, Loader2, Pencil, Plus, Search, Trash2, X,
 } from 'lucide-react'
 import { useMemo, useState, type ChangeEvent } from 'react'
 import { formatPrice } from '../../data'
@@ -8,6 +8,7 @@ import { uploadProductImage } from '../lib/storage'
 import { useCategories, useProducts, type ProductRow } from '../lib/live'
 import { Modal, ConfirmDialog } from '../components/Modal'
 import { useToast } from '../components/Toast'
+import { useSortable } from '../lib/sort'
 
 type Draft = {
   id?: string
@@ -54,6 +55,20 @@ export function ProductsPage() {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [removing, setRemoving] = useState<ProductRow | null>(null)
   const [busy, setBusy] = useState(false)
+
+  /*
+   * Tartib faqat filtrsiz ro'yxatda o'zgartiriladi.
+   *
+   * Qidiruv yoki kategoriya filtri yoqilganda ko'rinayotgan ro'yxat
+   * to'liq emas — uni qayta raqamlash boshqa mahsulotlarning tartibini
+   * buzib yuborardi.
+   */
+  const sortable = !query.trim() && !category
+  const { move } = useSortable(
+    'product',
+    products.map((p) => ({ id: p.docId })),
+    (m) => show(m, 'error'),
+  )
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -163,7 +178,7 @@ export function ProductsPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((product) => (
+          {visible.map((product, index) => (
             <article key={product.docId} className="adm-card flex gap-3 p-3">
               <div
                 className="size-20 shrink-0 overflow-hidden rounded-xl"
@@ -198,6 +213,28 @@ export function ProductsPage() {
               </div>
 
               <div className="flex shrink-0 flex-col gap-1.5">
+                {sortable && (
+                  <div className="flex gap-1.5">
+                    <button
+                      className="grid size-8 place-items-center rounded-lg transition active:scale-90 disabled:opacity-30"
+                      style={{ background: 'var(--surface-2)' }}
+                      onClick={() => move(index, -1)}
+                      disabled={index === 0}
+                      aria-label="Yuqoriga"
+                    >
+                      <ArrowUp size={15} />
+                    </button>
+                    <button
+                      className="grid size-8 place-items-center rounded-lg transition active:scale-90 disabled:opacity-30"
+                      style={{ background: 'var(--surface-2)' }}
+                      onClick={() => move(index, 1)}
+                      disabled={index === visible.length - 1}
+                      aria-label="Pastga"
+                    >
+                      <ArrowDown size={15} />
+                    </button>
+                  </div>
+                )}
                 <button
                   className="grid size-8 place-items-center rounded-lg transition active:scale-90"
                   style={{ background: 'var(--surface-2)' }}

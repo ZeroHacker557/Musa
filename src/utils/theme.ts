@@ -40,7 +40,14 @@ export function applyTheme(mode: ThemeMode) {
     const bg = cs.getPropertyValue('--bg').trim()
     const tg = getTelegram()
 
-    if (surface) tg?.setHeaderColor?.(surface)
+    /*
+     * Telegram paneli ilova tepasidagi tus bilan bir xil bo'ladi —
+     * shunda bot nomi turgan qator va navbar bir butun ko'rinadi.
+     * Qorong'i rejimda tus shaffof, shuning uchun yuza rangi olinadi.
+     */
+    const tint = cs.getPropertyValue('--tint-mid').trim()
+    const headerColor = tint && tint !== 'transparent' ? tint : surface
+    if (headerColor) tg?.setHeaderColor?.(headerColor)
     if (bg) {
       tg?.setBackgroundColor?.(bg)
       tg?.setBottomBarColor?.(bg)

@@ -9,15 +9,23 @@ type Props = ProductActions & {
   cartCount: number
   onOpenCart: () => void
   onGoToCatalog: () => void
+  onBack: () => void
 }
 
-export function FavoritesPage({ products, cartCount, likedIds, onOpenCart, onGoToCatalog, ...actions }: Props) {
+export function FavoritesPage({
+  products, cartCount, likedIds, onOpenCart, onGoToCatalog, onBack, ...actions
+}: Props) {
   const t = useT()
   const favorites = products.filter((p) => likedIds.includes(p.id))
 
   return (
     <>
-      <PageHeader title={t('favorites.title')} cartCount={cartCount} onCart={onOpenCart} />
+      <PageHeader
+        title={t('favorites.title')}
+        onBack={onBack}
+        cartCount={cartCount}
+        onCart={onOpenCart}
+      />
       <section className="px-5 pb-32 pt-6 sm:px-10">
         <p style={{ color: 'var(--muted)' }}>{t('catalog.total', { count: favorites.length })}</p>
 
