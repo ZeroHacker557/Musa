@@ -89,14 +89,8 @@
      deyarli farq qilmasdi. Hozirgisi bir xil ohangda (H≈148°), faqat
      to'qroq — yashilligi bilinadi, lekin brend yashili kabi to'q emas,
      ustidagi qora matn ham bemalol o'qiladi. */
-  /* Logodagi sariqning O'ZI — rasmdan piksel bo'yicha olingan (#f8d05c).
-     Ochroq variantlar (#ffe98f, #f5e0a3) oq fonga qo'shilib ketib,
-     sariq emas, krem rangidek ko'rinardi. */
-  --tint-top: #f8d05c;
-  --tint-mid: #fce59a;
-  /* Yashilga qaytarish uchun:
-       --tint-top: #b8e0cb;
-       --tint-mid: #d4ede0; */
+  --tint-top: #b8e0cb;
+  --tint-mid: #d4ede0;
 
   /* Telegram xavfsiz zonasi (JS to'ldiradi) */
   --safe-bottom: 0px;
