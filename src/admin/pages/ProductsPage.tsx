@@ -1,7 +1,7 @@
 import {
   ArrowDown, ArrowUp, Boxes, ImagePlus, Loader2, Pencil, Plus, Search, Trash2, X,
 } from 'lucide-react'
-import { useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { formatPrice } from '../../data'
 import { apiPost } from '../lib/api'
 import { uploadProductImage } from '../lib/storage'
@@ -299,22 +299,69 @@ function ProductForm({
   const [uploading, setUploading] = useState(false)
   const set = (patch: Partial<Draft>) => onChange({ ...draft, ...patch })
 
-  const addImages = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = [...(event.target.files || [])]
-    event.target.value = ''
-    if (!files.length) return
+  /*
+   * Yuklash bir necha soniya davom etadi — shu orada admin nomi yoki
+   * narxini yozishda davom etishi mumkin. Yuklash tugagach eski `draft`
+   * ga rasm qo'shilsa, o'sha orada yozilganlar o'chib ketardi. Shuning
+   * uchun oxirgi holat ref orqali olinadi.
+   */
+  const latest = useRef({ draft, onChange, onError })
+  useEffect(() => {
+    latest.current = { draft, onChange, onError }
+  })
 
+  const uploadFiles = async (files: File[]) => {
+    if (!files.length) return
     setUploading(true)
     try {
       const urls: string[] = []
       for (const file of files) urls.push(await uploadProductImage(file))
-      set({ images: [...draft.images, ...urls] })
+      const current = latest.current.draft
+      latest.current.onChange({ ...current, images: [...current.images, ...urls] })
     } catch (error) {
-      onError(error instanceof Error ? error.message : 'Rasm yuklanmadi')
+      latest.current.onError(error instanceof Error ? error.message : 'Rasm yuklanmadi')
     } finally {
       setUploading(false)
     }
   }
+
+  const addImages = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = [...(event.target.files || [])]
+    event.target.value = ''
+    void uploadFiles(files)
+  }
+
+  /*
+   * Ctrl+V — nusxalangan rasmni to'g'ridan-to'g'ri yuklash.
+   *
+   * Forma ochiq turganda butun sahifada tinglanadi: admin qaysi maydonda
+   * turganidan qat'i nazar rasm qo'shiladi. Faqat buferda RASM bo'lsa
+   * aralashamiz — oddiy matn nomi yoki tavsifga odatdagidek qo'yiladi.
+   */
+  const uploadRef = useRef(uploadFiles)
+  useEffect(() => {
+    uploadRef.current = uploadFiles
+  })
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const images = [...(event.clipboardData?.files || [])].filter((file) =>
+        file.type.startsWith('image/'),
+      )
+      if (!images.length) return
+      event.preventDefault()
+      // Skrinshotlar «image.png» nomi bilan keladi — farqlanishi uchun
+      const named = images.map((file, i) =>
+        file.name && file.name !== 'image.png'
+          ? file
+          : new File([file], `nusxa_${Date.now()}_${i}.${file.type.split('/')[1] || 'png'}`, {
+              type: file.type,
+            }),
+      )
+      void uploadRef.current(named)
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [])
 
   return (
     <Modal
@@ -460,7 +507,8 @@ function ProductForm({
             </label>
           </div>
           <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
-            Birinchi rasm katalogda ko‘rinadi. 5 MB gacha.
+            Birinchi rasm katalogda ko‘rinadi. 5 MB gacha. Nusxalangan rasmni{' '}
+            <kbd className="adm-kbd">Ctrl</kbd>+<kbd className="adm-kbd">V</kbd> bilan qo‘yish mumkin.
           </p>
         </div>
       </div>
