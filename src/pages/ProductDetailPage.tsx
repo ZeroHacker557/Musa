@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { ArrowLeft, Heart, Minus, MessageSquare, Plus, ShoppingCart, Star, Truck, UserRound, ZoomIn } from 'lucide-react'
 import { formatPrice } from '../data'
 import { getImageUrl, hapticSuccess, getTelegramUser, showAlert } from '../utils/telegram'
+import { ProductImage } from '../components/product/ProductImage'
 import { formatDate } from '../utils/date'
 import { CartButton } from '../components/ui/CartButton'
 import { ImageLightbox } from '../components/ui/ImageLightbox'
@@ -101,8 +102,8 @@ export function ProductDetailPage({
   return (
     <>
       <header className="flex items-center justify-between px-5 pt-8 sm:px-10 page-animate">
-        <button onClick={onBack} className="icon-button" aria-label={t('common.back')}>
-          <ArrowLeft size={22} />
+        <button onClick={onBack} className="back-button" aria-label={t('common.back')}>
+          <ArrowLeft size={20} />
         </button>
         <h2 className="text-lg font-bold" style={{ color: 'var(--ink)' }}>{t('product.title')}</h2>
         <div className="flex gap-1">
@@ -153,13 +154,12 @@ export function ProductDetailPage({
               onClick={() => setZoomed(true)}
               aria-label={t('product.zoom')}
             >
-              {/* `cover` — kartadagidek to'liq to'ldiradi. To'liq rasmni
-                  ko'rish uchun bosiladi: lightbox uni `contain` bilan chizadi. */}
-              <img
-                className="size-full object-cover"
+              {/* Kartadagidek: rasm to'liq ko'rinadi, quti xira fon bilan to'ladi.
+                  Kattalashtirish uchun bosiladi. */}
+              <ProductImage
                 src={getImageUrl(images[activeImage])}
                 alt={product.name}
-                decoding="async"
+                loading="eager"
               />
               <span className="detail-zoom-hint">
                 <ZoomIn size={18} />

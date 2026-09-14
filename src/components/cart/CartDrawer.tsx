@@ -5,6 +5,8 @@ import { useT } from '../../i18n'
 import type { Product } from '../../types/domain'
 
 type Props = {
+  /** Yopilish animatsiyasi o'ynayapti — usePresence beradi. */
+  leaving?: boolean
   cartProducts: { product: Product; quantity: number; size?: string; color?: string; cartKey: string }[]
   cartTotal: number
   onClose: () => void
@@ -14,6 +16,7 @@ type Props = {
 }
 
 export function CartDrawer({
+  leaving = false,
   cartProducts,
   cartTotal,
   onClose,
@@ -25,7 +28,7 @@ export function CartDrawer({
 
   return (
     <div
-      className="cart-overlay"
+      className={'cart-overlay ' + (leaving ? 'leaving' : '')}
       role="dialog"
       aria-modal="true"
       aria-label={t('cart.title')}

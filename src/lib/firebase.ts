@@ -183,6 +183,9 @@ export function subscribeToUserOrders(userId: number, callback: (orders: Order[]
     callback(orders)
   }, (error) => {
     console.error("Error fetching user orders:", error)
+    // Xato bo'lsa ham javob beramiz: aks holda sahifa skeletda qotib
+    // qolardi. Bo'sh ro'yxat — «buyurtma yo'q» holati.
+    callback([])
   })
 }
 

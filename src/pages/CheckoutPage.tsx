@@ -113,8 +113,8 @@ export function CheckoutPage({
   return (
     <>
       <header className="flex items-center gap-3 px-5 pt-8 sm:px-10 page-animate">
-        <button onClick={onBack} className="icon-button" aria-label={t('common.back')}>
-          <ArrowLeft size={22} />
+        <button onClick={onBack} className="back-button" aria-label={t('common.back')}>
+          <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>{t('checkout.title')}</h1>
       </header>

@@ -92,6 +92,15 @@ export function useShopStore() {
   const [cartPrompt, setCartPrompt] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
   const [myOrders, setMyOrders] = useState<Order[]>([])
+  /**
+   * Buyurtmalarning BIRINCHI javobi keldimi.
+   *
+   * `authReady` yetarli emas: kirish tugagach sahifa ochiladi, buyurtmalar
+   * esa Firestore'dan bir lahzadan keyin keladi. Shu oraliqda mijoz
+   * «0 ta buyurtma» va «buyurtma yo'q» ni ko'rib qolardi. Bu bayroq
+   * kelguncha skelet ko'rsatiladi.
+   */
+  const [ordersReady, setOrdersReady] = useState(false)
   const [checkoutDone, setCheckoutDone] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
   const [authReady, setAuthReady] = useState(false)
@@ -160,6 +169,7 @@ export function useShopStore() {
         setAuthenticated(false)
         setUserProfile(null)
         setMyOrders([])
+        setOrdersReady(true)
         setNotifications([])
         setUnreadNotificationsCount(0)
         return
@@ -169,7 +179,11 @@ export function useShopStore() {
       setAuthReady(true)
       setAuthenticated(true)
 
-      unsubOrders = subscribeToUserOrders(userId, setMyOrders)
+      setOrdersReady(false)
+      unsubOrders = subscribeToUserOrders(userId, (list) => {
+        setMyOrders(list)
+        setOrdersReady(true)
+      })
       unsubProfile = subscribeToUserProfile(userId, (profile) => {
         if (profile) setUserProfile(profile as UserProfile)
       })
@@ -451,7 +465,7 @@ export function useShopStore() {
     cartItems, cartCount, cartTotal, cartProducts,
     likedIds, selectedProduct,
     isSearchOpen, isCartOpen, query, searchResults, toast, cartPrompt,
-    myOrders, checkoutDone, isSubmitting, authReady, isAuthenticated, orderForm, userProfile,
+    myOrders, ordersReady, checkoutDone, isSubmitting, authReady, isAuthenticated, orderForm, userProfile,
     notifications, unreadNotificationsCount,
     catalogCategory, openCategory,
     theme, setTheme, toggleTheme,

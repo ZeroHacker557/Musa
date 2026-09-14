@@ -4,6 +4,7 @@ import { formatPrice } from '../data'
 import { formatOrderDate } from '../utils/date'
 import { IconButton } from '../components/ui/IconButton'
 import { OrderImages } from '../components/order/OrderImages'
+import { OrderCardSkeleton, TextSkeleton } from '../components/ui/LoadingSkeletons'
 import { getTelegramUser } from '../utils/telegram'
 import { useI18n, type TranslationKey } from '../i18n'
 import type { ThemeMode } from '../utils/theme'
@@ -20,13 +21,15 @@ type Option = {
 type Props = {
   profile: UserProfile | null
   orders: Order[]
+  /** Buyurtmalar kelmaguncha statistika «0» emas, skelet. */
+  ordersReady: boolean
   theme: ThemeMode
   onToggleTheme: () => void
   onNavigate: (page: AppPage) => void
   onNotify: (msg: string) => void
 }
 
-export function ProfilePage({ profile, orders, theme, onToggleTheme, onNavigate, onNotify }: Props) {
+export function ProfilePage({ profile, orders, ordersReady, theme, onToggleTheme, onNavigate, onNotify }: Props) {
   const { t, lang } = useI18n()
   const tgUser = getTelegramUser()
 
@@ -108,14 +111,27 @@ export function ProfilePage({ profile, orders, theme, onToggleTheme, onNavigate,
             className="rounded-2xl border p-4 text-center"
             style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}
           >
-            <p className="text-2xl font-extrabold" style={{ color: 'var(--brand)' }}>{value}</p>
+            {ordersReady ? (
+              <p className="text-2xl font-extrabold" style={{ color: 'var(--brand)', animation: 'fadeIn 0.3s ease' }}>{value}</p>
+            ) : (
+              // Balandlik raqam bilan bir xil — kelganda karta sakramaydi
+              <span className="flex h-8 items-center justify-center">
+                <TextSkeleton className="h-6 w-8" />
+              </span>
+            )}
             <p className="mt-1 text-xs font-bold" style={{ color: 'var(--muted)' }}>{label}</p>
           </div>
         ))}
       </section>
 
-      {/* Oxirgi buyurtma */}
-      {lastOrder && (
+      {/* Oxirgi buyurtma — kelguncha skelet */}
+      {!ordersReady && (
+        <section className="px-5 pt-7 sm:px-10">
+          <TextSkeleton className="mb-4 h-6 w-40" />
+          <OrderCardSkeleton />
+        </section>
+      )}
+      {ordersReady && lastOrder && (
         <section className="px-5 pt-7 sm:px-10" style={{ animation: 'fadeInUp 0.4s ease 0.1s both' }}>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="section-title">{t('profile.lastOrder')}</h2>

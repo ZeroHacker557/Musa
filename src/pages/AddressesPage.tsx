@@ -162,7 +162,7 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
             else if (step === 'choose') setStep(null)
             else onBack()
           }}
-          className="icon-button"
+          className="back-button"
           aria-label={t('common.back')}
         >
           <ChevronLeft size={22} />

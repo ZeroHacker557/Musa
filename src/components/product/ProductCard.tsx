@@ -2,6 +2,7 @@ import { Heart, ShoppingCart, Star } from 'lucide-react'
 import { useState } from 'react'
 import { formatPrice } from '../../data'
 import { getImageUrl } from '../../utils/telegram'
+import { ProductImage } from './ProductImage'
 import { useT } from '../../i18n'
 import type { Product, ProductActions } from '../../types/domain'
 
@@ -34,14 +35,7 @@ export function ProductCard({ product, onOpen, onAddToCart, likedIds, onToggleLi
       <button className="product-card-body" onClick={() => onOpen(product)}>
         <div className={'product-card-image ' + (soldOut ? 'sold-out' : '')}>
           {imgSrc && !imgError ? (
-            <img
-              className="product-card-img"
-              src={imgSrc}
-              alt={product.name}
-              loading="lazy"
-              decoding="async"
-              onError={() => setImgError(true)}
-            />
+            <ProductImage src={imgSrc} alt={product.name} onError={() => setImgError(true)} />
           ) : (
             <div className="product-card-placeholder">
               <ShoppingCart size={36} />

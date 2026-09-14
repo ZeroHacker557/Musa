@@ -197,8 +197,7 @@ export function SupportPage({ onBack }: Props) {
       >
         <button
           onClick={onBack}
-          className="grid size-10 shrink-0 place-items-center rounded-xl transition active:scale-90"
-          style={{ background: 'var(--surface-2)', color: 'var(--ink)' }}
+          className="back-button"
           aria-label={t('common.back')}
         >
           <ArrowLeft size={20} />

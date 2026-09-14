@@ -3,6 +3,7 @@ import { Grid2X2, Package } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { ProductCard } from '../components/product/ProductCard'
 import { ProductGridSkeleton } from '../components/ui/ProductCardSkeleton'
+import { TextSkeleton } from '../components/ui/LoadingSkeletons'
 import { categoryIcon } from '../utils/category-icons'
 import { shortCategoryName } from '../config/categories'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
@@ -97,7 +98,12 @@ export function CatalogPage({
 
       {/* Mahsulotlar */}
       <section className="px-5 pb-32 pt-2 sm:px-10">
-        <p style={{ color: 'var(--muted)' }}>{t('catalog.total', { count: shown.length })}</p>
+        {/* Mahsulotlar kelguncha «Jami 0 ta» emas, skelet */}
+        {loading ? (
+          <TextSkeleton className="h-5 w-40" />
+        ) : (
+          <p style={{ color: 'var(--muted)' }}>{t('catalog.total', { count: shown.length })}</p>
+        )}
 
         {loading ? (
           <ProductGridSkeleton />

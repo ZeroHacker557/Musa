@@ -7,6 +7,7 @@ import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
 import { useShopStore } from './hooks/use-shop-store'
 import { useSwipeNav } from './hooks/use-swipe-nav'
+import { usePresence } from './hooks/use-presence'
 import { CatalogPage } from './pages/CatalogPage'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { FavoritesPage } from './pages/FavoritesPage'
@@ -75,6 +76,8 @@ function App() {
   }, [shop.userProfile?.language, lang, setLang])
 
   const goToCatalog = () => shop.navigate('catalog')
+  // Savat yopilganda ham silliq tushib ketsin — styles.css `.cart-drawer.leaving`
+  const cartPresence = usePresence(shop.isCartOpen, 280)
 
   return (
     <main className="app-shell">
@@ -92,8 +95,9 @@ function App() {
           />
         )}
 
-        {shop.isCartOpen && (
+        {cartPresence.mounted && (
           <CartDrawer
+            leaving={cartPresence.leaving}
             cartProducts={shop.cartProducts}
             cartTotal={shop.cartTotal}
             onClose={shop.closeCart}
@@ -103,7 +107,7 @@ function App() {
           />
         )}
 
-        {shop.toast && <Toast message={shop.toast} onClose={shop.clearToast} />}
+        <Toast message={shop.toast} onClose={shop.clearToast} />
 
         {/* Savatga qo'shilgach — «Rasmiylashtirasizmi?» so'rovi.
             Savat ochiq bo'lsa ko'rsatilmaydi: u yerda tugma allaqachon bor. */}
@@ -154,6 +158,7 @@ function App() {
             <div className="page-animate">
               <FavoritesPage
                 products={shop.products}
+                loading={shop.loading}
                 {...productActions}
                 onGoToCatalog={goToCatalog}
                 onBack={shop.goBack}
@@ -165,6 +170,7 @@ function App() {
             <div className="page-animate">
               <OrdersPage
                 orders={shop.myOrders}
+                ordersReady={shop.ordersReady}
                 authReady={shop.authReady}
                 isAuthenticated={shop.isAuthenticated}
                 onSearch={() => shop.setSearchOpen(true)}
@@ -181,6 +187,7 @@ function App() {
               <ProfilePage
                 profile={shop.userProfile}
                 orders={shop.myOrders}
+                ordersReady={shop.ordersReady}
                 theme={shop.theme}
                 onToggleTheme={shop.toggleTheme}
                 onNavigate={shop.navigate}

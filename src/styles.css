@@ -92,6 +92,12 @@
   --tint-top: #b8e0cb;
   --tint-mid: #d4ede0;
 
+  /* «Shisha» tugma — yashil tus ustida turadigan orqaga tugmasi.
+     Yarim shaffof: fonning yashili unda ham sezilib turadi. */
+  --glass-bg: rgb(255 255 255 / 0.62);
+  --glass-line: rgb(255 255 255 / 0.9);
+  --glass-shadow: 0 1px 2px rgb(6 26 16 / 0.06), 0 4px 14px rgb(6 26 16 / 0.08);
+
   /* Telegram xavfsiz zonasi (JS to'ldiradi) */
   --safe-bottom: 0px;
   --safe-top: 0px;
@@ -149,12 +155,11 @@
     /* Qorong'i rejimda tus berilmaydi — fon allaqachon to'q */
     --tint-top: transparent;
     --tint-mid: transparent;
+    --glass-bg: rgb(255 255 255 / 0.06);
+    --glass-line: rgb(255 255 255 / 0.1);
+    --glass-shadow: none;
 
-    /* Qorong'i rejimda tus berilmaydi — fon allaqachon to'q */
-  --tint-top: transparent;
-  --tint-mid: transparent;
-
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
     --shadow-md: 0 4px 16px rgb(0 0 0 / 0.45);
     --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.5);
     --shadow-brand: 0 6px 20px rgb(0 0 0 / 0.5);
@@ -164,6 +169,14 @@
 }
 
 :root[data-theme="dark"] {
+  /* Media blokidagi bilan bir xil bo'lishi shart: Telegram temasi yorug',
+     mijoz esa ilovada qorong'ini tanlagan holatda aynan shu blok ishlaydi. */
+  --tint-top: transparent;
+  --tint-mid: transparent;
+  --glass-bg: rgb(255 255 255 / 0.06);
+  --glass-line: rgb(255 255 255 / 0.1);
+  --glass-shadow: none;
+
   --bg: #0b0e0c;
   --surface: #121815;
   --surface-2: #19211c;
@@ -367,13 +380,36 @@ a { color: inherit; text-decoration: none; }
   70% { transform: scale(0.96); }
   100% { transform: scale(1); }
 }
+/*
+ * Pastki xabarlar (toast, «Rasmiylashtirasizmi?») `left: 50%` +
+ * `translateX(-50%)` bilan markazlanadi. Shuning uchun animatsiyada
+ * `-50%` SAQLANISHI shart: ilgari `transform: none` yozilgani sabab
+ * element animatsiya davomida yarim eniga o'ngga siljib, oxirida
+ * joyiga «sakrab» tushardi.
+ */
 @keyframes toastIn {
-  from { opacity: 0; transform: translateY(16px) scale(0.97); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; transform: translate(-50%, 18px) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  to { opacity: 0; transform: translate(-50%, 14px) scale(0.97); }
 }
 @keyframes overlayIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@keyframes overlayOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes slideOutDown {
+  from { transform: none; }
+  to { transform: translateY(100%); }
+}
+@keyframes slideOutRight {
+  from { transform: none; }
+  to { transform: translateX(100%); }
 }
 @keyframes shimmer {
   0% { background-position: -400px 0; }
@@ -592,17 +628,31 @@ a { color: inherit; text-decoration: none; }
 
 /* ====== Orqaga qaytish tugmasi (sarlavhada) ====== */
 .back-button {
+  /*
+   * Yumaloq «shisha» tugma.
+   *
+   * Ilgari och kulrang to'rtburchak edi — yashil gradient ustida u
+   * yopishtirilgan oq plitka kabi ajralib turardi. Endi yarim shaffof
+   * va xiralashtirilgan: fonning rangi tugma ichidan ham ko'rinadi,
+   * yupqa oq chegara va yengil soya uni sahifadan ajratib turadi.
+   */
   display: grid;
   width: 40px;
   height: 40px;
   flex-shrink: 0;
   place-items: center;
-  border-radius: var(--r-sm);
-  background: var(--surface-2);
+  border-radius: 50%;
+  border: 1px solid var(--glass-line);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow: var(--glass-shadow);
   color: var(--ink);
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease, box-shadow 0.2s ease;
 }
-.back-button:hover { background: var(--surface-3); }
+.back-button svg { transition: transform 0.2s ease; }
+.back-button:hover { background: var(--surface); }
+.back-button:hover svg { transform: translateX(-2px); }
 .back-button:active { transform: scale(0.9); }
 
 /* ====== Qidiruv tugmasi (bosh sahifa) ====== */
@@ -870,22 +920,28 @@ a { color: inherit; text-decoration: none; }
 }
 .product-card-image.sold-out { opacity: 0.45; }
 
-.product-card-img {
+/* ====== Mahsulot rasmi (ProductImage) ======
+   `contain` — rasm qirqilmaydi. Bo'sh joy har ikkala temada ham OQ.
+   Mahsulot fotolari deyarli doim oq fonda keladi: qorong'i temada
+   quti karta rangida bo'lsa, oq rasm to'q fon ichida chetlari keskin
+   ajralgan to'rtburchak bo'lib qolardi. Oq quti esa rasm bilan bir
+   butun bo'lib, «mahsulot vitrinasi» kabi ko'rinadi. */
+.product-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  background: #ffffff;
+}
+.product-image__main {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  /*
-   * `cover` — `contain` EMAS. Mahsulot fotolari turli nisbatda va turli
-   * fonda keladi: oq fonli rasm `contain` bilan kartaning ichida kichik
-   * to'rtburchak bo'lib qolib, chetlari karta foni bilan ajralib turardi.
-   * `cover` kartani to'liq to'ldiradi va barcha kartalar bir xil ko'rinadi.
-   * Rasmni to'liq ko'rish uchun mahsulot sahifasida bosib kattalashtiriladi.
-   */
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.4s ease;
 }
-.product-card:hover .product-card-img { transform: scale(1.05); }
+.product-card:hover .product-image__main { transform: scale(1.05); }
 
 .product-card-placeholder {
   position: absolute;
@@ -1335,6 +1391,15 @@ a { color: inherit; text-decoration: none; }
   padding-bottom: var(--safe-bottom);
 }
 
+/* Yopilish: fon so'nadi, oyna pastga tushib ketadi (desktopda o'ngga) */
+.cart-overlay.leaving {
+  animation: overlayOut 0.28s ease forwards;
+  pointer-events: none;
+}
+.cart-overlay.leaving .cart-drawer {
+  animation: slideOutDown 0.28s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
 /* Sudrab yopish uchun tutqich */
 .cart-handle {
   width: 40px;
@@ -1353,6 +1418,9 @@ a { color: inherit; text-decoration: none; }
     height: 100%;
     border-radius: 0;
     animation: slideInRight 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .cart-overlay.leaving .cart-drawer {
+    animation: slideOutRight 0.28s cubic-bezier(0.4, 0, 1, 1) forwards;
   }
   .cart-handle { display: none; }
 }
@@ -1375,8 +1443,25 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink);
   padding: 0.85rem 1rem;
   box-shadow: var(--shadow-lg);
-  animation: toastIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: toastIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+.toast.leaving {
+  animation: toastOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+.toast__close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--muted);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.toast__close:hover { background: var(--surface-2); }
+.toast__close:active { transform: scale(0.88); }
 
 /* ====== Savatga qo'shilgandan keyingi so'rov ======
    Ingichka bitta qator: mijoz katalogni ko'rishda davom etadi, bu
@@ -1397,7 +1482,7 @@ a { color: inherit; text-decoration: none; }
   padding: 0.3rem 0.35rem 0.3rem 0.8rem;
   background: var(--surface);
   box-shadow: var(--shadow-md);
-  animation: toastIn 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: toastIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .cart-prompt.leaving {
   animation: toastOut 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
@@ -1433,9 +1518,6 @@ a { color: inherit; text-decoration: none; }
 .cart-prompt__close:hover { background: var(--surface-2); }
 .cart-prompt__close:active { transform: scale(0.88); }
 
-@keyframes toastOut {
-  to { opacity: 0; transform: translate(-50%, 14px); }
-}
 @media (min-width: 640px) {
   .toast { bottom: calc(6rem + var(--safe-bottom)); }
 }

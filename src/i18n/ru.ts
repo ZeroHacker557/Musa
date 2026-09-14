@@ -176,8 +176,6 @@ export const ru: Record<TranslationKey, string> = {
 
   // ── Заказы ──
   'orders.title': 'Мои заказы',
-  'orders.newest': 'Сначала новые',
-  'orders.oldest': 'Сначала старые',
   'orders.details': 'Подробнее',
   'orders.hide': 'Свернуть',
   'orders.itemCount': 'шт: {count}',

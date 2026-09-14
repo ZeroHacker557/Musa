@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ExternalLink, Loader2, ShoppingBag, SlidersHorizontal, X } from 'lucide-react'
+import { ChevronDown, ExternalLink, Loader2, ShoppingBag, X } from 'lucide-react'
 import { formatPrice } from '../data'
 import { getImageUrl, openBotDeepLink } from '../utils/telegram'
 import { formatOrderDate } from '../utils/date'
@@ -7,6 +7,7 @@ import { apiPost, ApiError } from '../lib/api'
 import { BRAND } from '../config/brand'
 import { hapticSuccess, hapticError } from '../utils/telegram'
 import { PageHeader } from '../components/layout/PageHeader'
+import { OrderListSkeleton } from '../components/ui/LoadingSkeletons'
 import { useT, type TranslationKey } from '../i18n'
 import type { Order, OrderStatus } from '../types/domain'
 
@@ -28,6 +29,8 @@ function statusColor(status: string): string {
 
 type Props = {
   orders: Order[]
+  /** Buyurtmalarning birinchi javobi keldimi — kelguncha skelet. */
+  ordersReady: boolean
   authReady: boolean
   isAuthenticated: boolean
   onSearch: () => void
@@ -42,12 +45,11 @@ type Props = {
 const CANCELLABLE: OrderStatus[] = ['Yangi', 'Qabul qilindi']
 
 export function OrdersPage({
-  orders, authReady, isAuthenticated, onSearch, onFavorites,
+  orders, ordersReady, authReady, isAuthenticated, onSearch, onFavorites,
   onGoToCatalog, onNotify, onBack,
 }: Props) {
   const t = useT()
   const [active, setActive] = useState('all')
-  const [newest, setNewest] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
 
@@ -79,7 +81,13 @@ export function OrdersPage({
     )
   }, [active, orders])
 
-  const shown = newest ? filtered : [...filtered].reverse()
+  // Doim eng yangisi tepada — tartiblash tugmasi olib tashlangan
+  const shown = filtered
+  /*
+   * Kirish tugagan-u buyurtmalar hali kelmagan bo'lsa ham yuklanish.
+   * Aks holda shu oraliqda «buyurtma yo'q» ko'rinib qolardi.
+   */
+  const loadingOrders = !authReady || (isAuthenticated && !ordersReady)
 
   const getPayInfo = (order: Order) => {
     if (order.paymentMethod !== 'Karta') return null
@@ -115,14 +123,6 @@ export function OrdersPage({
           </button>
         ))}
       </div>
-
-      <section className="flex items-center justify-end px-5 pt-5 sm:px-10">
-        <button onClick={() => setNewest((v) => !v)} className="filter-button">
-          <SlidersHorizontal size={17} />
-          <span>{newest ? t('orders.newest') : t('orders.oldest')}</span>
-          <ChevronDown size={17} className={`transition-transform ${!newest ? 'rotate-180' : ''}`} />
-        </button>
-      </section>
 
       <section className="space-y-4 px-5 pb-32 pt-5 sm:px-10">
         {shown.map((order, i) => {
@@ -244,15 +244,7 @@ export function OrdersPage({
           )
         })}
 
-        {!authReady && (
-          <div className="flex flex-col items-center py-20 text-center">
-            <div
-              className="size-8 animate-spin rounded-full border-4"
-              style={{ borderColor: 'var(--brand-soft)', borderTopColor: 'var(--brand)' }}
-            />
-            <p className="mt-4 text-sm" style={{ color: 'var(--muted)' }}>{t('common.loading')}</p>
-          </div>
-        )}
+        {loadingOrders && <OrderListSkeleton />}
 
         {authReady && !isAuthenticated && (
           <div className="flex flex-col items-center py-20 text-center" style={{ animation: 'fadeInUp 0.4s ease' }}>
@@ -269,7 +261,7 @@ export function OrdersPage({
           </div>
         )}
 
-        {authReady && isAuthenticated && !shown.length && (
+        {!loadingOrders && isAuthenticated && !shown.length && (
           <div className="flex flex-col items-center py-20 text-center" style={{ animation: 'fadeInUp 0.4s ease' }}>
             <span
               className="grid size-20 place-items-center rounded-full"

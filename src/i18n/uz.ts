@@ -183,8 +183,6 @@ export const uz = {
 
   // ── Buyurtmalar ──
   'orders.title': 'Buyurtmalarim',
-  'orders.newest': 'Eng yangi',
-  'orders.oldest': 'Eng eski',
   'orders.details': 'Tafsilotlar',
   'orders.hide': 'Yashirish',
   'orders.itemCount': '{count} dona',
