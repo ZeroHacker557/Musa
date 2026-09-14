@@ -1,5 +1,5 @@
 import {
-  BarChart3, Boxes, Layers, LayoutGrid, LogOut, Megaphone, Menu, Moon, Settings,
+  BarChart3, BrainCircuit, Boxes, Layers, LayoutGrid, LogOut, Megaphone, Menu, Moon, Settings,
   ShoppingBag, Sun, Tag, Users, UserCog, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -15,6 +15,8 @@ type NavEntry = {
   /** Shu roldan past xodimga ko'rinmaydi. */
   min: StaffRole
   section?: string
+  /** Menyu oxirida alohida ajralib turadigan maxsus bo'lim. */
+  special?: boolean
 }
 
 const NAV: NavEntry[] = [
@@ -31,6 +33,9 @@ const NAV: NavEntry[] = [
   { route: 'staff', label: 'Xodimlar', icon: UserCog, min: 'owner' },
 
   { route: 'settings', label: 'Sozlamalar', icon: Settings, min: 'owner', section: 'Tizim' },
+
+  // Eng pastda — butun tizimning galaktika ko'rinishi
+  { route: 'brain', label: 'Miya', icon: BrainCircuit, min: 'admin', special: true },
 ]
 
 const TITLES: Record<Route, string> = {
@@ -44,6 +49,7 @@ const TITLES: Record<Route, string> = {
   staff: 'Xodimlar',
   promocodes: 'Promokodlar',
   settings: 'Sozlamalar',
+  brain: 'Miya',
 }
 
 type Props = {
@@ -97,10 +103,14 @@ export function Shell({ staff, route, onNavigate, newOrders = 0, children }: Pro
           {visible.map((entry) => {
             const Icon = entry.icon
             return (
-              <div key={entry.route}>
+              <div key={entry.route} className={entry.special ? 'adm-nav__special' : undefined}>
                 {entry.section && <p className="adm-nav__section">{entry.section}</p>}
                 <button
-                  className={'adm-nav__item w-full ' + (route === entry.route ? 'active' : '')}
+                  className={
+                    'adm-nav__item w-full ' +
+                    (entry.special ? 'adm-nav__item--brain ' : '') +
+                    (route === entry.route ? 'active' : '')
+                  }
                   onClick={() => {
                     // Telefonda bo'lim tanlangach yon panel yopiladi
                     setOpen(false)
@@ -172,7 +182,8 @@ export function Shell({ staff, route, onNavigate, newOrders = 0, children }: Pro
       </header>
 
       <main className="adm-main">
-        <div className="adm-content" key={route}>
+        {/* Miya sahifasi butun maydonni egallaydi — chekka bo'shliqlarsiz */}
+        <div className={'adm-content ' + (route === 'brain' ? 'adm-content--bleed' : '')} key={route}>
           {children}
         </div>
       </main>

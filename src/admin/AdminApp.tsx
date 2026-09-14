@@ -11,6 +11,7 @@ import { OrdersPage } from './pages/OrdersPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { SectionsPage } from './pages/SectionsPage'
+import { BrainPage } from './pages/BrainPage'
 import { PromocodesPage } from './pages/PromocodesPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { BroadcastPage } from './pages/BroadcastPage'
@@ -139,6 +140,9 @@ function AdminPanel({
       {/* Faqat ega */}
       {route === 'staff' && (staff.role === 'owner' ? <StaffPage me={staff} /> : <NoAccess />)}
       {route === 'settings' && (staff.role === 'owner' ? <SettingsPage /> : <NoAccess />)}
+
+      {/* Ega va adminlar */}
+      {route === 'brain' && (can(staff.role, 'admin') ? <BrainPage staff={staff} /> : <NoAccess />)}
     </Shell>
   )
 }

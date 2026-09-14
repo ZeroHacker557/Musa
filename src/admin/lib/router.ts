@@ -19,6 +19,7 @@ export type Route =
   | 'staff'
   | 'promocodes'
   | 'settings'
+  | 'brain'
 
 export const ROUTES: Route[] = [
   'dashboard',
@@ -31,6 +32,7 @@ export const ROUTES: Route[] = [
   'staff',
   'promocodes',
   'settings',
+  'brain',
 ]
 
 const DEFAULT: Route = 'dashboard'
