@@ -79,10 +79,25 @@ export function isMainLine(name: string): boolean {
  * id'lar bilan to'qnashmaydi.
  */
 export function withMainLines(dbCategories: Category[]): Category[] {
+  const byName = new Map(dbCategories.map((c) => [c.name.trim().toLowerCase(), c]))
   const lines: Category[] = MAIN_LINES.map((line, index) => ({
     id: -100 - index,
     name: line.name,
     icon: line.icon,
+    // Bazadagi nusxaning tartibi — admin panelda belgilangani
+    order: byName.get(line.name.toLowerCase())?.order,
   }))
-  return [...lines, ...dbCategories.filter((c) => !isMainLine(c.name))]
+  const all = [...lines, ...dbCategories.filter((c) => !isMainLine(c.name))]
+
+  /*
+   * Admin tartibi bo'yicha. Tartib belgilanmaganlar joyida qoladi:
+   * yo'nalishlar oldinda, qolganlari keyin (stable sort).
+   */
+  return all
+    .map((category, index) => ({ category, index }))
+    .sort(
+      (a, b) =>
+        (a.category.order ?? 1e9 + a.index) - (b.category.order ?? 1e9 + b.index),
+    )
+    .map(({ category }) => category)
 }

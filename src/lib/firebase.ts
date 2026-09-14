@@ -3,7 +3,7 @@ import { getFirestore, collection, onSnapshot, query, where, doc, updateDoc, wri
 import { getStorage } from 'firebase/storage'
 import { firebaseConfig } from '../config/firebase'
 import { parseDate } from '../utils/date'
-import type { Product, Category, Order, PaymentSettings, DeliverySettings, Notification, UserProfile } from '../types/domain'
+import type { Product, Category, Section, Order, PaymentSettings, DeliverySettings, Notification, UserProfile } from '../types/domain'
 
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig)
@@ -34,7 +34,14 @@ export function subscribeToProducts(callback: (products: Product[]) => void, onE
         color: data.color || '',
         description: data.description || '',
         discount: data.discount || '',
-        stock: typeof data.stock === 'number' ? data.stock : undefined
+        stock: typeof data.stock === 'number' ? data.stock : undefined,
+        thumbs: Array.isArray(data.thumbs) ? data.thumbs : undefined,
+        optimized: Array.isArray(data.optimized) ? data.optimized : undefined,
+        variantSources: Array.isArray(data.variantSources) ? data.variantSources : undefined,
+        // Ilgari bu maydonlar o'qilmasdi — admin panelda belgilangan
+        // tartib ilovaga umuman yetib bormasdi.
+        order: typeof data.order === 'number' ? data.order : undefined,
+        sectionId: data.sectionId ? String(data.sectionId) : null,
       }
     })
     callback(products)
@@ -59,7 +66,8 @@ export function subscribeToCategories(callback: (categories: Category[]) => void
       return {
         id: numId,
         name: data.name || '',
-        icon: data.icon || 'package'
+        icon: data.icon || 'package',
+        order: typeof data.order === 'number' ? data.order : undefined,
       }
     })
     callback(categories)
@@ -156,6 +164,30 @@ export function subscribeToUserProfile(userId: number, callback: (profile: UserP
 export async function updateUserProfile(userId: number, data: Partial<UserProfile>) {
   const userRef = doc(db, 'users', String(userId))
   await updateDoc(userRef, data)
+}
+
+/** Bo'limlar — kategoriya ichidagi guruhlar (Section). */
+export function subscribeToSections(callback: (sections: Section[]) => void) {
+  return onSnapshot(
+    collection(db, 'sections'),
+    (snapshot) => {
+      const sections = snapshot.docs.map((d) => {
+        const data = d.data()
+        return {
+          id: d.id,
+          name: String(data.name || ''),
+          category: String(data.category || ''),
+          order: typeof data.order === 'number' ? data.order : undefined,
+        }
+      })
+      callback(sections)
+    },
+    (error) => {
+      // Bo'limlar bo'lmasa ham katalog oddiy ro'yxat bo'lib ishlaydi
+      console.error('[Firebase] Sections snapshot ERROR:', error)
+      callback([])
+    },
+  )
 }
 
 // Subscribe to User Orders

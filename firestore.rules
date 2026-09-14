@@ -54,6 +54,13 @@ service cloud.firestore {
       allow write: if false;   // faqat bot (Admin SDK)
     }
 
+    // Bo'limlar — kategoriya ichidagi guruhlar. Katalogda sarlavha
+    // bo'lib chiqadi, shuning uchun o'qish ochiq.
+    match /sections/{sectionId} {
+      allow read: if true;
+      allow write: if false;   // faqat /api/admin/action
+    }
+
     // ── Profil: faqat o'zinikini ────────────────────────────
     // Foydalanuvchi ismi, telefoni va manzillarini o'zgartira oladi.
     // Boshqa maydonlarni (masalan rollarni) o'zgartira olmaydi.

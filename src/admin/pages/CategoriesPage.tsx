@@ -1,11 +1,12 @@
-import { ArrowDown, ArrowUp, LayoutGrid, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { LayoutGrid, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { categoryIcon } from '../../utils/category-icons'
 import { apiPost } from '../lib/api'
 import { useCategories, useProducts } from '../lib/live'
 import { ConfirmDialog, Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
-import { useSortable } from '../lib/sort'
+import { moveItem, useOptimisticValue } from '../lib/sort'
+import { SortableList } from '../components/SortableList'
 
 type Draft = { id?: string; name: string; icon: string }
 
@@ -26,12 +27,22 @@ export function CategoriesPage() {
 
   const countIn = (name: string) => products.filter((p) => p.category === name).length
 
-  // Katalogdagi tartib shu yerda belgilanadi (mini app `order` bo'yicha saralaydi)
-  const { move } = useSortable(
-    'category',
-    categories.map((c) => ({ id: String(c.id) })),
+  /*
+   * Katalogdagi tartib shu yerda — sudrab belgilanadi (mini app `order`
+   * bo'yicha saralaydi). Qo'yib yuborilgan zahoti ro'yxat yangi tartibda
+   * turadi, serverga esa bitta so'rov ketadi.
+   */
+  const serverIds = useMemo(() => categories.map((c) => String(c.id)), [categories])
+  const order = useOptimisticValue(
+    serverIds,
+    (ids) => ids.join('|'),
+    async (ids) => {
+      await apiPost('action', { action: 'order.sort', entity: 'category', ids })
+    },
     (m) => show(m, 'error'),
   )
+  const byId = new Map(categories.map((c) => [String(c.id), c]))
+  const ordered = order.value.map((id) => byId.get(id)).filter((c) => c !== undefined)
 
   const save = async () => {
     if (!draft) return
@@ -94,61 +105,54 @@ export function CategoriesPage() {
           <p className="text-sm font-semibold">Hali kategoriya yo‘q</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {categories.map((category, index) => {
-            const Icon = categoryIcon(category.icon, category.name)
-            const id = String(category.id)
-            return (
-              <article key={id} className="adm-card flex items-center gap-3 p-3.5">
-                <span
-                  className="grid size-11 shrink-0 place-items-center rounded-xl"
-                  style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
-                >
-                  <Icon size={20} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-extrabold">{category.name}</p>
-                  <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                    {countIn(category.name)} ta mahsulot
-                  </p>
-                </div>
-                <button
-                  className="grid size-8 shrink-0 place-items-center rounded-lg transition active:scale-90 disabled:opacity-30"
-                  style={{ background: 'var(--surface-2)' }}
-                  onClick={() => move(index, -1)}
-                  disabled={index === 0}
-                  aria-label="Yuqoriga"
-                >
-                  <ArrowUp size={15} />
-                </button>
-                <button
-                  className="grid size-8 shrink-0 place-items-center rounded-lg transition active:scale-90 disabled:opacity-30"
-                  style={{ background: 'var(--surface-2)' }}
-                  onClick={() => move(index, 1)}
-                  disabled={index === categories.length - 1}
-                  aria-label="Pastga"
-                >
-                  <ArrowDown size={15} />
-                </button>
-                <button
-                  className="grid size-8 shrink-0 place-items-center rounded-lg transition active:scale-90"
-                  style={{ background: 'var(--surface-2)' }}
-                  onClick={() => setDraft({ id, name: category.name, icon: category.icon })}
-                  aria-label="Tahrirlash"
-                >
-                  <Pencil size={15} />
-                </button>
-                <button
-                  className="grid size-8 shrink-0 place-items-center rounded-lg transition active:scale-90"
-                  style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}
-                  onClick={() => setRemoving({ id, name: category.name })}
-                  aria-label="O‘chirish"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </article>
-            )
-          })}
+        <div className="max-w-2xl">
+          <p className="mb-2 text-xs" style={{ color: 'var(--faint)' }}>
+            Tartibni o‘zgartirish uchun chapdagi ⋮⋮ tutqichdan ushlab suring — ilovada ham shu tartibda chiqadi.
+          </p>
+          <SortableList
+            onMove={(from, to) => order.commit(moveItem(order.value, from, to))}
+            rows={ordered.map((category) => {
+              const Icon = categoryIcon(category.icon, category.name)
+              const id = String(category.id)
+              return {
+                key: id,
+                draggable: true,
+                render: (handle) => (
+                  <article className="adm-card flex items-center gap-2.5 p-2.5 sm:p-3">
+                    {handle}
+                    <span
+                      className="grid size-10 shrink-0 place-items-center rounded-xl"
+                      style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+                    >
+                      <Icon size={19} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-extrabold">{category.name}</p>
+                      <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                        {countIn(category.name)} ta mahsulot
+                      </p>
+                    </div>
+                    <button
+                      className="grid size-8 shrink-0 place-items-center rounded-lg transition active:scale-90"
+                      style={{ background: 'var(--surface-2)' }}
+                      onClick={() => setDraft({ id, name: category.name, icon: category.icon })}
+                      aria-label="Tahrirlash"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      className="grid size-8 shrink-0 place-items-center rounded-lg transition active:scale-90"
+                      style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}
+                      onClick={() => setRemoving({ id, name: category.name })}
+                      aria-label="O‘chirish"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </article>
+                ),
+              }
+            })}
+          />
         </div>
       )}
 

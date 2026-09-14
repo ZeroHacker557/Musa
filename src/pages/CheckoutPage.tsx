@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { productThumb } from '../utils/product-image'
 import {
   ArrowLeft, Banknote, Check, Copy, CreditCard, Loader2, MapPin,
   MessageSquare, Phone, Send, ShoppingBag, Tag, User, UserRound,
 } from 'lucide-react'
 import { formatPrice } from '../data'
-import { getImageUrl, hapticFeedback } from '../utils/telegram'
+import { hapticFeedback } from '../utils/telegram'
 import { getPaymentSettings, getDeliverySettings } from '../lib/firebase'
 import { apiPost, ApiError } from '../lib/api'
 import { useT } from '../i18n'
@@ -131,7 +132,7 @@ export function CheckoutPage({
             {cartProducts.map(({ product, quantity, size, color, cartKey }) => (
               <div key={cartKey} className="flex items-center gap-3">
                 <img
-                  src={product.images[0] ? getImageUrl(product.images[0]) : ''}
+                  src={productThumb(product)}
                   alt={product.name}
                   loading="lazy"
                   className="size-14 shrink-0 rounded-xl border object-contain p-1"

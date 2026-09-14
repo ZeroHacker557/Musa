@@ -1,6 +1,6 @@
 import { ArrowLeft, Search, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '../../data'
-import { getImageUrl } from '../../utils/telegram'
+import { productThumb } from '../../utils/product-image'
 import { useT } from '../../i18n'
 import type { Product } from '../../types/domain'
 
@@ -52,11 +52,11 @@ export function SearchOverlay({ query, results, onQueryChange, onClose, onOpenPr
                 animation: `fadeInUp 0.25s ease ${Math.min(i, 8) * 0.04}s both`,
               }}
             >
-              {product.images?.[0] ? (
+              {productThumb(product) ? (
                 <img
                   className="size-16 shrink-0 rounded-xl object-contain"
                   style={{ background: 'var(--surface-2)' }}
-                  src={getImageUrl(product.images[0])}
+                  src={productThumb(product)}
                   alt={product.name}
                   loading="lazy"
                 />

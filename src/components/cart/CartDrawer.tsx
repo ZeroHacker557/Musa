@@ -1,6 +1,6 @@
 import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
 import { formatPrice } from '../../data'
-import { getImageUrl } from '../../utils/telegram'
+import { productThumb } from '../../utils/product-image'
 import { useT } from '../../i18n'
 import type { Product } from '../../types/domain'
 
@@ -67,9 +67,9 @@ export function CartDrawer({
                     animation: `fadeInUp 0.32s ease ${i * 0.05}s both`,
                   }}
                 >
-                  {product.images?.[0] ? (
+                  {productThumb(product) ? (
                     <img
-                      src={getImageUrl(product.images[0])}
+                      src={productThumb(product)}
                       alt={product.name}
                       loading="lazy"
                       className="size-20 shrink-0 rounded-xl object-contain"

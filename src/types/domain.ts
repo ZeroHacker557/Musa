@@ -14,12 +14,44 @@ export type Product = {
   rating: number
   reviews: number
   images: string[]
+  /**
+   * Siqilgan nusxalar — `images` bilan bir xil tartibda.
+   *   thumbs    — ~480px WebP: kartochka, savat, ro'yxatlar
+   *   optimized — ~1200px WebP: mahsulot sahifasi
+   * Bo'sh satr yoki yo'q bo'lsa asl `images[i]` ishlatiladi
+   * (utils/product-image.ts). Asl rasm kattalashtirish uchun saqlanadi.
+   */
+  thumbs?: string[]
+  optimized?: string[]
+  /**
+   * Nusxalar QAYSI asl rasmlardan yasalgani. Nusxa faqat
+   * `variantSources[i] === images[i]` bo'lsa ishlatiladi — rasm
+   * almashtirilgan-u nusxa yangilanmagan bo'lsa, eski mahsulot rasmi
+   * ko'rinib qolmasin.
+   */
+  variantSources?: string[]
   description?: string
   discount?: string
   sizes?: string[]
   /** Ombordagi qoldiq. undefined — hisob yuritilmaydi (eski mahsulotlar). */
   stock?: number
   /** Ro'yxatdagi tartib — admin panelda belgilanadi. Kichik raqam oldinda. */
+  order?: number
+  /** Kategoriya ichidagi bo'lim (masalan «Musa», «Future Fruit»). */
+  sectionId?: string | null
+}
+
+/**
+ * Bo'lim — kategoriya ichidagi guruh.
+ *
+ * Katalogda sarlavha bo'lib chiqadi va ostida unga biriktirilgan
+ * mahsulotlar turadi. Kategoriyaga NOM bo'yicha bog'lanadi — mahsulotlar
+ * ham kategoriyaga shunday bog'langan.
+ */
+export type Section = {
+  id: string
+  name: string
+  category: string
   order?: number
 }
 

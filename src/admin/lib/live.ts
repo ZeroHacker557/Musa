@@ -1,7 +1,7 @@
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { db } from './auth'
-import type { Category, Order, Product, PromoCode } from '../../types/domain'
+import type { Category, Order, Product, PromoCode, Section } from '../../types/domain'
 
 /**
  * Firestore'dan jonli ma'lumot.
@@ -158,6 +158,41 @@ export function useCategories() {
   )
 
   return { categories, loading }
+}
+
+/** Bo'limlar — kategoriya ichidagi guruhlar, tartibi bilan. */
+export function useSections() {
+  const [sections, setSections] = useState<Section[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(
+    () =>
+      onSnapshot(
+        collection(db, 'sections'),
+        (snapshot) => {
+          const rows = snapshot.docs.map((d) => {
+            const data = d.data()
+            return {
+              id: d.id,
+              name: String(data.name || ''),
+              category: String(data.category || ''),
+              order: typeof data.order === 'number' ? data.order : undefined,
+            }
+          })
+          rows.sort(
+            (a, b) =>
+              (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
+              a.name.localeCompare(b.name),
+          )
+          setSections(rows)
+          setLoading(false)
+        },
+        () => setLoading(false),
+      ),
+    [],
+  )
+
+  return { sections, loading }
 }
 
 export type PromoRow = PromoCode & { id: string; maxUses?: number; expiresAt?: string | null }

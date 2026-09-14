@@ -10,6 +10,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { OrdersPage } from './pages/OrdersPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { CategoriesPage } from './pages/CategoriesPage'
+import { SectionsPage } from './pages/SectionsPage'
 import { PromocodesPage } from './pages/PromocodesPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { BroadcastPage } from './pages/BroadcastPage'
@@ -129,6 +130,7 @@ function AdminPanel({
       {/* Katalog — kuryerga yopiq */}
       {route === 'products' && (can(staff.role, 'admin') ? <ProductsPage /> : <NoAccess />)}
       {route === 'categories' && (can(staff.role, 'admin') ? <CategoriesPage /> : <NoAccess />)}
+      {route === 'sections' && (can(staff.role, 'admin') ? <SectionsPage /> : <NoAccess />)}
       {route === 'promocodes' && (can(staff.role, 'admin') ? <PromocodesPage /> : <NoAccess />)}
 
       {route === 'customers' && (can(staff.role, 'admin') ? <CustomersPage /> : <NoAccess />)}

@@ -198,6 +198,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             name: String(data.name || ''),
             price,
             images: Array.isArray(data.images) ? data.images : [],
+            // Buyurtmalar ro'yxatida kichik nusxa ko'rsatiladi
+            thumbs: Array.isArray(data.thumbs) ? data.thumbs : [],
+            variantSources: Array.isArray(data.variantSources) ? data.variantSources : [],
             category: String(data.category || ''),
           },
           quantity: item.quantity,

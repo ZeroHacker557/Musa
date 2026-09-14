@@ -59,6 +59,7 @@ export const ru: Record<TranslationKey, string> = {
   'catalog.sortCheap': 'Сначала дешёвые',
   'catalog.sortExpensive': 'Сначала дорогие',
   'catalog.total': 'Всего {count} товаров',
+  'catalog.otherProducts': 'Другие товары',
   'catalog.emptyCategory': 'В этой категории товаров нет',
   'catalog.emptyCategoryText': 'Выберите другую категорию.',
   'catalog.filterSummary': 'Категория: {category} • Цена: {sort}',
@@ -73,8 +74,6 @@ export const ru: Record<TranslationKey, string> = {
   'catalog.reset': 'Сбросить',
   'catalog.apply': 'Применить',
   'catalog.activeFilters': 'фильтров: {count}',
-  'catalog.loadMore': 'Показать ещё',
-  'catalog.showing': '{shown} / {total}',
 
   // ── Товар ──
   'product.title': 'Товар',

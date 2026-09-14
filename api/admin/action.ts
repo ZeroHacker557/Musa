@@ -7,6 +7,7 @@ import {
   promoDelete, promoSave, requireCatalogAccess,
 } from '../_lib/actions/catalog.js'
 import { broadcast, staffDelete, staffSave } from '../_lib/actions/people.js'
+import { catalogLayout, sectionDelete, sectionSave } from '../_lib/actions/sections.js'
 import { settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
 
 type Body = Record<string, unknown>
@@ -34,6 +35,9 @@ const HANDLERS: Record<string, Handler> = {
   'promo.save': (staff, body) => (requireCatalogAccess(staff), promoSave(body)),
   'promo.delete': (staff, body) => (requireCatalogAccess(staff), promoDelete(body)),
   'order.sort': (staff, body) => (requireCatalogAccess(staff), orderSave(body)),
+  'section.save': (staff, body) => (requireCatalogAccess(staff), sectionSave(body)),
+  'section.delete': (staff, body) => (requireCatalogAccess(staff), sectionDelete(body)),
+  'catalog.layout': (staff, body) => (requireCatalogAccess(staff), catalogLayout(body)),
 
   // Odamlar
   'staff.save': staffSave,

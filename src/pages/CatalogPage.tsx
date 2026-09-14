@@ -8,14 +8,16 @@ import { categoryIcon } from '../utils/category-icons'
 import { shortCategoryName } from '../config/categories'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { useT } from '../i18n'
-import type { Category, Product, ProductActions } from '../types/domain'
+import type { Category, Product, ProductActions, Section } from '../types/domain'
+import { groupBySection, sortForAll } from '../utils/catalog-groups'
 
 /** Bir sahifada nechta mahsulot ko'rsatiladi (4-band). */
-const PAGE_SIZE = 12
 
 type Props = ProductActions & {
   products: Product[]
   categories: Category[]
+  /** Kategoriya ichidagi bo'limlar — sarlavha bilan ajratiladi. */
+  sections: Section[]
   loading: boolean
   /** Bosh sahifadan kelgan kategoriya filtri. */
   initialCategory?: string | null
@@ -26,14 +28,13 @@ type Props = ProductActions & {
 }
 
 export function CatalogPage({
-  products, categories, loading, initialCategory,
+  products, categories, sections, loading, initialCategory,
   onSearch, onFavorites, onBack, ...actions
 }: Props) {
   const t = useT()
   const ALL = t('common.all')
 
   const [active, setActive] = useState(initialCategory || ALL)
-  const [visible, setVisible] = useState(PAGE_SIZE)
 
   // Kategoriya lentasi o'zi sekin surilib turadi
   const stripRef = useRef<HTMLDivElement>(null)
@@ -46,27 +47,26 @@ export function CatalogPage({
   useAutoScroll(stripRef, { speed: 16, enabled: displayCategories.length > 3 })
 
   /*
-   * Tartib admin panelda belgilanadi (`order` maydoni).
-   * Narx bo'yicha saralash tugmalari olib tashlandi: mijoz uchun
-   * ortiqcha tanlov edi, mahsulotlar tartibini esa do'kon o'zi
-   * boshqargani ma'qul.
+   * Tartib admin panelda belgilanadi: kategoriya → bo'lim → mahsulot.
+   *
+   * «Ko'proq ko'rsatish» tugmasi olib tashlandi — mijoz pastga aylantirib
+   * hamma mahsulotni ko'radi. Kartochkalar kichik nusxa (thumb) va
+   * `loading="lazy"` bilan yuklangani uchun uzun ro'yxat ham tez.
    */
-  const shown = useMemo(() => {
-    const filtered = products.filter((p) => active === ALL || p.category === active)
-    return [...filtered].sort(
-      (a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER),
-    )
-  }, [products, active, ALL])
+  const shown = useMemo(
+    () =>
+      active === ALL
+        ? sortForAll(products, categories, sections)
+        : products.filter((p) => p.category === active),
+    [products, categories, sections, active, ALL],
+  )
 
-  // Kategoriya o'zgarsa ro'yxatni boshidan ko'rsatamiz
-  const [lastKey, setLastKey] = useState(active)
-  if (active !== lastKey) {
-    setLastKey(active)
-    setVisible(PAGE_SIZE)
-  }
-
-  const page = shown.slice(0, visible)
-  const hasMore = shown.length > visible
+  // Tanlangan kategoriyada bo'limlar sarlavha bilan ajratiladi
+  const groups = useMemo(
+    () => (active === ALL ? null : groupBySection(shown, sections, active)),
+    [shown, sections, active, ALL],
+  )
+  const hasSections = Boolean(groups?.some((group) => group.section))
 
   return (
     <>
@@ -107,28 +107,31 @@ export function CatalogPage({
 
         {loading ? (
           <ProductGridSkeleton />
-        ) : page.length > 0 ? (
-          <>
+        ) : shown.length > 0 ? (
+          hasSections && groups ? (
+            groups.map((group) => (
+              <div key={group.section?.id ?? 'rest'} className="catalog-group">
+                <h2 className="catalog-group__title">
+                  <span className="catalog-group__name">
+                    {group.section ? group.section.name : t('catalog.otherProducts')}
+                  </span>
+                  <span className="catalog-group__count">{group.products.length}</span>
+                  <span className="catalog-group__line" aria-hidden="true" />
+                </h2>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                  {group.products.map((product) => (
+                    <ProductCard key={product.id} product={product} {...actions} />
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
             <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {page.map((product) => (
+              {shown.map((product) => (
                 <ProductCard key={product.id} product={product} {...actions} />
               ))}
             </div>
-
-            {hasMore && (
-              <div className="mt-8 flex flex-col items-center gap-3">
-                <p className="text-xs font-bold" style={{ color: 'var(--faint)' }}>
-                  {t('catalog.showing', { shown: page.length, total: shown.length })}
-                </p>
-                <button
-                  onClick={() => setVisible((v) => v + PAGE_SIZE)}
-                  className="btn-ghost px-8 py-3"
-                >
-                  {t('catalog.loadMore')}
-                </button>
-              </div>
-            )}
-          </>
+          )
         ) : (
           <div
             className="mt-8 rounded-2xl border border-dashed p-12 text-center"

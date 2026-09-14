@@ -1,4 +1,4 @@
-import { getImageUrl } from '../../utils/telegram'
+import { productThumb } from '../../utils/product-image'
 import { ShoppingBag } from 'lucide-react'
 import type { Product } from '../../types/domain'
 
@@ -13,10 +13,10 @@ export function OrderImages({ products }: { products: Item[] }) {
           className="relative size-14 shrink-0 overflow-hidden rounded-xl border sm:size-16"
           style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}
         >
-          {item.product.images?.[0] ? (
+          {productThumb(item.product) ? (
             <img
               className="absolute inset-0 size-full object-contain p-1"
-              src={getImageUrl(item.product.images[0])}
+              src={productThumb(item.product)}
               alt={item.product.name}
               loading="lazy"
             />

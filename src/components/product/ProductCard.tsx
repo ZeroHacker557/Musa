@@ -1,7 +1,7 @@
 import { Heart, ShoppingCart, Star } from 'lucide-react'
 import { useState } from 'react'
 import { formatPrice } from '../../data'
-import { getImageUrl } from '../../utils/telegram'
+import { productThumb } from '../../utils/product-image'
 import { ProductImage } from './ProductImage'
 import { useT } from '../../i18n'
 import type { Product, ProductActions } from '../../types/domain'
@@ -11,7 +11,8 @@ type Props = ProductActions & { product: Product; compact?: boolean }
 export function ProductCard({ product, onOpen, onAddToCart, likedIds, onToggleLike, compact = false }: Props) {
   const t = useT()
   const favourite = likedIds.includes(product.id)
-  const imgSrc = product.images?.[0] ? getImageUrl(product.images[0]) : ''
+  // Kartochkada kichik nusxa: ekranda ~170px, katta faylga hojat yo'q
+  const imgSrc = productThumb(product)
   const [imgError, setImgError] = useState(false)
   const soldOut = product.stock === 0
 

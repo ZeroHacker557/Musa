@@ -1,49 +1,70 @@
-import { useCallback, useState } from 'react'
-import { apiPost } from './api'
+import { useCallback, useRef, useState } from 'react'
 
 /**
- * Ro'yxatni yuqoriga/pastga ko'chirish.
+ * Sudrab tartiblashda ro'yxat qo'yib yuborilgan joyida DARHOL turishi uchun.
  *
- * Drag-and-drop emas, o'q tugmalari: telefonda sudrab ko'chirish
- * noqulay va sahifa aylanishi bilan chalkashib ketadi, o'q esa
- * barmoq bilan ham, sichqoncha bilan ham bir xil ishlaydi.
+ * Server javobi va Firestore yangilanishi yarim soniyagacha kechikadi.
+ * Shu orada ekranda eski tartib ko'rinsa, qator «orqaga sakrab», keyin
+ * yana joyiga qaytardi. Shuning uchun yangi holat mahalliy ushlab turiladi
+ * va Firestore'dan xuddi shu holat kelganda qo'yib yuboriladi.
  *
- * Tartib serverga butun ro'yxat bo'yicha yuboriladi (0,1,2...) —
- * shunda oradagi bo'sh raqamlar yig'ilib qolmaydi.
+ * Saqlashlar navbat bilan ketadi: ketma-ket ikki sudrashda eskisining
+ * javobi yangisidan keyin kelib, tartibni buzib qo'ymaydi.
+ *
+ *   server    — Firestore'dan kelgan joriy holat
+ *   signature — holatni solishtirish uchun qisqa satr
+ *   save      — serverga yozadi (xato tashlasa holat bekor qilinadi)
+ *   scope     — qaysi ro'yxat (masalan kategoriya). Boshqa ro'yxatga
+ *               o'tilganda eski mahalliy holat ko'rsatilmaydi.
  */
-export function useSortable<T extends { id: string }>(
-  entity: 'product' | 'category',
-  items: T[],
+export function useOptimisticValue<T>(
+  server: T,
+  signature: (value: T) => string,
+  save: (value: T) => Promise<void>,
   onError: (message: string) => void,
+  scope = '',
 ) {
-  const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState<{ value: T; sig: string; version: number; scope: string } | null>(null)
+  const version = useRef(0)
+  const queue = useRef<Promise<void>>(Promise.resolve())
 
-  const move = useCallback(
-    async (index: number, direction: -1 | 1) => {
-      const target = index + direction
-      if (busy || target < 0 || target >= items.length) return
+  // Firestore xuddi shu holatni qaytardi — mahalliy nusxa endi keraksiz
+  const serverSig = signature(server)
+  if (pending && pending.scope === scope && pending.sig === serverSig) setPending(null)
+  const active = pending && pending.scope === scope ? pending : null
 
-      const next = [...items]
-      ;[next[index], next[target]] = [next[target], next[index]]
+  const commit = useCallback(
+    (value: T) => {
+      const v = ++version.current
+      setPending({ value, sig: signature(value), version: v, scope })
 
-      setBusy(true)
-      try {
-        await apiPost('action', {
-          action: 'order.sort',
-          entity,
-          ids: next.map((item) => item.id),
-        })
-        // Ro'yxat onSnapshot orqali o'zi yangilanadi
-      } catch (error) {
-        onError(error instanceof Error ? error.message : 'Tartib saqlanmadi')
-      } finally {
-        setBusy(false)
-      }
+      queue.current = queue.current
+        .then(() => save(value))
+        .then(
+          () => {
+            // Zaxira: Firestore boshqa shaklda qaytarsa ham abadiy osilib qolmasin
+            window.setTimeout(() => {
+              setPending((current) => (current && current.version === v ? null : current))
+            }, 4000)
+          },
+          (error: unknown) => {
+            setPending((current) => (current && current.version === v ? null : current))
+            onError(error instanceof Error ? error.message : 'Tartib saqlanmadi')
+          },
+        )
     },
-    [busy, entity, items, onError],
+    [signature, save, onError, scope],
   )
 
-  return { move, busy }
+  return { value: active ? active.value : server, commit, saving: Boolean(active) }
+}
+
+/** Massivda elementni `from` dan `to` ga ko'chiradi (yangi massiv). */
+export function moveItem<T>(list: T[], from: number, to: number): T[] {
+  const next = [...list]
+  const [item] = next.splice(from, 1)
+  next.splice(to, 0, item)
+  return next
 }
 
 /** `order` bo'yicha saralaydi; qiymati yo'qlar oxirida turadi. */

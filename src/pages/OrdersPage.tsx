@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
+import { productThumb } from '../utils/product-image'
 import { ChevronDown, ExternalLink, Loader2, ShoppingBag, X } from 'lucide-react'
 import { formatPrice } from '../data'
-import { getImageUrl, openBotDeepLink } from '../utils/telegram'
+import { openBotDeepLink } from '../utils/telegram'
 import { formatOrderDate } from '../utils/date'
 import { apiPost, ApiError } from '../lib/api'
 import { BRAND } from '../config/brand'
@@ -188,7 +189,7 @@ export function OrdersPage({
                   {order.products.map((item, idx) => (
                     <div key={item.cartKey ?? idx} className="flex items-center gap-3">
                       <img
-                        src={item.product.images?.[0] ? getImageUrl(item.product.images[0]) : ''}
+                        src={productThumb(item.product)}
                         alt={item.product.name}
                         loading="lazy"
                         className="size-12 rounded-lg border object-contain p-1"

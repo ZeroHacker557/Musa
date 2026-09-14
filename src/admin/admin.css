@@ -601,3 +601,141 @@
   font: 600 0.7rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
   text-align: center;
 }
+
+/* ====== Ko'rsatma havolasi ====== */
+.adm-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px dashed var(--brand-line);
+  border-radius: var(--r-sm);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-size: 0.8rem;
+  transition: background 0.2s ease;
+}
+.adm-hint:hover { background: var(--brand-soft-2); }
+
+/* ====== Sudrab tartiblash (SortableList) ====== */
+.adm-sortable { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.adm-sort-row { position: relative; will-change: transform; }
+.adm-sort-row.is-dragging { z-index: 20; }
+.adm-sort-row.is-dragging > * {
+  box-shadow: 0 12px 32px rgb(6 26 16 / 0.18), 0 0 0 2px var(--brand-line);
+  transform: scale(1.015);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.adm-drag-handle {
+  display: grid;
+  width: 32px;
+  height: 40px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--faint);
+  cursor: grab;
+  /* Barmoq bilan sudraganda brauzer sahifani aylantirmasin */
+  touch-action: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.adm-drag-handle:hover { background: var(--surface-2); color: var(--ink); }
+.adm-drag-handle:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.adm-sort-row.is-dragging .adm-drag-handle { cursor: grabbing; color: var(--brand); }
+
+/* ====== Bo'limlar sahifasi ====== */
+.adm-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.6rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: var(--r-md);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+}
+.adm-sortable > .adm-sort-row:first-child .adm-sec-head { margin-top: 0; }
+.adm-sec-head--rest {
+  background: var(--surface-2);
+  border: 1px dashed var(--line);
+}
+.adm-sec-head__icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--brand);
+}
+.adm-sec-head--rest .adm-sec-head__icon { color: var(--muted); }
+
+.adm-icon-btn {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.adm-icon-btn:hover { background: var(--surface-2); }
+.adm-icon-btn:active { transform: scale(0.9); }
+.adm-icon-btn:disabled { opacity: 0.35; pointer-events: none; }
+.adm-icon-btn--brand { background: var(--brand); color: var(--brand-ink); }
+.adm-icon-btn--brand:hover { background: var(--brand-strong); }
+.adm-icon-btn--danger { color: var(--danger); }
+
+.adm-sec-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: 0.9rem;
+  padding: 0.35rem 0.75rem 0.35rem 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+@media (max-width: 480px) { .adm-sec-item { margin-left: 0.4rem; } }
+
+.adm-sec-item__thumb {
+  display: block;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.adm-sec-item__thumb img { width: 100%; height: 100%; object-fit: contain; }
+
+/* Biriktirish oynasidagi tanlov qatori */
+.adm-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.adm-pick:hover { border-color: var(--brand-line); }
+.adm-pick.is-on { border-color: var(--brand); background: var(--brand-soft); }
+.adm-pick__box {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  color: #fff;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.adm-pick.is-on .adm-pick__box { background: var(--brand); border-color: var(--brand); }

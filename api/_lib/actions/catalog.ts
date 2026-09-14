@@ -46,6 +46,25 @@ export async function productSave(body: Record<string, unknown>): Promise<Result
   const existing = await ref.get()
 
   const oldPrice = num(body.oldPrice, 0)
+  const images = list(body.images)
+
+  /*
+   * Siqilgan nusxalar `images` bilan bir xil uzunlikda saqlanadi (bo'sh
+   * satr — nusxa yo'q). Uzunligi mos kelmasa umuman yozilmaydi: noto'g'ri
+   * tartibdagi nusxa boshqa mahsulot rasmini ko'rsatib qo'yardi, bo'sh
+   * bo'lsa esa ilova shunchaki asl rasmni oladi.
+   */
+  const variant = (value: unknown): string[] => {
+    if (!Array.isArray(value) || value.length !== images.length) return []
+    return value.map((v) => (typeof v === 'string' ? v.trim() : ''))
+  }
+
+  // Bo'lim shu kategoriyaniki bo'lishi shart — aks holda bo'limsiz
+  let sectionId: string | null = text(body.sectionId) || null
+  if (sectionId) {
+    const section = await db.collection('sections').doc(sectionId).get()
+    if (!section.exists || section.data()?.category !== category) sectionId = null
+  }
 
   const data: Record<string, unknown> = {
     id,
@@ -54,7 +73,12 @@ export async function productSave(body: Record<string, unknown>): Promise<Result
     // 0 — "eski narx yo'q"; mini app undefined kutadi
     oldPrice: oldPrice > price ? oldPrice : null,
     category,
-    images: list(body.images),
+    sectionId,
+    images,
+    thumbs: variant(body.thumbs),
+    optimized: variant(body.optimized),
+    // Nusxalar aynan shu rasmlardan — ilova mos kelmaganini ishlatmaydi
+    variantSources: images,
     sizes: list(body.sizes),
     color: text(body.color),
     description: text(body.description),

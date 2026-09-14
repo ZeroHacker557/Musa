@@ -1,14 +1,15 @@
 import {
-  ArrowDown, ArrowUp, Boxes, ImagePlus, Loader2, Pencil, Plus, Search, Trash2, X,
+  ArrowUpDown, Boxes, ImagePlus, Loader2, Pencil, Plus, Search, Trash2, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { formatPrice } from '../../data'
 import { apiPost } from '../lib/api'
 import { uploadProductImage } from '../lib/storage'
-import { useCategories, useProducts, type ProductRow } from '../lib/live'
+import { useCategories, useProducts, useSections, type ProductRow } from '../lib/live'
 import { Modal, ConfirmDialog } from '../components/Modal'
 import { useToast } from '../components/Toast'
-import { useSortable } from '../lib/sort'
+import type { Section } from '../../types/domain'
+import { productThumb } from '../../utils/product-image'
 
 type Draft = {
   id?: string
@@ -21,12 +22,31 @@ type Draft = {
   stock: string
   sizes: string
   color: string
+  /** Bo'lim identifikatori; bo'sh — bo'limsiz. */
+  sectionId: string
+  /**
+   * Uchala ro'yxat BIR XIL uzunlikda va tartibda: i-rasmning asl fayli,
+   * kichik va o'rta nusxasi. Rasm olib tashlanganda uchalasidan ham
+   * o'chiriladi. Siqilgan nusxa yo'q eski rasmlarda bo'sh satr turadi.
+   */
   images: string[]
+  thumbs: string[]
+  optimized: string[]
 }
 
 const EMPTY: Draft = {
   name: '', price: '', oldPrice: '', category: '', description: '',
-  discount: '', stock: '0', sizes: '', color: '', images: [],
+  discount: '', stock: '0', sizes: '', color: '', sectionId: '',
+  images: [], thumbs: [], optimized: [],
+}
+
+/**
+ * Nusxalarni `images` bilan tekislaydi. Asl rasmi almashgan (eskirgan)
+ * nusxa bo'sh satrga aylanadi — saqlanganda noto'g'ri rasm qotib qolmasin.
+ */
+function aligned(product: ProductRow, list: string[] | undefined): string[] {
+  const images = product.images || []
+  return images.map((url, i) => (product.variantSources?.[i] === url && list?.[i]) || '')
 }
 
 function toDraft(product: ProductRow): Draft {
@@ -41,34 +61,25 @@ function toDraft(product: ProductRow): Draft {
     stock: String(product.stock ?? 0),
     sizes: (product.sizes || []).join(', '),
     color: product.color || '',
+    sectionId: product.sectionId || '',
     images: product.images || [],
+    thumbs: aligned(product, product.thumbs),
+    optimized: aligned(product, product.optimized),
   }
 }
 
 export function ProductsPage() {
   const { products, loading } = useProducts()
   const { categories } = useCategories()
+  const { sections } = useSections()
   const { show, node: toast } = useToast()
+  const sectionName = (id?: string | null) => sections.find((x) => x.id === id)?.name
 
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [draft, setDraft] = useState<Draft | null>(null)
   const [removing, setRemoving] = useState<ProductRow | null>(null)
   const [busy, setBusy] = useState(false)
-
-  /*
-   * Tartib faqat filtrsiz ro'yxatda o'zgartiriladi.
-   *
-   * Qidiruv yoki kategoriya filtri yoqilganda ko'rinayotgan ro'yxat
-   * to'liq emas — uni qayta raqamlash boshqa mahsulotlarning tartibini
-   * buzib yuborardi.
-   */
-  const sortable = !query.trim() && !category
-  const { move } = useSortable(
-    'product',
-    products.map((p) => ({ id: p.docId })),
-    (m) => show(m, 'error'),
-  )
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -94,7 +105,10 @@ export function ProductsPage() {
         stock: Number(draft.stock),
         sizes: draft.sizes.split(',').map((s) => s.trim()).filter(Boolean),
         color: draft.color,
+        sectionId: draft.sectionId || null,
         images: draft.images,
+        thumbs: draft.thumbs,
+        optimized: draft.optimized,
       })
       show(draft.id ? 'Mahsulot yangilandi' : 'Mahsulot qo‘shildi')
       setDraft(null)
@@ -148,6 +162,14 @@ export function ProductsPage() {
         </div>
       </div>
 
+      {/* Tartib endi shu yerda emas — Bo'limlar sahifasida sudrab */}
+      <a href="#/sections" className="adm-hint mb-3">
+        <ArrowUpDown size={16} />
+        <span>
+          Mahsulotlar tartibi va bo‘limlari — <b>Bo‘limlar</b> sahifasida, sudrab joylashtiriladi
+        </span>
+      </a>
+
       <div className="scrollbar-none mb-4 flex gap-2 overflow-x-auto pb-1">
         {['', ...categories.map((c) => c.name)].map((name) => (
           <button
@@ -178,7 +200,7 @@ export function ProductsPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((product, index) => (
+          {visible.map((product) => (
             <article key={product.docId} className="adm-card flex gap-3 p-3">
               <div
                 className="size-20 shrink-0 overflow-hidden rounded-xl"
@@ -186,7 +208,7 @@ export function ProductsPage() {
               >
                 {product.images?.[0] ? (
                   <img
-                    src={product.images[0]}
+                    src={productThumb(product)}
                     alt=""
                     className="size-full object-cover"
                     loading="lazy"
@@ -202,6 +224,7 @@ export function ProductsPage() {
                 <p className="truncate text-sm font-extrabold">{product.name}</p>
                 <p className="truncate text-xs" style={{ color: 'var(--muted)' }}>
                   {product.category}
+                  {sectionName(product.sectionId) ? ` · ${sectionName(product.sectionId)}` : ''}
                 </p>
                 <p className="mt-1 text-sm font-bold">{formatPrice(product.price)}</p>
                 <p
@@ -213,28 +236,6 @@ export function ProductsPage() {
               </div>
 
               <div className="flex shrink-0 flex-col gap-1.5">
-                {sortable && (
-                  <div className="flex gap-1.5">
-                    <button
-                      className="grid size-8 place-items-center rounded-lg transition active:scale-90 disabled:opacity-30"
-                      style={{ background: 'var(--surface-2)' }}
-                      onClick={() => move(index, -1)}
-                      disabled={index === 0}
-                      aria-label="Yuqoriga"
-                    >
-                      <ArrowUp size={15} />
-                    </button>
-                    <button
-                      className="grid size-8 place-items-center rounded-lg transition active:scale-90 disabled:opacity-30"
-                      style={{ background: 'var(--surface-2)' }}
-                      onClick={() => move(index, 1)}
-                      disabled={index === visible.length - 1}
-                      aria-label="Pastga"
-                    >
-                      <ArrowDown size={15} />
-                    </button>
-                  </div>
-                )}
                 <button
                   className="grid size-8 place-items-center rounded-lg transition active:scale-90"
                   style={{ background: 'var(--surface-2)' }}
@@ -261,6 +262,7 @@ export function ProductsPage() {
         <ProductForm
           draft={draft}
           categories={categories.map((c) => c.name)}
+          sections={sections}
           busy={busy}
           onChange={setDraft}
           onSave={save}
@@ -286,10 +288,11 @@ export function ProductsPage() {
 }
 
 function ProductForm({
-  draft, categories, busy, onChange, onSave, onClose, onError,
+  draft, categories, sections, busy, onChange, onSave, onClose, onError,
 }: {
   draft: Draft
   categories: string[]
+  sections: Section[]
   busy: boolean
   onChange: (draft: Draft) => void
   onSave: () => void
@@ -314,10 +317,15 @@ function ProductForm({
     if (!files.length) return
     setUploading(true)
     try {
-      const urls: string[] = []
-      for (const file of files) urls.push(await uploadProductImage(file))
+      const uploaded = []
+      for (const file of files) uploaded.push(await uploadProductImage(file))
       const current = latest.current.draft
-      latest.current.onChange({ ...current, images: [...current.images, ...urls] })
+      latest.current.onChange({
+        ...current,
+        images: [...current.images, ...uploaded.map((u) => u.url)],
+        thumbs: [...current.thumbs, ...uploaded.map((u) => u.thumb)],
+        optimized: [...current.optimized, ...uploaded.map((u) => u.optimized)],
+      })
     } catch (error) {
       latest.current.onError(error instanceof Error ? error.message : 'Rasm yuklanmadi')
     } finally {
@@ -418,7 +426,8 @@ function ProductForm({
           <select
             className="adm-input"
             value={draft.category}
-            onChange={(e) => set({ category: e.target.value })}
+            // Bo'lim kategoriyaga tegishli — kategoriya almashsa bo'lim ham tozalanadi
+            onChange={(e) => set({ category: e.target.value, sectionId: '' })}
           >
             <option value="">Tanlang...</option>
             {categories.map((name) => (
@@ -426,6 +435,24 @@ function ProductForm({
                 {name}
               </option>
             ))}
+          </select>
+        </Field>
+
+        <Field label="Bo‘lim">
+          <select
+            className="adm-input"
+            value={draft.sectionId}
+            onChange={(e) => set({ sectionId: e.target.value })}
+            disabled={!draft.category}
+          >
+            <option value="">Bo‘limsiz</option>
+            {sections
+              .filter((section) => section.category === draft.category)
+              .map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.name}
+                </option>
+              ))}
           </select>
         </Field>
 
@@ -480,10 +507,16 @@ function ProductForm({
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             {draft.images.map((url, i) => (
               <div key={url + i} className="adm-thumb">
-                <img src={url} alt="" />
+                <img src={draft.thumbs[i] || url} alt="" />
                 <button
                   className="adm-thumb__remove"
-                  onClick={() => set({ images: draft.images.filter((_, j) => j !== i) })}
+                  onClick={() =>
+                    set({
+                      images: draft.images.filter((_, j) => j !== i),
+                      thumbs: draft.thumbs.filter((_, j) => j !== i),
+                      optimized: draft.optimized.filter((_, j) => j !== i),
+                    })
+                  }
                   aria-label="Rasmni olib tashlash"
                 >
                   <X size={13} />
@@ -507,7 +540,7 @@ function ProductForm({
             </label>
           </div>
           <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
-            Birinchi rasm katalogda ko‘rinadi. 5 MB gacha. Nusxalangan rasmni{' '}
+            Birinchi rasm katalogda ko‘rinadi. 5 MB gacha — ilova uchun avtomatik siqiladi. Nusxalangan rasmni{' '}
             <kbd className="adm-kbd">Ctrl</kbd>+<kbd className="adm-kbd">V</kbd> bilan qo‘yish mumkin.
           </p>
         </div>

@@ -144,6 +144,7 @@ function App() {
                 key={shop.catalogCategory ?? 'all'}
                 products={shop.products}
                 categories={shop.categories}
+                sections={shop.sections}
                 loading={shop.loading}
                 initialCategory={shop.catalogCategory}
                 {...productActions}

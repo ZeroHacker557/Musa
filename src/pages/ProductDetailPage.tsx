@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { productOriginal, productPhoto, productThumb } from '../utils/product-image'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, Heart, Minus, MessageSquare, Plus, ShoppingCart, Star, Truck, UserRound, ZoomIn } from 'lucide-react'
 import { formatPrice } from '../data'
-import { getImageUrl, hapticSuccess, getTelegramUser, showAlert } from '../utils/telegram'
+import { hapticSuccess, getTelegramUser, showAlert } from '../utils/telegram'
 import { ProductImage } from '../components/product/ProductImage'
 import { formatDate } from '../utils/date'
 import { CartButton } from '../components/ui/CartButton'
@@ -156,8 +157,11 @@ export function ProductDetailPage({
             >
               {/* Kartadagidek: rasm to'liq ko'rinadi, quti xira fon bilan to'ladi.
                   Kattalashtirish uchun bosiladi. */}
+              {/* O'rta nusxa (~1200px); kelguncha kartochkadagi kichik nusxa
+                  ko'rinib turadi — u keshda, sahifa ochilishi bilan chiqadi. */}
               <ProductImage
-                src={getImageUrl(images[activeImage])}
+                src={productPhoto(product, activeImage)}
+                placeholder={productThumb(product, activeImage)}
                 alt={product.name}
                 loading="eager"
               />
@@ -410,7 +414,7 @@ export function ProductDetailPage({
 
       {zoomed && images.length > 0 && (
         <ImageLightbox
-          images={images.map(getImageUrl)}
+          images={images.map((_, i) => productOriginal(product, i))}
           index={activeImage}
           alt={product.name}
           onIndexChange={setActiveImage}

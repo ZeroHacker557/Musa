@@ -64,6 +64,7 @@ export const uz = {
   'catalog.sortCheap': 'Arzon narx',
   'catalog.sortExpensive': 'Qimmat narx',
   'catalog.total': 'Jami {count} ta mahsulot',
+  'catalog.otherProducts': 'Boshqa mahsulotlar',
   'catalog.emptyCategory': 'Bu turkumda mahsulot topilmadi',
   'catalog.emptyCategoryText': 'Boshqa turkumni tanlang.',
   'catalog.filterSummary': 'Turkum: {category} • Narx: {sort}',
@@ -78,8 +79,6 @@ export const uz = {
   'catalog.reset': 'Tozalash',
   'catalog.apply': "Qo'llash",
   'catalog.activeFilters': '{count} ta filtr',
-  'catalog.loadMore': 'Ko‘proq ko‘rsatish',
-  'catalog.showing': '{shown} / {total}',
 
   // ── Mahsulot ──
   'product.title': 'Mahsulot',

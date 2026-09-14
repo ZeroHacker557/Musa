@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { withMainLines } from '../config/categories'
-import { subscribeToCategories, subscribeToProducts, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead } from '../lib/firebase'
+import { subscribeToCategories, subscribeToProducts, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead } from '../lib/firebase'
 import { ensureSignedIn, onAuthChanged, auth } from '../lib/auth'
 import { apiPost, ApiError } from '../lib/api'
 import { track } from '../lib/track'
 import { searchProducts } from '../utils/search'
-import type { AppPage, Category, Order, OrderForm, Product, UserProfile, Notification } from '../types/domain'
+import type { AppPage, Category, Order, OrderForm, Product, Section, UserProfile, Notification } from '../types/domain'
 import { hapticError, hapticFeedback, hapticSuccess, initTelegram } from '../utils/telegram'
 import { applyTheme, getStoredTheme, storeTheme, type ThemeMode } from '../utils/theme'
 import { useT } from '../i18n'
@@ -75,6 +75,7 @@ export function useShopStore() {
   const [catalogCategory, setCatalogCategory] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>(() => withMainLines([]))
+  const [sections, setSections] = useState<Section[]>([])
   const [loading, setLoading] = useState(true)
   const [likedIds, setLikedIds] = useState<number[]>(loadLikes)
   const [cartItems, setCartItems] = useState<CartItems>(loadCart)
@@ -136,9 +137,12 @@ export function useShopStore() {
       () => {},
     )
 
+    const unsubSections = subscribeToSections(setSections)
+
     return () => {
       unsubProds()
       unsubCats()
+      unsubSections()
     }
   }, [])
 
@@ -461,7 +465,7 @@ export function useShopStore() {
     // Bosh sahifadan boshqa har qanday sahifada orqaga qaytish mumkin —
     // shuning uchun Telegram'ning o'z orqaga tugmasi ham ko'rinib turadi.
     canGoBack: page !== 'home' || history.length > 0 || isCartOpen || isSearchOpen,
-    products, categories, loading,
+    products, categories, sections, loading,
     cartItems, cartCount, cartTotal, cartProducts,
     likedIds, selectedProduct,
     isSearchOpen, isCartOpen, query, searchResults, toast, cartPrompt,
