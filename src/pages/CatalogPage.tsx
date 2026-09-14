@@ -4,6 +4,7 @@ import { PageHeader } from '../components/layout/PageHeader'
 import { ProductCard } from '../components/product/ProductCard'
 import { ProductGridSkeleton } from '../components/ui/ProductCardSkeleton'
 import { categoryIcon } from '../utils/category-icons'
+import { shortCategoryName } from '../config/categories'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { useT } from '../i18n'
 import type { Category, Product, ProductActions } from '../types/domain'
@@ -76,24 +77,26 @@ export function CatalogPage({
       />
 
       {/* Kategoriyalar */}
-      <section ref={stripRef} className="category-strip category-strip--compact scrollbar-none mt-5">
+      <section ref={stripRef} className="category-pills scrollbar-none mt-4">
         {displayCategories.map((category) => {
           const Icon = category.name === ALL ? Grid2X2 : categoryIcon(category.icon, category.name)
+          const selected = active === category.name
           return (
             <button
               onClick={() => setActive(category.name)}
               key={category.id}
-              className={'catalog-category ' + (active === category.name ? 'active' : '')}
+              aria-pressed={selected}
+              className={'category-pill ' + (selected ? 'active' : '')}
             >
-              <Icon size={21} />
-              <span className="category-label">{category.name}</span>
+              <Icon size={22} />
+              <span className="category-pill__label">{shortCategoryName(category.name)}</span>
             </button>
           )
         })}
       </section>
 
       {/* Mahsulotlar */}
-      <section className="px-5 pb-32 pt-6 sm:px-10">
+      <section className="px-5 pb-32 pt-2 sm:px-10">
         <p style={{ color: 'var(--muted)' }}>{t('catalog.total', { count: shown.length })}</p>
 
         {loading ? (

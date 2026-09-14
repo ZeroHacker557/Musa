@@ -29,11 +29,17 @@ export type MainLine = {
    * (1320x600), yarim kartalar 1.27:1 (990x780).
    */
   image?: string
+  /**
+   * Katalogdagi chip uchun qisqa nom. `name` filtr kaliti bo'lgani uchun
+   * o'zgarmaydi — bu faqat ko'rinish: uzun nom chipni cho'zib yuborardi.
+   */
+  short?: string
 }
 
 export const MAIN_LINES: MainLine[] = [
   {
     name: 'Yarim tayyor mahsulotlar',
+    short: 'Yarim tayyorlar',
     icon: 'chuchvara',
     gradient: 'linear-gradient(135deg, #0f8a48 0%, #04331c 100%)',
     image: yarimTayyor,
@@ -53,6 +59,12 @@ export const MAIN_LINES: MainLine[] = [
 ]
 
 const MAIN_NAMES = new Set(MAIN_LINES.map((line) => line.name.toLowerCase()))
+
+/** Chipda ko'rsatiladigan nom — yo'nalishning qisqa nomi bo'lsa o'sha. */
+export function shortCategoryName(name: string): string {
+  const line = MAIN_LINES.find((l) => l.name.toLowerCase() === name.trim().toLowerCase())
+  return line?.short ?? name
+}
 
 /** Yo'nalish nomimi? Bosh sahifadagi lentada takrorlanmasligi uchun. */
 export function isMainLine(name: string): boolean {

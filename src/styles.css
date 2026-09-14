@@ -704,6 +704,66 @@ a { color: inherit; text-decoration: none; }
 
 .category-strip--compact .category-label { min-height: 2.3em; }
 
+/* ====== Katalog: kategoriya chiplari ======
+   Yumaloq «pill»: chapda ikonka, o'ngda nom. Tanlangani to'q yashil,
+   qolganlari och yashil fonda — ramka va soya yo'q, shuning uchun lenta
+   yengil ko'rinadi va mahsulotlardan diqqatni tortmaydi. */
+.category-pills {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  /* Pastki joy tanlangan chipning soyasi uchun: overflow-x: auto
+     konteyneri soyani vertikal bo'yicha ham qirqadi va chip ostida
+     keskin chiziq paydo bo'lardi. */
+  padding: 0.25rem 1.25rem 1rem;
+  /* Karusel scrollLeft ni sekin surib boradi — snap uni to'xtatib qo'yardi */
+  scroll-snap-type: none;
+}
+@media (min-width: 640px) {
+  .category-pills { padding-left: 2.5rem; padding-right: 2.5rem; }
+}
+
+.category-pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.6rem;
+  height: 3.25rem;
+  padding: 0 1.15rem 0 1rem;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: left;
+  transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+}
+.category-pill svg {
+  flex-shrink: 0;
+  color: currentColor;
+}
+.category-pill:active { transform: scale(0.96); }
+
+/* Ikki so'zli nom ikki qatorga bo'linadi («Yarim / tayyorlar»),
+   bir so'zlisi bir qatorda qoladi.
+   `min-content` — kenglik eng uzun so'zga teng. max-width bilan qilinsa,
+   bo'lingan nom yonida bo'sh joy qolib, chip keraksiz keng bo'lardi. */
+.category-pill__label {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  width: min-content;
+}
+
+.category-pill.active {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 100%);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgb(10 122 61 / 0.25);
+}
+
 /* ====== Product Card ====== */
 .product-card {
   position: relative;
