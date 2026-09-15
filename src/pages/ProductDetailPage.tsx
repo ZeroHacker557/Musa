@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PromoTimer } from '../components/promo/PromoTimer'
 import { productOriginal, productPhoto, productThumb } from '../utils/product-image'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, Heart, Minus, MessageSquare, Plus, ShoppingCart, Star, Truck, UserRound, ZoomIn } from 'lucide-react'
@@ -213,6 +214,12 @@ export function ProductDetailPage({
           <strong className="text-3xl" style={{ color: 'var(--ink)' }}>{formatPrice(product.price)}</strong>
           {product.oldPrice && <del style={{ color: 'var(--faint)' }}>{formatPrice(product.oldPrice)}</del>}
         </div>
+        {product.promotion && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <PromoTimer endsAt={product.promotion.endsAt} />
+            <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>{product.promotion.title}</span>
+          </div>
+        )}
 
         {soldOut && (
           <p

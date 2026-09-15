@@ -7,6 +7,7 @@ import { apiPost } from '../lib/api'
 import { uploadProductImage } from '../lib/storage'
 import { useCategories, useProducts, useSections, type ProductRow } from '../lib/live'
 import { Modal, ConfirmDialog } from '../components/Modal'
+import { ProductExcel } from '../components/ProductExcel'
 import { useToast } from '../components/Toast'
 import type { Section } from '../../types/domain'
 import { productThumb } from '../../utils/product-image'
@@ -14,10 +15,14 @@ import { productThumb } from '../../utils/product-image'
 type Draft = {
   id?: string
   name: string
+  nameRu: string
+  nameEn: string
   price: string
   oldPrice: string
   category: string
   description: string
+  descriptionRu: string
+  descriptionEn: string
   discount: string
   stock: string
   sizes: string
@@ -35,7 +40,8 @@ type Draft = {
 }
 
 const EMPTY: Draft = {
-  name: '', price: '', oldPrice: '', category: '', description: '',
+  name: '', nameRu: '', nameEn: '', price: '', oldPrice: '', category: '',
+  description: '', descriptionRu: '', descriptionEn: '',
   discount: '', stock: '0', sizes: '', color: '', sectionId: '',
   images: [], thumbs: [], optimized: [],
 }
@@ -53,10 +59,14 @@ function toDraft(product: ProductRow): Draft {
   return {
     id: product.docId,
     name: product.name,
+    nameRu: product.nameRu || '',
+    nameEn: product.nameEn || '',
     price: String(product.price ?? ''),
     oldPrice: product.oldPrice ? String(product.oldPrice) : '',
     category: product.category || '',
     description: product.description || '',
+    descriptionRu: product.descriptionRu || '',
+    descriptionEn: product.descriptionEn || '',
     discount: product.discount || '',
     stock: String(product.stock ?? 0),
     sizes: (product.sizes || []).join(', '),
@@ -97,10 +107,14 @@ export function ProductsPage() {
         action: 'product.save',
         id: draft.id,
         name: draft.name,
+        nameRu: draft.nameRu,
+        nameEn: draft.nameEn,
         price: Number(draft.price),
         oldPrice: Number(draft.oldPrice) || 0,
         category: draft.category,
         description: draft.description,
+        descriptionRu: draft.descriptionRu,
+        descriptionEn: draft.descriptionEn,
         discount: draft.discount,
         stock: Number(draft.stock),
         sizes: draft.sizes.split(',').map((s) => s.trim()).filter(Boolean),
@@ -153,6 +167,12 @@ export function ProductsPage() {
           />
         </div>
         <div className="adm-page-head__actions">
+          <ProductExcel
+            products={products}
+            categories={categories}
+            sections={sections}
+            onToast={(message, kind) => show(message, kind)}
+          />
           <button
             className="adm-btn adm-btn--primary"
             onClick={() => setDraft({ ...EMPTY, category: categories[0]?.name || '' })}
@@ -287,6 +307,15 @@ export function ProductsPage() {
   )
 }
 
+const LANGS = [
+  { code: 'uz', label: 'O‘zbekcha', name: 'name', description: 'description',
+    namePlaceholder: 'Chuchvara mol go‘shtli, 800 g', descriptionPlaceholder: 'Yangi go‘sht va xamirdan, shok muzlatilgan.' },
+  { code: 'ru', label: 'Ruscha', name: 'nameRu', description: 'descriptionRu',
+    namePlaceholder: 'Пельмени с говядиной, 800 г', descriptionPlaceholder: 'Из свежего мяса и теста, шоковая заморозка.' },
+  { code: 'en', label: 'Inglizcha', name: 'nameEn', description: 'descriptionEn',
+    namePlaceholder: 'Beef dumplings, 800 g', descriptionPlaceholder: 'Fresh meat and dough, blast frozen.' },
+] as const
+
 function ProductForm({
   draft, categories, sections, busy, onChange, onSave, onClose, onError,
 }: {
@@ -300,6 +329,7 @@ function ProductForm({
   onError: (message: string) => void
 }) {
   const [uploading, setUploading] = useState(false)
+  const [lang, setLang] = useState<(typeof LANGS)[number]['code']>('uz')
   const set = (patch: Partial<Draft>) => onChange({ ...draft, ...patch })
 
   /*
@@ -393,14 +423,49 @@ function ProductForm({
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Nomi" className="sm:col-span-2">
-          <input
-            className="adm-input"
-            value={draft.name}
-            onChange={(e) => set({ name: e.target.value })}
-            placeholder="Chuchvara mol go‘shtli, 800 g"
-          />
-        </Field>
+        {/* Nom va tavsif — uch tilda. O'zbekcha majburiy, qolganlari bo'sh
+            bo'lsa ilova o'zbekchasini ko'rsatadi. */}
+        <div className="sm:col-span-2">
+          <div className="adm-lang-tabs" role="tablist" aria-label="Til">
+            {LANGS.map((l) => {
+              const filled = Boolean(draft[l.name].trim())
+              return (
+                <button
+                  key={l.code}
+                  type="button"
+                  role="tab"
+                  aria-selected={lang === l.code}
+                  className={'adm-lang-tab ' + (lang === l.code ? 'active' : '')}
+                  onClick={() => setLang(l.code)}
+                >
+                  {l.label}
+                  <i className={filled ? 'is-filled' : ''} aria-label={filled ? 'to‘ldirilgan' : 'bo‘sh'} />
+                </button>
+              )
+            })}
+          </div>
+          {LANGS.filter((l) => l.code === lang).map((l) => (
+            <div key={l.code} className="grid gap-3">
+              <Field label={l.code === 'uz' ? 'Nomi' : `Nomi — ${l.label.toLowerCase()}`}>
+                <input
+                  className="adm-input"
+                  value={draft[l.name]}
+                  onChange={(e) => set({ [l.name]: e.target.value } as Partial<Draft>)}
+                  placeholder={l.namePlaceholder}
+                />
+              </Field>
+              <Field label={l.code === 'uz' ? 'Tavsif' : `Tavsif — ${l.label.toLowerCase()}`}>
+                <textarea
+                  className="adm-input"
+                  rows={3}
+                  value={draft[l.description]}
+                  onChange={(e) => set({ [l.description]: e.target.value } as Partial<Draft>)}
+                  placeholder={l.descriptionPlaceholder}
+                />
+              </Field>
+            </div>
+          ))}
+        </div>
 
         <Field label="Narxi (so‘m)">
           <input
@@ -489,16 +554,6 @@ function ProductForm({
             value={draft.discount}
             onChange={(e) => set({ discount: e.target.value })}
             placeholder="-15%"
-          />
-        </Field>
-
-        <Field label="Tavsif" className="sm:col-span-2">
-          <textarea
-            className="adm-input"
-            rows={3}
-            value={draft.description}
-            onChange={(e) => set({ description: e.target.value })}
-            placeholder="Yangi go‘sht va xamirdan, shok muzlatilgan."
           />
         </Field>
 

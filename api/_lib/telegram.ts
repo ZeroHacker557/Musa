@@ -92,6 +92,32 @@ export async function setKeyboard(
   }
 }
 
+/** Istalgan qatorlardagi tugmalar bilan xabar (masalan baho: ⭐1…⭐5 va «O'tkazib yuborish»). */
+export async function sendRows(
+  chatId: number | string,
+  text: string,
+  rows: (InlineButton | CallbackButton)[][],
+): Promise<SendResult> {
+  try {
+    const response = await fetch(`${API}${token()}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        reply_markup: { inline_keyboard: rows },
+      }),
+    })
+    const json = (await response.json()) as { ok: boolean; result?: { message_id: number }; description?: string }
+    if (!json.ok) return { ok: false, error: json.description || 'Telegram rad etdi' }
+    return { ok: true, messageId: json.result?.message_id ?? 0 }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Tarmoq xatosi' }
+  }
+}
+
 /** HTML'ga xavfsiz qo'shish uchun matnni tozalaydi. */
 export function escapeHtml(value: unknown): string {
   return String(value ?? '')

@@ -777,3 +777,168 @@
   max-width: none;
   padding: 0 !important;
 }
+
+/* ====== Mahsulot formasi: til yorliqlari ====== */
+.adm-lang-tabs {
+  display: inline-flex;
+  gap: 2px;
+  margin-bottom: 0.6rem;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.adm-lang-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.adm-lang-tab.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+.adm-lang-tab i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.adm-lang-tab i.is-filled { background: var(--brand); }
+
+/* ====== Excel yuklash oynasi ====== */
+.adm-excel-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.adm-excel-stats > div {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.adm-excel-stats b { display: block; font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.adm-excel-stats span { font-size: 0.75rem; color: var(--muted); }
+.adm-excel-tag {
+  display: inline-block;
+  flex-shrink: 0;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font: 600 0.72rem/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+.adm-excel-issues {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--danger-soft);
+}
+.adm-excel-issues ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 0.82rem; max-height: 180px; overflow-y: auto; }
+.adm-excel-changes { display: grid; gap: 6px; }
+.adm-excel-changes details { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+.adm-excel-changes summary { display: flex; align-items: center; gap: 6px; padding: 9px 12px; cursor: pointer; font-size: 0.88rem; min-width: 0; }
+.adm-excel-changes table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.adm-excel-changes th, .adm-excel-changes td { padding: 6px 12px; border-top: 1px solid var(--line); text-align: left; vertical-align: top; }
+.adm-excel-changes th { width: 30%; font-weight: 700; color: var(--muted); }
+.adm-excel-changes td.is-old { color: var(--danger); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+.adm-excel-changes td.is-new { color: var(--brand-strong); font-weight: 700; }
+.adm-excel-changes td[aria-hidden] { width: 1%; color: var(--faint); }
+.adm-excel-result { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.adm-excel-result li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--surface-2); font-size: 0.85rem; }
+
+/* ====== Ommaviy xabar: kimga ====== */
+.adm-audience { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.adm-audience__item {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.adm-audience__item b { font-size: 0.86rem; }
+.adm-audience__item span { font-size: 0.74rem; line-height: 1.35; color: var(--muted); }
+.adm-audience__item:hover { border-color: var(--brand-line); }
+.adm-audience__item.active { border-color: var(--brand); background: var(--brand-soft); }
+
+.adm-chip {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.adm-chip.active { border-color: var(--brand-line); background: var(--brand-soft); color: var(--brand-strong); }
+
+.adm-picklist {
+  display: grid;
+  gap: 2px;
+  max-height: 260px;
+  margin-top: 8px;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.adm-picklist label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.adm-picklist label:hover { background: var(--surface-2); }
+.adm-picklist input { width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--brand); }
+.adm-picklist small { margin-left: auto; flex-shrink: 0; font-size: 0.72rem; color: var(--faint); }
+.adm-link { font-weight: 700; color: var(--brand); }
+.adm-link:hover { text-decoration: underline; }
+
+/* ====== Sozlamalar: yetkazish namunasi ====== */
+.adm-preview {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px dashed var(--brand-line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.adm-preview .free-delivery { margin-bottom: 0; }
+.adm-preview input[type="range"] { width: 100%; accent-color: var(--brand); }
+
+/* ====== Vaqtli aksiyalar ====== */
+.adm-promo { padding: 14px; }
+.adm-promo.is-running { border-color: var(--brand-line); box-shadow: 0 0 0 1px var(--brand-line), var(--shadow-sm); }
+.adm-promo__pct {
+  display: grid;
+  min-width: 56px;
+  height: 40px;
+  padding: 0 10px;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #ff6b3d 0%, #e5304f 100%);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ====== Hisobotlar: soatlar bo'yicha ====== */
+.adm-hours {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 120px;
+  margin-top: 14px;
+}
+.adm-hours span {
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(180deg, var(--brand) 0%, var(--brand-soft-2) 100%);
+  transition: height 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}

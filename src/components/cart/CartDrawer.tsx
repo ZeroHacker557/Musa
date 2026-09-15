@@ -2,6 +2,8 @@ import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
 import { formatPrice } from '../../data'
 import { productThumb } from '../../utils/product-image'
 import { useT } from '../../i18n'
+import { useFreeDelivery } from '../../hooks/use-free-delivery'
+import { FreeDeliveryBar } from './FreeDeliveryBar'
 import type { Product } from '../../types/domain'
 
 type Props = {
@@ -25,6 +27,7 @@ export function CartDrawer({
   onGoToCatalog,
 }: Props) {
   const t = useT()
+  const delivery = useFreeDelivery()
 
   return (
     <div
@@ -139,6 +142,14 @@ export function CartDrawer({
             </div>
 
             <footer className="border-t p-5" style={{ borderColor: 'var(--line)' }}>
+              {delivery.settings && (
+                <FreeDeliveryBar
+                  subtotal={cartTotal}
+                  fee={delivery.settings.fee}
+                  freeFrom={delivery.settings.freeFrom}
+                  text={delivery.text}
+                />
+              )}
               <div className="mb-4 flex justify-between text-lg">
                 <span className="font-bold" style={{ color: 'var(--ink)' }}>{t('cart.total')}</span>
                 <b style={{ color: 'var(--ink)' }}>{formatPrice(cartTotal)}</b>

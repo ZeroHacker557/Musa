@@ -457,6 +457,7 @@ async def cb_courier(callback: CallbackQuery):
 
         await callback.answer("Yetkazildi ✅ Rahmat!")
         await notify_customer_status(order, "Yetkazildi")
+        await ask_rating(order_id, order)
         await refresh_dispatch(order_id, order, "done", courier_name=name)
         return
 
@@ -962,6 +963,140 @@ async def cmd_contact(message: Message):
         f"⏰ <b>Ish vaqti:</b> {WORK_HOURS}\n\n"
         "<i>Ulgurji xarid va hamkorlik bo'yicha ham shu raqamga murojaat qiling.</i>"
     )
+
+
+# ─── Baho: yetkazilgandan keyin ──────────────────────────────
+#
+# Buyurtma «Yetkazildi» bo'lganda mijozga birinchi mahsulot uchun ⭐
+# tugmalari keladi (admin panel yoki kuryer — qaysi yo'l bilan bo'lmasin).
+# Bosilgan baho mini appdagi mahsulotga mijoz nomidan saqlanadi, xabar
+# esa keyingi mahsulotga almashadi. Matn api/_lib/actions/orders.ts
+# dagi sendRatingPrompt bilan bir xil.
+
+def rating_prompt(order_id: str, order: dict, index: int):
+    items = db.order_review_items(order)
+    if index >= len(items):
+        return None, None
+    label = db.order_display_id(order)
+    counter = f" ({index + 1}/{len(items)})" if len(items) > 1 else ""
+    text = (
+        f"⭐ <b>{label} buyurtmangiz qanday bo'ldi?</b>\n\n"
+        f"Mahsulotni baholang{counter}:\n<b>{items[index]['name']}</b>\n\n"
+        "<i>Bahoingiz ilovada boshqa xaridorlarga yordam beradi.</i>"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"{n}⭐", callback_data=f"rv:{order_id}:{index}:{n}") for n in range(1, 6)],
+        [InlineKeyboardButton(text="O'tkazib yuborish", callback_data=f"rv:{order_id}:{index}:0")],
+    ])
+    return text, kb
+
+
+async def ask_rating(order_id: str, order: dict):
+    """Kuryer «Yetkazdim» bosganda — baho so'rovi mijozga."""
+    user_id = (order or {}).get("userId")
+    if not user_id:
+        return
+    text, kb = rating_prompt(order_id, order, 0)
+    if not text:
+        return
+    try:
+        await bot.send_message(user_id, text, reply_markup=kb)
+    except Exception as e:
+        logger.warning(f"[REVIEW] baho so'rovi yetmadi: {e}")
+
+
+@dp.callback_query(F.data.startswith("rv:"))
+async def cb_review(callback: CallbackQuery):
+    try:
+        _, order_id, index, stars = callback.data.split(":", 3)
+        index, stars = int(index), int(stars)
+    except ValueError:
+        await callback.answer()
+        return
+    if not 0 <= stars <= 5:
+        await callback.answer()
+        return
+
+    if stars > 0:
+        outcome, items = db.save_bot_review(order_id, callback.from_user.id, index, stars)
+        if outcome == "not_yours":
+            await callback.answer("Bu buyurtma sizniki emas", show_alert=True)
+            return
+        if outcome != "saved":
+            await callback.answer("Baho saqlanmadi — ilovada qoldirishingiz mumkin", show_alert=True)
+            return
+        await callback.answer(f"Rahmat! {'⭐' * stars}")
+        order = db.get_order(order_id) or {}
+    else:
+        await callback.answer("O'tkazib yuborildi")
+        order = db.get_order(order_id) or {}
+        items = db.order_review_items(order)
+
+    next_index = index + 1
+    text, kb = rating_prompt(order_id, order, next_index) if next_index < len(items) else (None, None)
+    try:
+        if text:
+            await callback.message.edit_text(text, reply_markup=kb)
+        else:
+            await callback.message.edit_text(
+                "💚 <b>Rahmat!</b>\n\n"
+                "Baholaringiz mahsulot sahifasida ko'rinadi va boshqa xaridorlarga yordam beradi.\n"
+                "Yana buyurtma bermoqchi bo'lsangiz — ilova doim ochiq.",
+                reply_markup=my_orders_kb(),
+            )
+    except Exception as e:
+        logger.debug(f"[REVIEW] xabar yangilanmadi: {e}")
+
+
+# ─── Kuryer: /bugun ──────────────────────────────────────────
+
+@dp.message(Command("bugun"))
+async def cmd_today(message: Message):
+    """
+    Kuryerning bugungi ishi: nechta yetkazdi, nechtasi yo'lda va
+    qo'lida qancha naqd pul bo'lishi kerak (kassaga topshirish uchun).
+    """
+    courier = db.get_courier_by_telegram(message.from_user.id)
+    if not courier:
+        await message.answer("🛵 Bu buyruq faqat <b>kuryerlar</b> uchun.")
+        return
+
+    r = db.courier_today(courier["uid"])
+    months = ["yanvar", "fevral", "mart", "aprel", "may", "iyun",
+              "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"]
+    day = f"{r['date'].day}-{months[r['date'].month - 1]}"
+    name = courier.get("name") or message.from_user.first_name
+
+    lines = [
+        f"🛵 <b>{name} — bugun, {day}</b>",
+        "━" * 22,
+        "",
+        f"✅ Yetkazildi: <b>{len(r['delivered'])} ta</b>",
+        f"🚚 Yo'lda: <b>{len(r['on_way'])} ta</b>",
+        f"⏳ Olib ketish kutilmoqda: <b>{len(r['waiting'])} ta</b>",
+        "",
+        f"💵 Naqd pul (kassaga topshiriladi): <b>{db.format_price(r['cash'])}</b>",
+        f"💳 Karta orqali to'langan: <b>{db.format_price(r['card'])}</b>",
+    ]
+
+    if r["delivered"]:
+        lines += ["", "<b>Yetkazilganlar:</b>"]
+        for o in r["delivered"][-15:]:
+            pay = "💳" if o.get("paymentMethod") == "Karta" else "💵"
+            lines.append(f"{o['_at']:%H:%M} · {db.order_display_id(o)} · {db.format_price(o.get('total') or 0)} {pay}")
+        if len(r["delivered"]) > 15:
+            lines.append(f"<i>… va yana {len(r['delivered']) - 15} ta</i>")
+
+    if r["on_way"]:
+        lines += ["", "<b>Hozir yo'lda:</b>"]
+        for o in r["on_way"][:10]:
+            address = (o.get("customer") or {}).get("address") or "—"
+            lines.append(f"{db.order_display_id(o)} · {address[:40]}")
+
+    if not (r["delivered"] or r["on_way"] or r["waiting"]):
+        lines += ["", "<i>Bugun hali buyurtma yo'q. Omad! 🍀</i>"]
+
+    await message.answer("\n".join(lines))
 
 
 @dp.message(Command("group"))

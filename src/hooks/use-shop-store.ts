@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { withMainLines } from '../config/categories'
-import { subscribeToCategories, subscribeToProducts, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead } from '../lib/firebase'
+import { subscribeToCategories, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead } from '../lib/firebase'
 import { ensureSignedIn, onAuthChanged, auth } from '../lib/auth'
 import { apiPost, ApiError } from '../lib/api'
 import { track } from '../lib/track'
 import { searchProducts } from '../utils/search'
+import { bestPromotion, isRunning, promoPrice, type Promotion } from '../utils/promotions'
+import { useI18n } from '../i18n'
 import type { AppPage, Category, Order, OrderForm, Product, Section, UserProfile, Notification } from '../types/domain'
 import { hapticError, hapticFeedback, hapticSuccess, initTelegram } from '../utils/telegram'
 import { applyTheme, getStoredTheme, storeTheme, type ThemeMode } from '../utils/theme'
@@ -68,14 +70,52 @@ function initialPage(): AppPage {
 
 export function useShopStore() {
   const t = useT()
+  const { lang } = useI18n()
   const [page, setPage] = useState<AppPage>(initialPage)
   // Telegram BackButton shu tarix bo'yicha ishlaydi (D-03)
   const [history, setHistory] = useState<AppPage[]>([])
   // Bosh sahifadan tanlangan kategoriya katalogga uzatiladi (F-16)
   const [catalogCategory, setCatalogCategory] = useState<string | null>(null)
-  const [products, setProducts] = useState<Product[]>([])
+  /** Firestore'dagi xom mahsulotlar. Ekranda — pastdagi `products` (til va aksiya qo'llangan). */
+  const [rawProducts, setProducts] = useState<Product[]>([])
+  const [promotions, setPromotions] = useState<Promotion[]>([])
+  // Aksiya o'zi boshlanib-tugashi uchun vaqt har 30 soniyada yangilanadi
+  const [clock, setClock] = useState(() => Date.now())
   const [categories, setCategories] = useState<Category[]>(() => withMainLines([]))
   const [sections, setSections] = useState<Section[]>([])
+
+  /*
+   * Ekrandagi mahsulotlar:
+   *   - nomi va tavsifi tanlangan tilda (tarjima bo'lmasa — o'zbekcha);
+   *   - vaqtli aksiya bo'lsa narxi chegirmali, eski narxi chizilgan.
+   * Narxni baribir server qayta hisoblaydi (api/_lib/promotions.ts) —
+   * bu yerda faqat mijozga to'g'ri ko'rsatish uchun.
+   */
+  const products = useMemo(() => rawProducts.map((p) => {
+    const localized = lang === 'ru'
+      ? { name: p.nameRu || p.name, description: p.descriptionRu || p.description }
+      : {}
+    const promo = bestPromotion(
+      promotions,
+      { id: String(p.id), category: p.category, sectionId: p.sectionId },
+      clock,
+    )
+    if (!promo) return { ...p, ...localized, promotion: null }
+    return {
+      ...p,
+      ...localized,
+      price: promoPrice(p.price, promo.percent),
+      oldPrice: p.price,
+      discount: `-${promo.percent}%`,
+      promotion: { id: promo.id, title: promo.title, percent: promo.percent, endsAt: promo.endsAt },
+    }
+  }), [rawProducts, promotions, clock, lang])
+
+  /** Hozir ishlayotgan aksiyalar — bosh sahifadagi banner uchun. */
+  const runningPromotions = useMemo(
+    () => promotions.filter((promo) => isRunning(promo, clock)).sort((a, b) => b.percent - a.percent),
+    [promotions, clock],
+  )
   const [loading, setLoading] = useState(true)
   const [likedIds, setLikedIds] = useState<number[]>(loadLikes)
   const [cartItems, setCartItems] = useState<CartItems>(loadCart)
@@ -138,11 +178,15 @@ export function useShopStore() {
     )
 
     const unsubSections = subscribeToSections(setSections)
+    const unsubPromotions = subscribeToPromotions(setPromotions)
+    const timer = window.setInterval(() => setClock(Date.now()), 30_000)
 
     return () => {
       unsubProds()
       unsubCats()
       unsubSections()
+      unsubPromotions()
+      window.clearInterval(timer)
     }
   }, [])
 
@@ -465,7 +509,7 @@ export function useShopStore() {
     // Bosh sahifadan boshqa har qanday sahifada orqaga qaytish mumkin —
     // shuning uchun Telegram'ning o'z orqaga tugmasi ham ko'rinib turadi.
     canGoBack: page !== 'home' || history.length > 0 || isCartOpen || isSearchOpen,
-    products, categories, sections, loading,
+    products, categories, sections, loading, runningPromotions, clock,
     cartItems, cartCount, cartTotal, cartProducts,
     likedIds, selectedProduct,
     isSearchOpen, isCartOpen, query, searchResults, toast, cartPrompt,

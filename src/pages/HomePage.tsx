@@ -1,4 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
+import { PromoBanner } from '../components/promo/PromoBanner'
+import type { Promotion } from '../utils/promotions'
 import {
   ArrowRight, Bell, CircleHelp, CookingPot, Heart, Leaf, Search,
   ShieldCheck, Truck,
@@ -28,13 +30,15 @@ type Props = ProductActions & {
   loading: boolean
   onSearch: () => void
   onNavigate: (page: AppPage) => void
+  /** Hozir ishlayotgan vaqtli aksiyalar (katta chegirmasi birinchi). */
+  promotions: Promotion[]
   onOpenCategory: (category: string) => void
   unreadNotificationsCount: number
   onNotify: (message: string) => void
 }
 
 export function HomePage({
-  products, categories, loading, onSearch, onNavigate,
+  products, categories, loading, promotions, onSearch, onNavigate,
   onOpenCategory, unreadNotificationsCount, onNotify, ...productActions
 }: Props) {
   const t = useT()
@@ -82,6 +86,20 @@ export function HomePage({
           <span className="truncate text-sm">{t('home.searchPlaceholder')}</span>
         </button>
       </section>
+
+      {/* Ishlayotgan aksiya — eng katta chegirmasi bilan */}
+      {promotions[0] && (
+        <section className="px-5 pt-4 sm:px-10" style={{ animation: 'fadeInUp 0.4s ease' }}>
+          <PromoBanner
+            promotion={promotions[0]}
+            onOpen={() =>
+              promotions[0].target === 'category' && promotions[0].targetIds[0]
+                ? onOpenCategory(promotions[0].targetIds[0])
+                : onNavigate('catalog')
+            }
+          />
+        </section>
+      )}
 
       {/* Hero — MUSA yashil sahnasi, o'ngda mahsulot fotosi */}
       <section className="mx-5 mt-6 sm:mx-10">

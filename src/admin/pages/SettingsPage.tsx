@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { apiPost } from '../lib/api'
 import { useSettings } from '../lib/live'
 import { useToast } from '../components/Toast'
+import { FreeDeliveryBar } from '../../components/cart/FreeDeliveryBar'
+import { formatPrice } from '../../data'
 
 export function SettingsPage() {
   const settings = useSettings()
@@ -165,6 +167,9 @@ function DeliveryCard({
         onChange={(e) => setFreeFrom(e.target.value.replace(/\D/g, ''))}
       />
 
+      {/* Mijoz savatda aynan shuni ko'radi — summani surib tekshirish mumkin */}
+      <DeliveryPreview fee={Number(fee) || 0} freeFrom={Number(freeFrom) || 0} />
+
       <button
         className="adm-btn adm-btn--primary mt-4 w-full"
         onClick={() => onSave('delivery', { fee: Number(fee), freeFrom: Number(freeFrom) })}
@@ -173,6 +178,58 @@ function DeliveryCard({
         {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash
       </button>
     </Section>
+  )
+}
+
+const PREVIEW_TEXT = {
+  remaining: ['Bepul yetkazishgacha yana', 'qoldi'] as [string, string],
+  reached: 'Yetkazish bepul!',
+  saved: (amount: string) => `${amount} tejaldi`,
+  goal: (amount: string) => `${amount}dan bepul`,
+  fee: (amount: string) => `Yetkazish: ${amount}`,
+}
+
+/**
+ * Savatdagi «bepul yetkazishgacha» chizig'ining jonli namunasi.
+ * Admin summani surib, mijoz qaysi summada nima ko'rishini tekshiradi.
+ */
+function DeliveryPreview({ fee, freeFrom }: { fee: number; freeFrom: number }) {
+  const max = Math.max(freeFrom * 1.3, fee * 4, 100_000)
+  const [cart, setCart] = useState(() => Math.round((freeFrom || 50_000) * 0.6))
+  const subtotal = Math.min(cart, max)
+
+  return (
+    <div className="adm-preview">
+      <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
+        Mijoz savatda shunday ko‘radi
+      </p>
+      {freeFrom <= 0 && fee <= 0 ? (
+        <p className="text-sm" style={{ color: 'var(--muted)' }}>Yetkazish bepul — savatda chiziq ko‘rinmaydi.</p>
+      ) : (
+        <FreeDeliveryBar subtotal={subtotal} fee={fee} freeFrom={freeFrom} text={PREVIEW_TEXT} />
+      )}
+      {freeFrom > 0 && (
+        <>
+          <label className="mt-3 flex items-center justify-between text-xs" style={{ color: 'var(--muted)' }} htmlFor="delivery-preview">
+            <span>Savat summasi (sinab ko‘rish)</span>
+            <b style={{ color: 'var(--ink)' }}>{formatPrice(subtotal)}</b>
+          </label>
+          <input
+            id="delivery-preview"
+            type="range"
+            min={0}
+            max={max}
+            step={1000}
+            value={subtotal}
+            onChange={(e) => setCart(Number(e.target.value))}
+          />
+          <p className="mt-1 text-xs" style={{ color: 'var(--faint)' }}>
+            {formatPrice(freeFrom)} va undan yuqori buyurtmada yetkazish bepul, kamida esa {formatPrice(fee)} qo‘shiladi.
+            Promokod chegirmasidan keyingi summa hisoblanadi.
+          </p>
+        </>
+      )}
+    </div>
   )
 }
 

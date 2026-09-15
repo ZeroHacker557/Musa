@@ -854,6 +854,101 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 4px 12px rgb(10 122 61 / 0.25);
 }
 
+/* ====== Bepul yetkazishgacha chiziq ======
+   Savat, rasmiylashtirish va admin sozlamalaridagi namunada bir xil. */
+.free-delivery {
+  margin-bottom: 0.9rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.free-delivery__row { display: flex; align-items: center; gap: 0.5rem; }
+.free-delivery__row svg { flex-shrink: 0; color: var(--brand); }
+.free-delivery__row b { color: var(--brand-strong); font-weight: 800; white-space: nowrap; }
+.free-delivery__muted { color: var(--muted); font-weight: 600; }
+.free-delivery__track {
+  position: relative;
+  height: 8px;
+  margin-top: 0.55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+.free-delivery__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand) 0%, #2ee58c 100%);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.free-delivery__scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.free-delivery.is-reached { background: var(--brand-soft); }
+.free-delivery.is-reached .free-delivery__row b { color: var(--brand-strong); }
+.free-delivery.is-reached .free-delivery__fill { position: relative; }
+.free-delivery.is-reached .free-delivery__fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.55) 50%, transparent 100%);
+  animation: freeShine 1.8s ease-in-out infinite;
+}
+@keyframes freeShine { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .free-delivery__fill { transition: none; }
+  .free-delivery.is-reached .free-delivery__fill::after { animation: none; }
+}
+
+/* ====== Aksiya: taymer va banner ====== */
+.promo-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.promo-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: var(--r-md);
+  background: linear-gradient(120deg, #ff6b3d 0%, #e5304f 100%);
+  color: #fff;
+  text-align: left;
+  box-shadow: 0 10px 26px rgb(229 48 79 / 0.28);
+  transition: transform 0.2s ease;
+}
+.promo-banner:active { transform: scale(0.98); }
+.promo-banner__pct {
+  display: grid;
+  width: 3.1rem;
+  height: 3.1rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.2);
+  font-size: 1rem;
+  font-weight: 900;
+}
+.promo-banner__title { display: block; font-size: 0.95rem; font-weight: 800; line-height: 1.2; }
+.promo-banner__time { display: block; margin-top: 0.2rem; font-size: 0.75rem; font-weight: 600; opacity: 0.92; font-variant-numeric: tabular-nums; }
+
 /* ====== Product Card ====== */
 .product-card {
   position: relative;

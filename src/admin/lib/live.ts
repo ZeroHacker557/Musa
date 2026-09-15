@@ -2,6 +2,7 @@ import { collection, doc, onSnapshot, query, where } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { db } from './auth'
 import type { Category, Order, Product, PromoCode, Section } from '../../types/domain'
+import { readPromotion, type Promotion } from '../../utils/promotions'
 
 /**
  * Firestore'dan jonli ma'lumot.
@@ -193,6 +194,29 @@ export function useSections() {
   )
 
   return { sections, loading }
+}
+
+/** Vaqtli aksiyalar — yangilari tepada. */
+export function usePromotions() {
+  const [promotions, setPromotions] = useState<(Promotion & { createdAt?: string })[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(
+    () =>
+      onSnapshot(
+        collection(db, 'promotions'),
+        (snapshot) => {
+          const rows = snapshot.docs.map((d) => ({ ...readPromotion(d.id, d.data()), createdAt: String(d.data().createdAt || '') }))
+          rows.sort((a, b) => b.startsAt.localeCompare(a.startsAt))
+          setPromotions(rows)
+          setLoading(false)
+        },
+        () => setLoading(false),
+      ),
+    [],
+  )
+
+  return { promotions, loading }
 }
 
 export type PromoRow = PromoCode & { id: string; maxUses?: number; expiresAt?: string | null }

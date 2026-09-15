@@ -128,6 +128,7 @@ function App() {
                 products={shop.products}
                 categories={shop.categories}
                 loading={shop.loading}
+                promotions={shop.runningPromotions}
                 {...productActions}
                 unreadNotificationsCount={shop.unreadNotificationsCount}
                 onSearch={() => shop.setSearchOpen(true)}

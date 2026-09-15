@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { FreeDeliveryBar } from '../components/cart/FreeDeliveryBar'
+import { useFreeDelivery } from '../hooks/use-free-delivery'
 import { productThumb } from '../utils/product-image'
 import {
   ArrowLeft, Banknote, Check, Copy, CreditCard, Loader2, MapPin,
@@ -45,6 +47,7 @@ export function CheckoutPage({
   const [promoError, setPromoError] = useState('')
   const [payment, setPayment] = useState<PaymentSettings | null>(null)
   const [delivery, setDelivery] = useState<DeliverySettings | null>(null)
+  const { text: freeText } = useFreeDelivery()
 
   const addresses = profile?.addresses || []
 
@@ -223,10 +226,16 @@ export function CheckoutPage({
                 )}
               </div>
 
-              {delivery !== null && delivery.freeFrom > 0 && deliveryFee > 0 && (
-                <p className="pt-1 text-[11px]" style={{ color: 'var(--faint)' }}>
-                  {t('checkout.freeFrom', { amount: formatPrice(delivery.freeFrom) })}
-                </p>
+              {/* Promokoddan keyingi summa bo'yicha — server ham shunday hisoblaydi */}
+              {delivery !== null && delivery.freeFrom > 0 && (
+                <div className="pt-1">
+                  <FreeDeliveryBar
+                    subtotal={discountedSubtotal}
+                    fee={delivery.fee}
+                    freeFrom={delivery.freeFrom}
+                    text={freeText}
+                  />
+                </div>
               )}
 
               <div className="flex items-center justify-between border-t pt-2.5" style={{ borderColor: 'var(--line)' }}>

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { notifyNewOrder } from './_lib/actions/orders.js'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
+import { bestPromotion, promoPrice, readPromotion } from './_lib/promotions.js'
 
 const ORDER_NUMBER_START = 1000
 
@@ -129,6 +130,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const deliveryRef = db.collection('settings').doc('delivery')
       const deliverySnap = await tx.get(deliveryRef)
 
+      // Vaqtli aksiyalar — narx faqat shu yerda, Firestore'dagi holatdan
+      const promoSnap = await tx.get(db.collection('promotions').where('active', '==', true))
+      const promotions = promoSnap.docs.map((doc) => readPromotion(doc.id, doc.data()))
+      const now = Date.now()
+
       // Takroriylikni to'sish: xuddi shu kalit bilan buyurtma allaqachon
       // yaratilgan bo'lsa, yangisini yaratmay o'shani qaytaramiz. Sekin
       // internetda javob yo'qolib, mijoz qayta bosganda ham bitta buyurtma
@@ -179,8 +185,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!snap.exists) throw new Error('PRODUCT_GONE')
         const data = snap.data() as FirebaseFirestore.DocumentData
 
-        const price = Number(data.price)
-        if (!Number.isFinite(price) || price <= 0) throw new Error('PRODUCT_PRICE')
+        const basePrice = Number(data.price)
+        if (!Number.isFinite(basePrice) || basePrice <= 0) throw new Error('PRODUCT_PRICE')
+
+        const promo = bestPromotion(
+          promotions,
+          { id: snap.id, category: String(data.category || ''), sectionId: data.sectionId ? String(data.sectionId) : null },
+          now,
+        )
+        const price = promo ? promoPrice(basePrice, promo.percent) : basePrice
 
         const key = String(item.productId)
         if (!seenProducts.has(key) && typeof data.stock === 'number') {
@@ -197,6 +210,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             id: Number(data.id ?? snap.id),
             name: String(data.name || ''),
             price,
+            // Aksiya bo'lsa — asl narx va qaysi aksiya, hisobot va chek uchun
+            ...(promo ? { originalPrice: basePrice, promotion: { id: promo.id, title: promo.title, percent: promo.percent } } : {}),
             images: Array.isArray(data.images) ? data.images : [],
             // Buyurtmalar ro'yxatida kichik nusxa ko'rsatiladi
             thumbs: Array.isArray(data.thumbs) ? data.thumbs : [],

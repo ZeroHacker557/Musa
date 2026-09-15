@@ -3,6 +3,7 @@ import { getFirestore, collection, onSnapshot, query, where, doc, updateDoc, wri
 import { getStorage } from 'firebase/storage'
 import { firebaseConfig } from '../config/firebase'
 import { parseDate } from '../utils/date'
+import { readPromotion, type Promotion } from '../utils/promotions'
 import type { Product, Category, Section, Order, PaymentSettings, DeliverySettings, Notification, UserProfile } from '../types/domain'
 
 // Initialize Firebase
@@ -33,6 +34,10 @@ export function subscribeToProducts(callback: (products: Product[]) => void, onE
         sizes: data.sizes || [],
         color: data.color || '',
         description: data.description || '',
+        nameRu: data.nameRu || '',
+        nameEn: data.nameEn || '',
+        descriptionRu: data.descriptionRu || '',
+        descriptionEn: data.descriptionEn || '',
         discount: data.discount || '',
         stock: typeof data.stock === 'number' ? data.stock : undefined,
         thumbs: Array.isArray(data.thumbs) ? data.thumbs : undefined,
@@ -164,6 +169,19 @@ export function subscribeToUserProfile(userId: number, callback: (profile: UserP
 export async function updateUserProfile(userId: number, data: Partial<UserProfile>) {
   const userRef = doc(db, 'users', String(userId))
   await updateDoc(userRef, data)
+}
+
+/** Vaqtli aksiyalar — narx qoidasi src/utils/promotions.ts da. */
+export function subscribeToPromotions(callback: (promotions: Promotion[]) => void) {
+  return onSnapshot(
+    query(collection(db, 'promotions'), where('active', '==', true)),
+    (snapshot) => callback(snapshot.docs.map((d) => readPromotion(d.id, d.data()))),
+    (error) => {
+      // Aksiyalar o'qilmasa katalog oddiy narxlar bilan ishlayveradi
+      console.error('[Firebase] Promotions snapshot ERROR:', error)
+      callback([])
+    },
+  )
 }
 
 /** Bo'limlar — kategoriya ichidagi guruhlar (Section). */

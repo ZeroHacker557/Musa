@@ -1,5 +1,5 @@
 import {
-  BarChart3, BrainCircuit, Boxes, Layers, LayoutGrid, LogOut, Megaphone, Menu, Moon, Settings,
+  BarChart3, BrainCircuit, Boxes, FileBarChart, Flame, Layers, LayoutGrid, LogOut, Megaphone, Menu, Moon, Settings,
   ShoppingBag, Sun, Tag, Users, UserCog, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -22,10 +22,12 @@ type NavEntry = {
 const NAV: NavEntry[] = [
   { route: 'dashboard', label: 'Boshqaruv paneli', icon: BarChart3, min: 'courier' },
   { route: 'orders', label: 'Buyurtmalar', icon: ShoppingBag, min: 'courier' },
+  { route: 'reports', label: 'Hisobotlar', icon: FileBarChart, min: 'admin' },
 
   { route: 'products', label: 'Mahsulotlar', icon: Boxes, min: 'admin', section: 'Katalog' },
   { route: 'categories', label: 'Kategoriyalar', icon: LayoutGrid, min: 'admin' },
   { route: 'sections', label: 'Bo‘limlar va tartib', icon: Layers, min: 'admin' },
+  { route: 'promotions', label: 'Vaqtli aksiyalar', icon: Flame, min: 'admin' },
   { route: 'promocodes', label: 'Promokodlar', icon: Tag, min: 'admin' },
 
   { route: 'customers', label: 'Mijozlar', icon: Users, min: 'admin', section: 'Odamlar' },
@@ -44,6 +46,8 @@ const TITLES: Record<Route, string> = {
   products: 'Mahsulotlar',
   categories: 'Kategoriyalar',
   sections: 'Bo‘limlar va tartib',
+  promotions: 'Vaqtli aksiyalar',
+  reports: 'Hisobotlar',
   customers: 'Mijozlar',
   broadcast: 'Ommaviy xabar',
   staff: 'Xodimlar',

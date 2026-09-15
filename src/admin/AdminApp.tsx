@@ -12,6 +12,8 @@ import { ProductsPage } from './pages/ProductsPage'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { SectionsPage } from './pages/SectionsPage'
 import { BrainPage } from './pages/BrainPage'
+import { PromotionsPage } from './pages/PromotionsPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { PromocodesPage } from './pages/PromocodesPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { BroadcastPage } from './pages/BroadcastPage'
@@ -132,7 +134,9 @@ function AdminPanel({
       {route === 'products' && (can(staff.role, 'admin') ? <ProductsPage /> : <NoAccess />)}
       {route === 'categories' && (can(staff.role, 'admin') ? <CategoriesPage /> : <NoAccess />)}
       {route === 'sections' && (can(staff.role, 'admin') ? <SectionsPage /> : <NoAccess />)}
+      {route === 'promotions' && (can(staff.role, 'admin') ? <PromotionsPage /> : <NoAccess />)}
       {route === 'promocodes' && (can(staff.role, 'admin') ? <PromocodesPage /> : <NoAccess />)}
+      {route === 'reports' && (can(staff.role, 'admin') ? <ReportsPage /> : <NoAccess />)}
 
       {route === 'customers' && (can(staff.role, 'admin') ? <CustomersPage /> : <NoAccess />)}
       {route === 'broadcast' && (can(staff.role, 'admin') ? <BroadcastPage /> : <NoAccess />)}

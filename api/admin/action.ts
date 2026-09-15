@@ -3,11 +3,12 @@ import { atLeast, requireStaff, staffFromBot, type Staff } from '../_lib/admin-a
 import { fail, requirePost } from '../_lib/http.js'
 import { orderAssign, orderStatus } from '../_lib/actions/orders.js'
 import {
-  categoryDelete, categorySave, orderSave, productDelete, productSave,
+  categoryDelete, categorySave, orderSave, productBulkUpdate, productDelete, productSave,
   promoDelete, promoSave, requireCatalogAccess,
 } from '../_lib/actions/catalog.js'
 import { broadcast, staffDelete, staffSave } from '../_lib/actions/people.js'
 import { catalogLayout, sectionDelete, sectionSave } from '../_lib/actions/sections.js'
+import { promotionDelete, promotionSave } from '../_lib/actions/promotions.js'
 import { settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
 
 type Body = Record<string, unknown>
@@ -30,6 +31,9 @@ const HANDLERS: Record<string, Handler> = {
   // Katalog — kuryerga yopiq
   'product.save': (staff, body) => (requireCatalogAccess(staff), productSave(body)),
   'product.delete': (staff, body) => (requireCatalogAccess(staff), productDelete(body)),
+  'product.bulkUpdate': (staff, body) => (requireCatalogAccess(staff), productBulkUpdate(body)),
+  'promotion.save': (staff, body) => (requireCatalogAccess(staff), promotionSave(body)),
+  'promotion.delete': (staff, body) => (requireCatalogAccess(staff), promotionDelete(body)),
   'category.save': (staff, body) => (requireCatalogAccess(staff), categorySave(body)),
   'category.delete': (staff, body) => (requireCatalogAccess(staff), categoryDelete(body)),
   'promo.save': (staff, body) => (requireCatalogAccess(staff), promoSave(body)),

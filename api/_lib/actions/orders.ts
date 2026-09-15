@@ -1,5 +1,5 @@
 import { adminDb } from '../firebase-admin.js'
-import { escapeHtml, replaceButtons, sendMessage, setKeyboard } from '../telegram.js'
+import { escapeHtml, replaceButtons, sendMessage, sendRows, setKeyboard } from '../telegram.js'
 import type { Staff } from '../admin-auth.js'
 
 const STATUSES = [
@@ -221,6 +221,9 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
     })
     const result = await sendMessage(order.userId, CUSTOMER_TEXT[status](escapeHtml(label)))
     notified = result.ok
+
+    // Yetkazildi — mahsulotlarni baholashni so'raymiz (javobni bot qabul qiladi)
+    if (status === 'Yetkazildi') await sendRatingPrompt(orderId, order)
   }
 
   return { ok: true, notified }
@@ -488,5 +491,45 @@ export async function clearDispatchButtons(
     if (!item?.chatId || !item?.messageId) continue
     await replaceButtons(item.chatId, item.messageId, label)
     await new Promise((resolve) => setTimeout(resolve, 30))
+  }
+}
+
+
+/**
+ * Yetkazilgandan keyin baho so'rovi — birinchi mahsulot uchun.
+ *
+ * Mijoz ⭐ bosganda bot (bot/bot.py → cb_review) sharhni mijoz nomidan
+ * saqlaydi, mahsulot reytingini qayta hisoblaydi va xabarni keyingi
+ * mahsulotga almashtiradi. Matn va tugmalar botdagi bilan bir xil.
+ *
+ * Xato tashlamaydi — baho so'rovi yetmagani holat o'zgarishini buzmasin.
+ */
+export async function sendRatingPrompt(orderId: string, order: OrderDoc): Promise<void> {
+  try {
+    if (!order.userId) return
+    const seen = new Set<string>()
+    const items = (order.products || []).filter((p) => {
+      const id = String((p.product as { id?: unknown } | undefined)?.id ?? '')
+      if (!id || seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
+    if (!items.length) return
+
+    const label = escapeHtml(order.orderNumber || `#${orderId.slice(0, 6)}`)
+    const name = escapeHtml(items[0].product?.name)
+    const counter = items.length > 1 ? ` (1/${items.length})` : ''
+    await sendRows(
+      order.userId,
+      `⭐ <b>${label} buyurtmangiz qanday bo‘ldi?</b>\n\n` +
+        `Mahsulotni baholang${counter}:\n<b>${name}</b>\n\n` +
+        '<i>Bahoingiz ilovada boshqa xaridorlarga yordam beradi.</i>',
+      [
+        [1, 2, 3, 4, 5].map((n) => ({ text: `${n}⭐`, callback_data: `rv:${orderId}:0:${n}` })),
+        [{ text: 'O‘tkazib yuborish', callback_data: `rv:${orderId}:0:0` }],
+      ],
+    )
+  } catch (error) {
+    console.error('[orders] baho so‘rovi yuborilmadi:', error)
   }
 }

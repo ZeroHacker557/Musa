@@ -61,6 +61,13 @@ service cloud.firestore {
       allow write: if false;   // faqat /api/admin/action
     }
 
+    // Vaqtli aksiyalar — katalogda chegirma narxi va taymer bo'lib
+    // ko'rinadi, shuning uchun o'qish ochiq. Narxni baribir server hisoblaydi.
+    match /promotions/{promotionId} {
+      allow read: if true;
+      allow write: if false;   // faqat /api/admin/action
+    }
+
     // ── Profil: faqat o'zinikini ────────────────────────────
     // Foydalanuvchi ismi, telefoni va manzillarini o'zgartira oladi.
     // Boshqa maydonlarni (masalan rollarni) o'zgartira olmaydi.

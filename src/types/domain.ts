@@ -13,6 +13,13 @@ export type Product = {
   colors?: string[]
   rating: number
   reviews: number
+  /** Tarjimalar — bo'sh bo'lsa o'zbekcha `name` / `description` ko'rsatiladi. */
+  nameRu?: string
+  nameEn?: string
+  descriptionRu?: string
+  descriptionEn?: string
+  /** Hozir amal qilayotgan vaqtli aksiya (ilovada hisoblanadi). */
+  promotion?: { id: string; title: string; percent: number; endsAt: string } | null
   images: string[]
   /**
    * Siqilgan nusxalar — `images` bilan bir xil tartibda.

@@ -167,11 +167,38 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
   if (!message) throw new Error('Xabar matni bo‘sh')
   if (message.length > 3500) throw new Error('Xabar juda uzun (3500 belgigacha)')
 
+  const db = await adminDb()
+
+  /*
+   * Aniq ro'yxat: admin panel mijozlarni o'zi tanlab (kategoriya, mahsulot,
+   * faollik bo'yicha yoki qo'lda belgilab) identifikatorlarini bo'laklab
+   * yuboradi. Server faqat bazada BOR foydalanuvchiga yozadi — ro'yxatga
+   * begona chat qo'shib bo'lmaydi.
+   */
+  if (Array.isArray(body.recipients)) {
+    const ids = [...new Set(body.recipients.map((v) => String(v).trim()).filter((v) => /^-?\d{3,20}$/.test(v)))]
+    if (ids.length > 40) throw new Error('Bir bo‘lakda 40 tadan ko‘p qabul qiluvchi bo‘lmaydi')
+    const snaps = ids.length ? await db.getAll(...ids.map((id) => db.collection('users').doc(id))) : []
+    let sent = 0
+    let failed = 0
+    let skipped = body.recipients.length - ids.length
+    for (const snap of snaps) {
+      if (!snap.exists) {
+        skipped++
+        continue
+      }
+      const result = await sendMessage(snap.id, message)
+      if (result.ok) sent++
+      else failed++
+      await new Promise((resolve) => setTimeout(resolve, 40))
+    }
+    return { sent, failed, skipped, processed: body.recipients.length, nextCursor: null }
+  }
+
   const segment = (text(body.segment) || 'all') as Segment
   const after = text(body.after)
   const limit = Math.min(40, Math.max(1, Number(body.limit) || 25))
 
-  const db = await adminDb()
   let query = db.collection('users').orderBy('__name__').limit(limit)
   if (after) query = db.collection('users').orderBy('__name__').startAfter(after).limit(limit)
 

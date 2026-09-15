@@ -4,7 +4,7 @@ Firebase Firestore & Storage Integration for Python Telegram Bot
 import os
 import uuid
 import urllib.parse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
@@ -966,3 +966,157 @@ def find_users(query: str, limit: int = 10) -> list:
     except Exception as e:
         print(f"[ERR] find_users: {e}")
     return result
+
+
+# ─── Baho (yetkazilgandan keyin bot orqali) ───────────────────
+
+TASHKENT = timezone(timedelta(hours=5))
+
+
+def order_review_items(order: dict) -> list:
+    """Buyurtmadagi mahsulotlar — har biri bir marta (variantlari birlashtirilgan)."""
+    seen, items = set(), []
+    for line in (order or {}).get("products") or []:
+        product = (line or {}).get("product") or {}
+        pid = str(product.get("id") or "")
+        if pid and pid not in seen:
+            seen.add(pid)
+            items.append({"id": pid, "name": product.get("name") or "Mahsulot"})
+    return items
+
+
+def get_order(order_id: str):
+    try:
+        snap = db.collection("orders").document(str(order_id)).get()
+        return snap.to_dict() if snap.exists else None
+    except Exception as e:
+        print(f"[ERR] get_order: {e}")
+        return None
+
+
+def save_bot_review(order_id: str, telegram_id: int, index: int, stars: int):
+    """
+    Mijoz botda ⭐ bosganda — sharhni uning nomidan saqlaydi.
+
+    /api/reviews bilan AYNAN bir xil shakl va qoida: bir mijoz bir
+    mahsulotga bitta sharh, mahsulotdagi `rating` va `reviews` qayta
+    hisoblanadi. Mijoz shu mahsulotga avval baho bergan bo'lsa, yangi
+    sharh yaratilmaydi — bahosi yangilanadi.
+
+    Qaytaradi: ("saved"|"not_yours"|"not_delivered"|"not_found", items)
+    """
+    order_ref = db.collection("orders").document(str(order_id))
+    transaction = db.transaction()
+
+    @firestore.transactional
+    def _save(tx):
+        snap = order_ref.get(transaction=tx)
+        if not snap.exists:
+            return "not_found", []
+        order = snap.to_dict() or {}
+        items = order_review_items(order)
+        if int(order.get("userId") or 0) != int(telegram_id):
+            return "not_yours", items
+        if order.get("status") != "Yetkazildi":
+            return "not_delivered", items
+        if index < 0 or index >= len(items):
+            return "not_found", items
+
+        product_id = items[index]["id"]
+        product_ref = db.collection("products").document(product_id)
+        product_snap = product_ref.get(transaction=tx)
+        user_snap = db.collection("users").document(str(telegram_id)).get(transaction=tx)
+
+        existing = list(
+            db.collection("reviews")
+            .where("productId", "==", int(product_id))
+            .stream(transaction=tx)
+        )
+
+        user = user_snap.to_dict() if user_snap.exists else {}
+        user_name = " ".join(x for x in [user.get("first_name"), user.get("last_name")] if x).strip() or "Foydalanuvchi"
+        now = datetime.now(timezone.utc).isoformat()
+
+        ratings = []
+        mine = None
+        for doc in existing:
+            data = doc.to_dict() or {}
+            if int(data.get("userId") or 0) == int(telegram_id):
+                mine = doc
+                ratings.append(stars)
+            else:
+                try:
+                    ratings.append(float(data.get("rating")))
+                except (TypeError, ValueError):
+                    pass
+
+        if mine is not None:
+            tx.update(mine.reference, {"rating": stars, "date": now, "source": "bot"})
+        else:
+            ratings.append(stars)
+            tx.set(db.collection("reviews").document(), {
+                "productId": int(product_id),
+                "userId": int(telegram_id),
+                "userName": user_name,
+                "rating": stars,
+                "comment": "",
+                "date": now,
+                "source": "bot",
+                "orderId": str(order_id),
+            })
+
+        if product_snap.exists and ratings:
+            average = round(sum(ratings) / len(ratings), 1)
+            tx.update(product_ref, {"rating": average, "reviews": len(ratings)})
+        return "saved", items
+
+    try:
+        return _save(transaction)
+    except Exception as e:
+        print(f"[ERR] save_bot_review: {e}")
+        return "not_found", []
+
+
+# ─── Kuryerning bugungi hisoboti (/bugun) ─────────────────────
+
+def courier_today(uid: str) -> dict:
+    """
+    Kuryerga biriktirilgan buyurtmalardan BUGUNGI holat (Toshkent vaqti).
+
+      delivered — bugun yetkazilganlar
+      on_way    — hozir yo'lda (Yetkazilmoqda)
+      waiting   — biriktirilgan, lekin hali olinmagan (Qabul qilindi)
+      cash      — bugun naqd olingan pul (kassaga topshiriladi)
+      card      — karta orqali to'langanlar summasi
+    """
+    start = datetime.now(TASHKENT).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    def parse(value):
+        try:
+            dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            return None
+
+    delivered, on_way, waiting = [], [], []
+    try:
+        for doc in db.collection("orders").where("courierId", "==", uid).stream():
+            order = doc.to_dict() or {}
+            order["_doc_id"] = doc.id
+            status = order.get("status")
+            if status == "Yetkazildi":
+                when = parse(order.get("statusUpdatedAt") or order.get("createdAt"))
+                if when and when >= start:
+                    order["_at"] = when.astimezone(TASHKENT)
+                    delivered.append(order)
+            elif status == "Yetkazilmoqda":
+                on_way.append(order)
+            elif status == "Qabul qilindi":
+                waiting.append(order)
+    except Exception as e:
+        print(f"[ERR] courier_today: {e}")
+
+    delivered.sort(key=lambda o: o["_at"])
+    cash = sum(int(o.get("total") or 0) for o in delivered if o.get("paymentMethod") != "Karta")
+    card = sum(int(o.get("total") or 0) for o in delivered if o.get("paymentMethod") == "Karta")
+    return {"date": start, "delivered": delivered, "on_way": on_way, "waiting": waiting, "cash": cash, "card": card}

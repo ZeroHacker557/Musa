@@ -82,6 +82,11 @@ export async function productSave(body: Record<string, unknown>): Promise<Result
     sizes: list(body.sizes),
     color: text(body.color),
     description: text(body.description),
+    // Tarjimalar — mini app tanlangan tilda ko'rsatadi, bo'sh bo'lsa o'zbekcha
+    nameRu: text(body.nameRu),
+    nameEn: text(body.nameEn),
+    descriptionRu: text(body.descriptionRu),
+    descriptionEn: text(body.descriptionEn),
     discount: text(body.discount),
     stock: Math.max(0, Math.round(num(body.stock))),
     updatedAt: new Date().toISOString(),
@@ -226,4 +231,125 @@ export async function orderSave(body: Record<string, unknown>): Promise<Result> 
 
   await batch.commit()
   return { count: ids.length }
+}
+
+
+/** Excel orqali o'zgartirish mumkin bo'lgan maydonlar. Rasmlar ATAYLAB yo'q. */
+const BULK_FIELDS = [
+  'name', 'nameRu', 'nameEn', 'description', 'descriptionRu', 'descriptionEn',
+  'price', 'oldPrice', 'category', 'sectionId', 'stock', 'sizes', 'color', 'discount',
+] as const
+type BulkField = (typeof BULK_FIELDS)[number]
+
+/**
+ * Excel'dan yuklangan o'zgarishlarni qo'llaydi.
+ *
+ *   items — [{ id, patch: { price: 45000, nameRu: '…' } }]
+ *
+ * Admin panel faylni o'qib, faqat HAQIQATDAN o'zgargan maydonlarni
+ * yuboradi. Server baribir hammasini qayta tekshiradi: brauzerdan kelgan
+ * ma'lumotga ishonib bo'lmaydi. Rasm maydonlari qabul qilinmaydi —
+ * Excel'da rasm yo'q va ular tasodifan o'chib ketmasligi kerak.
+ *
+ * Bitta noto'g'ri qator butun yuklashni to'xtatmaydi: u `failed` ga
+ * tushadi, qolganlari yoziladi.
+ */
+export async function productBulkUpdate(body: Record<string, unknown>): Promise<Result> {
+  const items = Array.isArray(body.items) ? body.items : []
+  if (!items.length) throw new Error('O‘zgarish yo‘q')
+  if (items.length > 400) throw new Error('Bir martada 400 tadan ko‘p mahsulot yuborilmaydi')
+
+  const db = await adminDb()
+  const [categorySnap, sectionSnap] = await Promise.all([
+    db.collection('categories').get(),
+    db.collection('sections').get(),
+  ])
+  const categories = new Set(categorySnap.docs.map((d) => String(d.data().name)))
+  const sections = new Map(sectionSnap.docs.map((d) => [d.id, String(d.data().category)]))
+
+  const refs = items.map((raw) => db.collection('products').doc(text((raw as { id?: unknown })?.id)))
+  const snaps = refs.length ? await db.getAll(...refs) : []
+
+  const batch = db.batch()
+  const updated: string[] = []
+  const failed: { id: string; error: string }[] = []
+
+  items.forEach((raw, i) => {
+    const { id: rawId, patch: rawPatch } = (raw ?? {}) as { id?: unknown; patch?: Record<string, unknown> }
+    const id = text(rawId)
+    try {
+      if (!id) throw new Error('ID yo‘q')
+      const snap = snaps[i]
+      if (!snap.exists) throw new Error('Bunday ID li mahsulot yo‘q')
+      const current = snap.data() || {}
+      const patch = rawPatch && typeof rawPatch === 'object' ? rawPatch : {}
+
+      const data: Record<string, unknown> = {}
+      for (const key of Object.keys(patch) as BulkField[]) {
+        if (!BULK_FIELDS.includes(key)) continue
+        const value = patch[key]
+        switch (key) {
+          case 'price': {
+            const price = num(value)
+            if (price <= 0) throw new Error('Narx noldan katta bo‘lishi kerak')
+            data.price = Math.round(price)
+            break
+          }
+          case 'oldPrice': {
+            const old = num(value, 0)
+            data.oldPrice = old > 0 ? Math.round(old) : null
+            break
+          }
+          case 'stock': {
+            const stock = num(value, NaN)
+            if (!Number.isFinite(stock) || stock < 0) throw new Error('Qoldiq 0 yoki undan katta butun son bo‘lsin')
+            data.stock = Math.round(stock)
+            break
+          }
+          case 'category': {
+            const category = text(value)
+            if (!categories.has(category)) throw new Error(`«${category}» kategoriyasi yo‘q`)
+            data.category = category
+            break
+          }
+          case 'sectionId':
+            data.sectionId = text(value) || null
+            break
+          case 'sizes':
+            data.sizes = list(value)
+            break
+          case 'name': {
+            const name = text(value)
+            if (!name) throw new Error('Nomi bo‘sh bo‘lmasin')
+            data.name = name
+            break
+          }
+          default:
+            data[key] = text(value)
+        }
+      }
+
+      // Bo'lim yangi (yoki eski) kategoriyaga mos kelishi shart
+      const category = String(data.category ?? current.category ?? '')
+      const sectionId = 'sectionId' in data ? data.sectionId : current.sectionId
+      if (sectionId && sections.get(String(sectionId)) !== category) {
+        if ('sectionId' in data) throw new Error('Bo‘lim boshqa kategoriyaga tegishli')
+        data.sectionId = null // kategoriya almashdi — eski bo'lim endi mos emas
+      }
+      // Eski narx joriy narxdan katta bo'lmasa — ma'nosiz, ko'rsatilmaydi
+      const price = Number(data.price ?? current.price)
+      const oldPrice = 'oldPrice' in data ? data.oldPrice : current.oldPrice
+      if (oldPrice !== null && oldPrice !== undefined && Number(oldPrice) <= price) data.oldPrice = null
+
+      if (!Object.keys(data).length) return
+      data.updatedAt = new Date().toISOString()
+      batch.set(refs[i], data, { merge: true })
+      updated.push(id)
+    } catch (error) {
+      failed.push({ id: id || `#${i + 1}`, error: error instanceof Error ? error.message : 'Xato' })
+    }
+  })
+
+  if (updated.length) await batch.commit()
+  return { updated, failed }
 }
