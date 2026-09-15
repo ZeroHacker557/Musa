@@ -58,6 +58,11 @@ function App() {
   // Telegram xavfsiz zonasi
   useEffect(() => watchSafeArea(), [])
 
+  // Katalog keldi — ochilish animatsiyasi (index.html) tugashi mumkin
+  useEffect(() => {
+    if (!shop.loading) window.dispatchEvent(new Event('musa:ready'))
+  }, [shop.loading])
+
   // Telegram BackButton — Android'ning tizim tugmasi ham shu bilan ishlaydi
   useEffect(() => setupBackButton(shop.goBack), [shop.goBack])
 

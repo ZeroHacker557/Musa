@@ -39,6 +39,9 @@ export function applyTheme(mode: ThemeMode) {
     const surface = cs.getPropertyValue('--surface').trim()
     const bg = cs.getPropertyValue('--bg').trim()
     const tg = getTelegram()
+    // Ochilish animatsiyasi paytida panel splash rangida turadi;
+    // animatsiya tugagach main.tsx temani qayta qo'llaydi
+    if (document.documentElement.hasAttribute('data-splash')) return
 
     /*
      * Telegram paneli ilova tepasidagi tus bilan bir xil bo'ladi —
