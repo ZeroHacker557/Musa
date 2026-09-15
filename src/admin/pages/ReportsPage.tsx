@@ -120,16 +120,17 @@ export function ReportsPage() {
           </div>
 
           <div className="mt-4 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-            <section className="adm-card p-4">
+            {/* min-w-0: grid ustuni ichidagi grafik o'z kengligi bilan ustunni cho'zmasin */}
+            <section className="adm-card min-w-0 p-4">
               <h2 className="text-sm font-extrabold">Kunlik tushum</h2>
               {report.days.length > 1 ? (
-                <MiniBarChart data={report.days.slice(-31).map((d) => ({ label: d.label, value: d.revenue }))} />
+                <MiniBarChart data={report.days.slice(-31).map((d) => ({ label: d.label.slice(0, 5), hint: d.label, value: d.revenue }))} />
               ) : (
                 <p className="mt-6 text-3xl font-extrabold">{formatPrice(report.revenue)}</p>
               )}
             </section>
 
-            <section className="adm-card p-4">
+            <section className="adm-card min-w-0 p-4">
               <h2 className="text-sm font-extrabold">Buyurtmalar soatlar bo‘yicha</h2>
               <div className="adm-hours" role="img" aria-label={`Eng gavjum soat: ${busiest.hour}:00`}>
                 {report.hours.map((h) => (
@@ -214,7 +215,7 @@ function Stat({ label, value, icon: Icon, tone, hint, delta }: {
 
 function Table({ title, headers, rows, empty }: { title: string; headers: string[]; rows: string[][]; empty: string }) {
   return (
-    <section className="adm-card overflow-hidden">
+    <section className="adm-card min-w-0 overflow-hidden">
       <h2 className="px-4 pt-4 text-sm font-extrabold">{title}</h2>
       {rows.length ? (
         <div className="adm-table-wrap mt-3">
