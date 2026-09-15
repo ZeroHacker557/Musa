@@ -124,6 +124,8 @@ export const ru: Record<TranslationKey, string> = {
   'promo.hours': '{h} ч {m} мин',
   'promo.minutes': '{m} мин',
   'promo.banner': 'Акция',
+  'promo.leftLabel': 'до конца',
+  'promo.daysShort': '{d} дн',
   'cart.total': 'Итого',
   'cart.checkout': 'Оформить заказ',
   'cart.size': 'Вес',

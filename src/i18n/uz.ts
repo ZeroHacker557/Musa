@@ -129,6 +129,8 @@ export const uz = {
   'promo.hours': '{h} soat {m} daqiqa',
   'promo.minutes': '{m} daqiqa',
   'promo.banner': 'Aksiya',
+  'promo.leftLabel': 'tugashiga',
+  'promo.daysShort': '{d} kun',
   'cart.total': 'Jami',
   'cart.checkout': 'Buyurtma berish',
   'cart.size': 'Vazn',
