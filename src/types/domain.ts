@@ -46,6 +46,8 @@ export type Product = {
   order?: number
   /** Kategoriya ichidagi bo'lim (masalan «Musa», «Future Fruit»). */
   sectionId?: string | null
+  /** Bosh sahifadagi «Mashhur mahsulotlar» qatorida ko'rsatiladi. */
+  popular?: boolean
 }
 
 /**

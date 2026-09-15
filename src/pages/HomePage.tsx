@@ -12,7 +12,7 @@ import { ProductRowSkeleton } from '../components/ui/ProductCardSkeleton'
 import { IconButton } from '../components/ui/IconButton'
 import { categoryIcon } from '../utils/category-icons'
 import { MAIN_LINES, isMainLine } from '../config/categories'
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { useT, type TranslationKey } from '../i18n'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
@@ -47,7 +47,18 @@ export function HomePage({
   const stripRef = useRef<HTMLDivElement>(null)
   const popularRef = useRef<HTMLDivElement>(null)
   useAutoScroll(stripRef, { speed: 16, enabled: categories.length > 3 })
-  useAutoScroll(popularRef, { speed: 11, enabled: products.length > 2 })
+  /*
+   * Faqat admin «Mashhur» deb belgilaganlar, admin tartibida.
+   * Hech biri belgilanmagan bo'lsa bo'lim ko'rsatilmaydi — tasodifiy
+   * mahsulotlarni «mashhur» deb ko'rsatish mijozni chalg'itadi.
+   */
+  const popular = useMemo(
+    () => products
+      .filter((p) => p.popular)
+      .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER)),
+    [products],
+  )
+  useAutoScroll(popularRef, { speed: 11, enabled: popular.length > 2 })
 
   return (
     <>
@@ -224,7 +235,8 @@ export function HomePage({
         ))}
       </section>
 
-      {/* Mashhur mahsulotlar */}
+      {/* Mashhur mahsulotlar — faqat admin belgilaganlar */}
+      {(loading || popular.length > 0 || products.length === 0) && (
       <section className="px-5 pb-32 pt-8 sm:px-10">
         <div className="flex items-center justify-between">
           <h2 className="section-title">{t('home.popular')}</h2>
@@ -239,9 +251,9 @@ export function HomePage({
 
         {loading ? (
           <ProductRowSkeleton />
-        ) : products.length > 0 ? (
+        ) : popular.length > 0 ? (
           <div ref={popularRef} className="mt-5 flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-            {products.slice(0, 8).map((product) => (
+            {popular.map((product) => (
               <ProductCard key={product.id} product={product} compact {...productActions} />
             ))}
           </div>
@@ -261,6 +273,7 @@ export function HomePage({
           </div>
         )}
       </section>
+      )}
     </>
   )
 }

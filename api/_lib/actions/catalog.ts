@@ -88,6 +88,8 @@ export async function productSave(body: Record<string, unknown>): Promise<Result
     descriptionRu: text(body.descriptionRu),
     descriptionEn: text(body.descriptionEn),
     discount: text(body.discount),
+    // Bosh sahifadagi «Mashhur mahsulotlar» qatori
+    popular: body.popular === true,
     stock: Math.max(0, Math.round(num(body.stock))),
     updatedAt: new Date().toISOString(),
   }
@@ -237,7 +239,7 @@ export async function orderSave(body: Record<string, unknown>): Promise<Result> 
 /** Excel orqali o'zgartirish mumkin bo'lgan maydonlar. Rasmlar ATAYLAB yo'q. */
 const BULK_FIELDS = [
   'name', 'nameRu', 'nameEn', 'description', 'descriptionRu', 'descriptionEn',
-  'price', 'oldPrice', 'category', 'sectionId', 'stock', 'sizes', 'color', 'discount',
+  'price', 'oldPrice', 'category', 'sectionId', 'stock', 'sizes', 'color', 'discount', 'popular',
 ] as const
 type BulkField = (typeof BULK_FIELDS)[number]
 
@@ -317,6 +319,9 @@ export async function productBulkUpdate(body: Record<string, unknown>): Promise<
             break
           case 'sizes':
             data.sizes = list(value)
+            break
+          case 'popular':
+            data.popular = value === true
             break
           case 'name': {
             const name = text(value)

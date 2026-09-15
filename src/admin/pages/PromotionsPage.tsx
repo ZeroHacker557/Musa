@@ -63,7 +63,7 @@ function leftText(ms: number): string {
  * soniyadan boshlab chegirma qo'llanmaydi.
  */
 export function PromotionsPage() {
-  const { promotions, loading } = usePromotions()
+  const { promotions, loading, error } = usePromotions()
   const { products } = useProducts()
   const { categories } = useCategories()
   const { sections } = useSections()
@@ -153,12 +153,25 @@ export function PromotionsPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="adm-card mb-4 p-4" style={{ borderColor: 'var(--danger)', background: 'var(--danger-soft)' }}>
+          <p className="text-sm font-extrabold" style={{ color: 'var(--danger)' }}>
+            Aksiyalar saqlanyapti, lekin ko‘rinmayapti
+          </p>
+          <p className="mt-1 text-sm">
+            {error === 'rules'
+              ? 'Firestore qoidalarida «promotions» uchun ruxsat yo‘q. Firebase Console → Firestore → Rules ga loyihadagi firestore.rules faylini to‘liq qo‘yib, Publish bosing. Shu paytgacha mijoz ilovasi ham chegirmani ko‘rsatmaydi.'
+              : 'Aksiyalarni o‘qib bo‘lmadi. Internetni tekshirib, sahifani yangilang.'}
+          </p>
+        </div>
+      )}
+
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => <div key={i} className="adm-skeleton h-36" />)}
         </div>
       ) : promotions.length === 0 ? (
-        <div className="adm-card adm-empty">
+        error ? null : <div className="adm-card adm-empty">
           <Flame size={30} />
           <p className="text-sm font-semibold">Hali aksiya yo‘q</p>
           <p className="max-w-sm text-xs">Masalan: «Hafta oxiri — muzqaymoqlar −20%», juma 18:00 dan yakshanba 23:59 gacha.</p>
@@ -305,7 +318,30 @@ function PromotionForm({
         </div>
         <div>
           <label className="adm-label" htmlFor="promo-percent">Chegirma, %</label>
-          <input id="promo-percent" className="adm-input" inputMode="numeric" value={draft.percent} onChange={(e) => set({ percent: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+          {/*
+            Ilgari qiymat 2 belgiga kesilardi: «15» turganda «50» yozilsa «155» → «15»
+            bo'lib qolardi va aksiya nomida 50% bo'lsa ham 15% saqlanardi.
+            Endi bosilganda matn belgilanadi (yozilgan son o'rnini bosadi), 90 dan
+            kattasi 90 ga tushadi.
+          */}
+          <input
+            id="promo-percent"
+            className="adm-input"
+            inputMode="numeric"
+            value={draft.percent}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/\D/g, '')
+              set({ percent: digits ? String(Math.min(90, Number(digits))) : '' })
+            }}
+          />
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {[10, 15, 20, 30, 50].map((n) => (
+              <button key={n} type="button" className={'adm-chip ' + (Number(draft.percent) === n ? 'active' : '')} style={{ padding: '2px 8px' }} onClick={() => set({ percent: String(n) })}>
+                {n}%
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <label className="adm-label" htmlFor="promo-start">Boshlanadi</label>

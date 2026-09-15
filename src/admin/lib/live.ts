@@ -200,6 +200,7 @@ export function useSections() {
 export function usePromotions() {
   const [promotions, setPromotions] = useState<(Promotion & { createdAt?: string })[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(
     () =>
@@ -210,13 +211,20 @@ export function usePromotions() {
           rows.sort((a, b) => b.startsAt.localeCompare(a.startsAt))
           setPromotions(rows)
           setLoading(false)
+          setError(null)
         },
-        () => setLoading(false),
+        (err) => {
+          // Ko'pincha sabab — Firestore qoidalarida `promotions` hali yo'q.
+          // Jim qolsak admin «aksiya saqlanmadi» deb o'ylaydi.
+          console.error('[admin] aksiyalarni o‘qib bo‘lmadi:', err)
+          setError('code' in (err as object) && (err as { code?: string }).code === 'permission-denied' ? 'rules' : 'other')
+          setLoading(false)
+        },
       ),
     [],
   )
 
-  return { promotions, loading }
+  return { promotions, loading, error }
 }
 
 export type PromoRow = PromoCode & { id: string; maxUses?: number; expiresAt?: string | null }

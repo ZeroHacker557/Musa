@@ -17,7 +17,7 @@ import type { SheetSpec } from './xlsx'
 export type Field =
   | 'name' | 'nameRu' | 'nameEn'
   | 'description' | 'descriptionRu' | 'descriptionEn'
-  | 'price' | 'oldPrice' | 'category' | 'section' | 'stock' | 'sizes' | 'color' | 'discount'
+  | 'price' | 'oldPrice' | 'category' | 'section' | 'stock' | 'sizes' | 'color' | 'discount' | 'popular'
 
 type Column = { key: Field | 'id' | 'images'; header: string; width: number; kind: 'text' | 'money' | 'number' }
 
@@ -34,6 +34,7 @@ export const COLUMNS: Column[] = [
   { key: 'sizes', header: 'Vaznlar (vergul bilan)', width: 22, kind: 'text' },
   { key: 'color', header: 'Turi', width: 16, kind: 'text' },
   { key: 'discount', header: 'Chegirma nishoni', width: 15, kind: 'text' },
+  { key: 'popular', header: 'Mashhur (ha / yo‘q)', width: 16, kind: 'text' },
   { key: 'description', header: 'Tavsif (o‘zbekcha)', width: 48, kind: 'text' },
   { key: 'descriptionRu', header: 'Tavsif (ruscha)', width: 48, kind: 'text' },
   { key: 'descriptionEn', header: 'Tavsif (inglizcha)', width: 48, kind: 'text' },
@@ -61,6 +62,7 @@ export function exportSheets(products: ProductRow[], sections: Section[], catego
           case 'section': return p.sectionId ? sectionName.get(p.sectionId) ?? '' : ''
           case 'sizes': return (p.sizes || []).join(', ')
           case 'images': return (p.images || []).length
+          case 'popular': return p.popular ? 'ha' : 'yo‘q'
           default: return String((p as Record<string, unknown>)[col.key] ?? '')
         }
       }),
@@ -92,6 +94,7 @@ export function exportSheets(products: ProductRow[], sections: Section[], catego
         [`• Kategoriya — mavjudlaridan biri: ${categories.map((c) => c.name).join(', ') || '—'}.`],
         ['• Bo‘lim — shu kategoriyadagi bo‘lim nomi. Bo‘sh qoldirilsa mahsulot bo‘limsiz bo‘ladi.'],
         ['• Vaznlar — vergul bilan: 400 g, 800 g, 1 kg.'],
+        ['• Mashhur — «ha» yozilsa bosh sahifadagi «Mashhur mahsulotlar» qatorida chiqadi, «yo‘q» yoki bo‘sh bo‘lsa chiqmaydi.'],
         ['• Rasmlar Excel orqali o‘zgarmaydi — ularni mahsulot oynasida almashtiring.'],
         ['• Yangi mahsulot Excel orqali qo‘shilmaydi (rasm kerak) — ID si yo‘q qatorlar o‘tkazib yuboriladi.'],
       ],
@@ -199,6 +202,16 @@ export function planImport(rows: string[][], products: ProductRow[], categories:
         const stock = Number(stockCell.replace(/\s/g, ''))
         if (!Number.isInteger(stock) || stock < 0) throw new Error('Qoldiq 0 yoki undan katta butun son bo‘lsin')
         record('stock', typeof product.stock === 'number' ? product.stock : '', stock, stock)
+      }
+
+      const popularCell = cell('popular')
+      if (popularCell !== undefined) {
+        const v = popularCell.trim().toLowerCase().replace(/[‘’ʻʼ`']/g, '')
+        let next: boolean
+        if (['ha', 'yes', 'да', '1', 'true', '+'].includes(v)) next = true
+        else if (['', 'yoq', 'no', 'нет', '0', 'false', '-'].includes(v)) next = false
+        else throw new Error('«Mashhur» ustuniga «ha» yoki «yo‘q» yozing')
+        record('popular', product.popular ? 'ha' : 'yo‘q', next ? 'ha' : 'yo‘q', next)
       }
 
       const sizesCell = cell('sizes')

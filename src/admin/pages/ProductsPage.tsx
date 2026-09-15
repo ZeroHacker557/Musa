@@ -1,5 +1,5 @@
 import {
-  ArrowUpDown, Boxes, ImagePlus, Loader2, Pencil, Plus, Search, Trash2, X,
+  ArrowUpDown, Boxes, ImagePlus, Loader2, Pencil, Plus, Search, Star, Trash2, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { formatPrice } from '../../data'
@@ -27,6 +27,8 @@ type Draft = {
   stock: string
   sizes: string
   color: string
+  /** Bosh sahifadagi «Mashhur mahsulotlar» qatorida. */
+  popular: boolean
   /** Bo'lim identifikatori; bo'sh — bo'limsiz. */
   sectionId: string
   /**
@@ -42,7 +44,7 @@ type Draft = {
 const EMPTY: Draft = {
   name: '', nameRu: '', nameEn: '', price: '', oldPrice: '', category: '',
   description: '', descriptionRu: '', descriptionEn: '',
-  discount: '', stock: '0', sizes: '', color: '', sectionId: '',
+  discount: '', stock: '0', sizes: '', color: '', popular: false, sectionId: '',
   images: [], thumbs: [], optimized: [],
 }
 
@@ -71,6 +73,7 @@ function toDraft(product: ProductRow): Draft {
     stock: String(product.stock ?? 0),
     sizes: (product.sizes || []).join(', '),
     color: product.color || '',
+    popular: product.popular === true,
     sectionId: product.sectionId || '',
     images: product.images || [],
     thumbs: aligned(product, product.thumbs),
@@ -119,6 +122,7 @@ export function ProductsPage() {
         stock: Number(draft.stock),
         sizes: draft.sizes.split(',').map((s) => s.trim()).filter(Boolean),
         color: draft.color,
+        popular: draft.popular,
         sectionId: draft.sectionId || null,
         images: draft.images,
         thumbs: draft.thumbs,
@@ -241,7 +245,12 @@ export function ProductsPage() {
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-extrabold">{product.name}</p>
+                <p className="flex items-center gap-1.5 text-sm font-extrabold">
+                  <span className="truncate">{product.name}</span>
+                  {product.popular && (
+                    <Star size={13} className="shrink-0" fill="var(--warning)" style={{ color: 'var(--warning)' }} aria-label="Mashhur" />
+                  )}
+                </p>
                 <p className="truncate text-xs" style={{ color: 'var(--muted)' }}>
                   {product.category}
                   {sectionName(product.sectionId) ? ` · ${sectionName(product.sectionId)}` : ''}
@@ -547,6 +556,29 @@ function ProductForm({
             placeholder="Mol go‘shti"
           />
         </Field>
+
+        {/* Bosh sahifa qatori — faqat shu belgilanganlar chiqadi */}
+        <label
+          className="sm:col-span-2 flex cursor-pointer items-center gap-3 rounded-xl border p-3"
+          style={{
+            borderColor: draft.popular ? 'var(--warning)' : 'var(--line)',
+            background: draft.popular ? 'var(--warning-soft)' : 'var(--surface)',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={draft.popular}
+            onChange={(e) => set({ popular: e.target.checked })}
+            style={{ width: 18, height: 18, accentColor: 'var(--warning)' }}
+          />
+          <Star size={18} fill={draft.popular ? 'var(--warning)' : 'none'} style={{ color: 'var(--warning)' }} />
+          <span className="min-w-0">
+            <b className="block text-sm">Mashhur mahsulot</b>
+            <span className="block text-xs" style={{ color: 'var(--muted)' }}>
+              Bosh sahifadagi «Mashhur mahsulotlar» qatorida ko‘rsatiladi
+            </span>
+          </span>
+        </label>
 
         <Field label="Chegirma nishoni" className="sm:col-span-2">
           <input

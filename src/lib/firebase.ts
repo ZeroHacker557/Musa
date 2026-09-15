@@ -47,6 +47,7 @@ export function subscribeToProducts(callback: (products: Product[]) => void, onE
         // tartib ilovaga umuman yetib bormasdi.
         order: typeof data.order === 'number' ? data.order : undefined,
         sectionId: data.sectionId ? String(data.sectionId) : null,
+        popular: data.popular === true,
       }
     })
     callback(products)
