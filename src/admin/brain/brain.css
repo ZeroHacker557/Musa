@@ -45,15 +45,6 @@
 .brain__hud { position: absolute; z-index: 2; pointer-events: none; }
 .brain__hud > * { pointer-events: auto; }
 
-.brain__key {
-  display: inline-block; min-width: 18px;
-  padding: 2px 5px;
-  border: 1px solid var(--brain-hair-strong); border-bottom-width: 2px;
-  border-radius: 5px;
-  font: 600 10px/1.2 var(--brain-mono); color: var(--brain-ink);
-  text-align: center;
-}
-
 /* ── Yuqori chap: nom va hisoblagichlar ── */
 .brain__brand { top: 16px; left: 18px; display: grid; gap: 10px; max-width: min(620px, calc(100% - 36px)); }
 .brain__mark { display: flex; align-items: center; gap: 10px; pointer-events: none; }
@@ -167,12 +158,6 @@
 .brain__layer[aria-pressed="false"] { opacity: 0.4; }
 .brain__layer[aria-pressed="false"] i { box-shadow: none !important; }
 
-.brain__hint {
-  right: 18px; bottom: 16px;
-  font: 400 11px/1.9 var(--brain-mono); color: var(--brain-faint);
-  text-align: right; pointer-events: none;
-}
-
 .brain__toast {
   left: 50%; bottom: 76px;
   transform: translateX(-50%);
@@ -188,13 +173,11 @@
 .brain__toast[hidden] { display: block !important; opacity: 0; transform: translate(-50%, 8px); }
 
 /* ── Parvoz ── */
-.brain__reticle, .brain__flight, .brain__flyhint, .brain__flypad { display: none; }
+.brain__reticle, .brain__flight, .brain__flypad { display: none; }
 .brain.is-flying .brain__reticle,
-.brain.is-flying .brain__flight,
-.brain.is-flying .brain__flyhint { display: block; }
+.brain.is-flying .brain__flight { display: block; }
 .brain.is-flying .brain__sky { cursor: crosshair; }
 .brain.is-flying .brain__search,
-.brain.is-flying .brain__hint,
 .brain.is-flying .brain__counts { display: none; }
 
 .brain__reticle {
@@ -219,11 +202,6 @@
 }
 .brain__flight b { color: var(--brain-ink); font-weight: 600; }
 .brain__flight em { font-style: normal; color: var(--brain-gold); }
-.brain__flyhint {
-  left: 50%; top: 16px; transform: translateX(-50%);
-  font: 400 11px/1.9 var(--brain-body); color: var(--brain-muted);
-  text-align: center; white-space: nowrap; pointer-events: none;
-}
 
 .brain__stick {
   position: absolute; left: 20px; bottom: 120px;
@@ -252,13 +230,8 @@
   .brain.is-flying .brain__flypad { display: block; }
   .brain.is-flying .brain__layers,
   .brain.is-flying .brain__brand { display: none; }
-  .brain__flyhint .desk { display: none; }
   .brain.is-flying .brain__flight { top: 14px; bottom: auto; }
-  .brain.is-flying .brain__flyhint { top: 50px; white-space: normal; width: calc(100% - 28px); }
   .brain.is-flying .brain__toast { bottom: auto; top: 96px; }
-}
-@media (pointer: fine) {
-  .brain__flyhint .touch { display: none; }
 }
 
 /* ── Tafsilot paneli ── */
@@ -325,6 +298,15 @@
 }
 .brain__action:hover { background: rgba(242, 201, 76, 0.16); }
 
+/* To'liq ekran: menyu va sarlavha yo'q — galaktika butun ekranni oladi */
+.brain:fullscreen { height: 100dvh; }
+.brain.is-full { height: 100vh; height: 100dvh; }
+.brain__full .leave { display: none; }
+.brain__full[aria-pressed="true"] .enter { display: none; }
+.brain__full[aria-pressed="true"] .leave { display: inline; }
+.brain__full[aria-pressed="true"] { color: var(--brain-gold); border-color: rgba(242, 201, 76, 0.4); }
+.brain__full[hidden] { display: none; }
+
 @keyframes brainBlink { 50% { opacity: 0.3; } }
 
 @media (max-width: 760px) {
@@ -334,7 +316,6 @@
   .brain__count b { font-size: 13px; }
   .brain__search { top: auto; bottom: 112px; right: 12px; left: 12px; width: auto; }
   .brain__controls { left: 12px; bottom: 12px; }
-  .brain__hint { display: none; }
   .brain__toast { bottom: 164px; font-size: 11px; }
   .brain__panel { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 60%; }
   .brain__panel[hidden] { transform: translateY(calc(100% + 30px)); }

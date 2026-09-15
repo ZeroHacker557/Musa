@@ -87,7 +87,7 @@ const MARKUP = `
       <button type="button" data-dist="far" aria-pressed="true">Uzoqdan</button>
       <button type="button" data-dist="mid" aria-pressed="false">O‘rtadan</button>
       <button type="button" data-dist="near" aria-pressed="false">Yaqindan</button>
-      <button type="button" data-mode="fly" aria-pressed="false">Parvoz <kbd class="brain__key">F</kbd></button>
+      <button type="button" data-mode="fly" aria-pressed="false">Parvoz</button>
     </div>
     <button class="brain__sound" data-el="sound" type="button" aria-pressed="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -96,23 +96,19 @@ const MARKUP = `
         <path class="mute" d="M16 9.5l5 5M21 9.5l-5 5" />
       </svg>
       <span data-el="soundLabel">Ovoz</span>
-      <kbd class="brain__key">M</kbd>
+    </button>
+    <button class="brain__sound brain__full" data-el="full" type="button" aria-pressed="false" aria-label="To‘liq ekran">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path class="enter" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+        <path class="leave" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+      </svg>
+      <span data-el="fullLabel">To‘liq ekran</span>
     </button>
   </div>
   <div class="brain__layers" data-el="layers" role="group" aria-label="Qatlamlar"></div>
 </div>
 
-<div class="brain__hud brain__hint">
-  <div>Suring — aylantirish · G‘ildirak — yaqinlashish · <kbd class="brain__key">W</kbd><kbd class="brain__key">A</kbd><kbd class="brain__key">S</kbd><kbd class="brain__key">D</kbd> — uchish</div>
-  <div>Yulduzni bosing — tafsilot · <kbd class="brain__key">H</kbd> — yadroga qaytish</div>
-</div>
-
 <div class="brain__reticle" aria-hidden="true"></div>
-<div class="brain__hud brain__flyhint">
-  <div class="desk"><kbd class="brain__key">W</kbd><kbd class="brain__key">A</kbd><kbd class="brain__key">S</kbd><kbd class="brain__key">D</kbd> uchish · <kbd class="brain__key">Q</kbd><kbd class="brain__key">E</kbd> pastga / yuqoriga · <kbd class="brain__key">Shift</kbd> turbo · <kbd class="brain__key">↑</kbd><kbd class="brain__key">↓</kbd><kbd class="brain__key">←</kbd><kbd class="brain__key">→</kbd> yoki sichqoncha — qarash</div>
-  <div class="desk"><kbd class="brain__key">Enter</kbd> nishondagi yulduz · <kbd class="brain__key">F</kbd> parvozdan chiqish · <kbd class="brain__key">H</kbd> yadroga qaytish</div>
-  <div class="touch">Joystik — harakat · ekranni surish — qarash · ▲ ▼ — balandlik</div>
-</div>
 <div class="brain__hud brain__flight" data-el="flight"></div>
 <div class="brain__flypad">
   <div class="brain__stick" data-el="stick" aria-label="Harakat joystigi"><div class="brain__knob" data-el="knob"></div></div>
@@ -559,7 +555,7 @@ export function createBrain(root, { onNavigate } = {}) {
   let selected = null, hover = null
   let lastInput = performance.now()
   const shown = (n) => !n.layer || layers[n.layer]
-  const pilot = { on: false, vx: 0, vy: 0, vz: 0, speed: 0, boost: false, stickX: 0, stickY: 0, lift: 0, aim: null, passed: new Map(), told: false }
+  const pilot = { on: false, vx: 0, vy: 0, vz: 0, speed: 0, boost: false, stickX: 0, stickY: 0, lift: 0, aim: null, passed: new Map() }
   const keys = new Set()
   const pulses = []
 
@@ -880,12 +876,6 @@ export function createBrain(root, { onNavigate } = {}) {
     pilot.on = true
     root.classList.add('is-flying')
     Sound.warp(true)
-    if (!pilot.told) {
-      pilot.told = true
-      toast(COARSE
-        ? 'Parvoz rejimi · joystik bilan uching, ekranni surib atrofga qarang'
-        : 'Parvoz rejimi · W A S D — uchish · Shift — turbo · F — chiqish')
-    }
   }
   function exitFlight() {
     if (!pilot.on) return
@@ -1120,6 +1110,29 @@ export function createBrain(root, { onNavigate } = {}) {
   }
   listen(window, 'pointerdown', firstGesture, true)
   listen(window, 'keydown', firstGesture, true)
+
+  // ── To'liq ekran ───────────────────────────────────────
+  // Galaktika (menyu va sarlavhasiz) butun ekranni egallaydi. Brauzer
+  // qo'llamasa (masalan iPhone Safari) tugma ko'rsatilmaydi.
+  const fullBtn = $('full'), fullLabel = $('fullLabel')
+  const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement
+  const canFullscreen = Boolean(root.requestFullscreen || root.webkitRequestFullscreen)
+  fullBtn.hidden = !canFullscreen
+  function syncFull() {
+    const on = fsElement() === root
+    fullBtn.setAttribute('aria-pressed', String(on))
+    fullBtn.setAttribute('aria-label', on ? 'To‘liq ekrandan chiqish' : 'To‘liq ekran')
+    fullLabel.textContent = on ? 'Chiqish' : 'To‘liq ekran'
+    root.classList.toggle('is-full', on)
+  }
+  function toggleFull() {
+    Sound.click()
+    if (fsElement()) (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+    else (root.requestFullscreen || root.webkitRequestFullscreen).call(root)?.catch?.(() => {})
+  }
+  listen(fullBtn, 'click', toggleFull)
+  listen(document, 'fullscreenchange', syncFull)
+  listen(document, 'webkitfullscreenchange', syncFull)
 
   // ── Masofa, qatlamlar, hisoblagichlar ──────────────────
   const scaleEl = $('scale')
@@ -1370,6 +1383,7 @@ export function createBrain(root, { onNavigate } = {}) {
   return {
     setData,
     destroy() {
+      if (fsElement() === root) (document.exitFullscreen || document.webkitExitFullscreen).call(document)
       cancelAnimationFrame(raf)
       clearTimeout(toastTimer)
       ro.disconnect()
