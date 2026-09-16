@@ -140,6 +140,21 @@ def order_action_kb(order_id: str, has_location: bool = False) -> InlineKeyboard
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def catalog_kb() -> InlineKeyboardMarkup:
+    """
+    Katalogni ochadigan inline tugma.
+
+    Mijoz «🥟 Katalogni ochish» ni bosganda shu tugma chiqadi va
+    do'kon bir bosishda ochiladi. Ilgari faqat «pastdagi menyu
+    tugmasini toping» degan matn chiqardi — ko'pchilik o'sha tugmani
+    topolmay qaytib ketardi.
+    """
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text="🥟 Katalog",
+        web_app=WebAppInfo(url=MINI_APP_URL),
+    )]])
+
+
 def order_has_location(order: dict | None) -> bool:
     loc = (order or {}).get("customer", {}).get("location") or {}
     return isinstance(loc, dict) and loc.get("lat") is not None and loc.get("lng") is not None
@@ -975,21 +990,19 @@ async def handle_contact(message: Message):
 @dp.message(F.text == "🥟 Katalogni ochish")
 async def handle_open_catalog(message: Message):
     """
-    Katalog tugmasi bosilganda mini appni qayerdan ochishni ko'rsatadi.
-    Tugmaning o'ziga web_app biriktirilmagan — do'kon yozuv maydoni
-    yonidagi doimiy menyu tugmasi orqali ochiladi.
+    Katalog tugmasi bosilganda do'konni ochadigan tugmani yuboradi.
+
+    Reply-klaviatura tugmasining o'ziga `web_app` biriktirilmagan:
+    u yozuv maydoni yonidagi doimiy menyu tugmasi bilan birga turadi
+    va matn sifatida ham ishlashi kerak. Shuning uchun javob
+    sifatida inline tugma beriladi — bir bosishda do'kon ochiladi.
     """
     text = "🥟 <b>MUSA KATALOGI</b>\n"
     text += "━" * 22 + "\n\n"
-    text += "Do'konimiz Telegram ilovasi ichida ochiladi.\n\n"
-    text += "👇 Pastda, <b>yozuv maydonining chap tomonida</b>\n"
-    text += "   <b>«🥟 Katalog»</b> tugmasi turibdi.\n\n"
-    text += "Shu tugmani bosing — do'kon shu yerning o'zida ochiladi.\n\n"
-    text += "━" * 22 + "\n"
-    text += "✨ <i>Mahsulotlarni ko'ring, savatga qo'shing va\n"
-    text += "bir necha bosishda buyurtma bering.</i>"
+    text += "Yarim tayyor mahsulotlar, muzqaymoq va siroklar — hammasi bir joyda.\n\n"
+    text += "👇 <b>Katalog</b> tugmasini bosing, do'kon shu yerning o'zida ochiladi."
 
-    await message.answer(text)
+    await message.answer(text, reply_markup=catalog_kb())
 
 
 @dp.message(F.text == "📞 Biz bilan aloqa")

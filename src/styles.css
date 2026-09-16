@@ -56,6 +56,12 @@
   --gold-soft: #fff7de;
   --gold-line: #f0dc9e;
 
+  /* Katalog kategoriya chiplari — logodagi oltin sariq.
+     Tanlanmagan chip shu rangda, tanlangani to'q yashil (pastda). */
+  --pill-1: #fde08b;
+  --pill-2: #f9d05f;
+  --pill-ink: #4a3408;
+
   /* Uchinchi rang — MUSA ko'ki (logodagi yozuv) */
   --royal: #16359e;
   --royal-strong: #0f2678;
@@ -139,6 +145,11 @@
     --gold-soft: #2a2213;
     --gold-line: #453519;
 
+    /* Chiplar: qorong'ida sal to'qroq oltin — ko'zni qamashtirmasin */
+    --pill-1: #efc85f;
+    --pill-2: #e0b445;
+    --pill-ink: #3a2906;
+
     --royal: #93a9f2;
     --royal-strong: #7a92e6;
     --royal-ink: #06102e;
@@ -204,6 +215,11 @@
   --gold-bright: #f2c94c;
   --gold-soft: #2a2213;
   --gold-line: #453519;
+
+  /* Chiplar: qorong'ida sal to'qroq oltin — ko'zni qamashtirmasin */
+  --pill-1: #efc85f;
+  --pill-2: #e0b445;
+  --pill-ink: #3a2906;
 
   --royal: #93a9f2;
   --royal-strong: #7a92e6;
@@ -797,9 +813,10 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ====== Katalog: kategoriya chiplari ======
-   Yumaloq «pill»: chapda ikonka, o'ngda nom. Tanlangani to'q yashil,
-   qolganlari och yashil fonda — ramka va soya yo'q, shuning uchun lenta
-   yengil ko'rinadi va mahsulotlardan diqqatni tortmaydi. */
+   Yumaloq «pill»: chapda ikonka, o'ngda nom. Tanlanmagani logodagi
+   oltin sariqda, tanlangani to'q yashilda — ikki rang qarama-qarshi
+   bo'lgani uchun qaysi kategoriya ochilgani bir qarashda ko'rinadi.
+   Ramka va soya yo'q: lenta yengil ko'rinadi. */
 .category-pills {
   display: flex;
   gap: 0.5rem;
@@ -823,8 +840,10 @@ a { color: inherit; text-decoration: none; }
   height: 3.25rem;
   padding: 0 1.15rem 0 1rem;
   border-radius: 999px;
-  background: var(--brand-soft);
-  color: var(--ink);
+  /* Oltin sariq: logodagi rang. Yengil gradient tekis bo'yoqqa
+     qaraganda yumshoqroq ko'rinadi. */
+  background: linear-gradient(160deg, var(--pill-1) 0%, var(--pill-2) 100%);
+  color: var(--pill-ink);
   font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.15;
