@@ -82,25 +82,42 @@ def panel_kb() -> InlineKeyboardMarkup:
     """
     Admin panelni ochadigan inline tugma.
 
-    `web_app` tugmasi — oddiy havola emas: panel Telegramning o'zida,
-    alohida brauzer ochmasdan ishga tushadi va kompyuterda butun
-    ekranni egallaydi (src/admin/lib/telegram.ts).
+    Birinchisi — `web_app`: panel Telegramning o'zida ochiladi va
+    imkoni bo'lsa to'liq ekranga chiqadi (src/admin/lib/telegram.ts).
+    Telefonda shu qulay.
+
+    Ikkinchisi — oddiy havola: kompyuterda Telegram mini appni telefon
+    o'lchamidagi kichik oynada ochadi va to'liq ekran har bir
+    versiyada ishlamaydi. Brauzerda esa panel butun ekranni egallaydi.
 
     Kirish har safar so'ralmaydi: admin bir marta email/parol bilan
     kiradi, seans saqlanadi va keyingi ochilishlarda panel darhol
     ochiladi.
     """
-    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-        text=PANEL_BUTTON,
-        web_app=WebAppInfo(url=ADMIN_PANEL_URL),
-    )]])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=PANEL_BUTTON,
+            web_app=WebAppInfo(url=ADMIN_PANEL_URL),
+        )],
+        # Kompyuterda Telegram mini appni telefon o'lchamidagi oynada
+        # ochadi, to'liq ekran esa Telegram versiyasiga bog'liq va
+        # hamma joyda ishlamaydi. Brauzerda panel butun ekranni
+        # egallaydi — shuning uchun ikkinchi tugma.
+        [InlineKeyboardButton(
+            text="🖥 Brauzerda ochish (katta ekran)",
+            url=ADMIN_PANEL_URL,
+        )],
+    ])
 
 
 PANEL_TEXT = (
     "🛠 <b>Admin panel</b>\n"
     "——————————————\n\n"
     "Buyurtmalar, mahsulotlar, hisobotlar va sozlamalar — hammasi shu yerda.\n\n"
-    "👇 Tugmani bosing, panel shu oynada ochiladi.\n"
+    "📱 <b>Telefonda:</b> birinchi tugma — panel shu yerning "
+    "o‘zida, to‘liq ekranda ochiladi.\n"
+    "🖥 <b>Kompyuterda:</b> ikkinchi tugma qulayroq — panel brauzerda, "
+    "butun ekran bo‘ylab ochiladi.\n\n"
     "<i>Birinchi marta email va parol so'raladi, keyin esa o'zi kirib turadi.</i>"
 )
 

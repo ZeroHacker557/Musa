@@ -1,8 +1,11 @@
 import {
-  BarChart3, BrainCircuit, Boxes, FileBarChart, Flame, Layers, LayoutGrid, LogOut, Megaphone, Menu, Moon, Settings,
-  ShoppingBag, Sun, Tag, Users, UserCog, X,
+  BarChart3, BrainCircuit, Boxes, ExternalLink, FileBarChart, Flame, Layers, LayoutGrid, LogOut, Maximize2,
+  Megaphone, Menu, Minimize2, Moon, Settings, ShoppingBag, Sun, Tag, Users, UserCog, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
+import {
+  fullscreenState, isInTelegram, openInBrowser, subscribeFullscreen, toggleFullscreen,
+} from '../lib/telegram'
 import { BrandLogo } from '../../components/brand/BrandLogo'
 import { can, logout, type Staff, type StaffRole } from '../lib/auth'
 import { ROUTES, type Route } from '../lib/router'
@@ -174,9 +177,13 @@ export function Shell({ staff, route, onNavigate, newOrders = 0, children }: Pro
         >
           <Menu size={20} />
         </button>
-        <h1 className="adm-topbar__title truncate">{TITLES[route]}</h1>
+        <h1 className="adm-topbar__title mr-auto truncate">{TITLES[route]}</h1>
+
+        {/* Telegram ichida: oynani kattalashtirish yoki brauzerda ochish */}
+        <TelegramWindowButtons />
+
         <button
-          className="ml-auto grid size-10 shrink-0 place-items-center rounded-xl transition active:scale-90"
+          className="grid size-10 shrink-0 place-items-center rounded-xl transition active:scale-90"
           style={{ background: 'var(--surface-2)' }}
           onClick={toggleTheme}
           aria-label="Rejimni almashtirish"
@@ -192,6 +199,49 @@ export function Shell({ staff, route, onNavigate, newOrders = 0, children }: Pro
         </div>
       </main>
     </div>
+  )
+}
+
+/**
+ * Telegram oynasini boshqarish tugmalari.
+ *
+ * Kompyuterda Telegram mini appni telefon o'lchamidagi kichik oynada
+ * ochadi. «To'liq ekran» uni butun ekranga chiqaradi (Bot API 8.0+).
+ * Telegram bu qurilmada qo'llab-quvvatlamasa, tugma o'rniga panelni
+ * brauzerda ochish taklif qilinadi — u yerda oyna baribir katta.
+ *
+ * Brauzerda (Telegramsiz) hech qanday tugma ko'rinmaydi.
+ */
+function TelegramWindowButtons() {
+  const [fs, setFs] = useState(fullscreenState)
+  useEffect(() => subscribeFullscreen(setFs), [])
+
+  if (!isInTelegram()) return null
+
+  return (
+    <>
+      {fs.available && !fs.failed && (
+        <button
+          className="grid size-10 shrink-0 place-items-center rounded-xl transition active:scale-90"
+          style={{ background: 'var(--surface-2)' }}
+          onClick={toggleFullscreen}
+          aria-label={fs.active ? 'Oynani kichraytirish' : "To'liq ekran"}
+          title={fs.active ? 'Oynani kichraytirish' : "To'liq ekran"}
+        >
+          {fs.active ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+        </button>
+      )}
+
+      <button
+        className="grid size-10 shrink-0 place-items-center rounded-xl transition active:scale-90"
+        style={{ background: 'var(--surface-2)' }}
+        onClick={openInBrowser}
+        aria-label="Brauzerda ochish"
+        title="Brauzerda ochish — katta ekranda ishlash uchun"
+      >
+        <ExternalLink size={18} />
+      </button>
+    </>
   )
 }
 
