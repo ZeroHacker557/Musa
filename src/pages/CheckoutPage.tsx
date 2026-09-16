@@ -123,7 +123,7 @@ export function CheckoutPage({
         <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>{t('checkout.title')}</h1>
       </header>
 
-      <div className="px-5 pb-32 pt-6 sm:px-10 page-animate">
+      <div className="kb-safe px-5 pt-6 sm:px-10 page-animate">
         {/* Buyurtma tarkibi */}
         <section className="rounded-2xl border p-4" style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}>
           <h3 className="flex items-center gap-2 font-bold" style={{ color: 'var(--ink)' }}>

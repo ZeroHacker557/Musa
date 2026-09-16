@@ -289,6 +289,24 @@ export const ru: Record<TranslationKey, string> = {
     'Доступ к геолокации запрещён. Разрешите его в настройках Telegram или отметьте место на карте.',
   'address.locationTimeout':
     'Местоположение не определилось — возможно, слабый сигнал. Попробуйте снова или отметьте на карте.',
+  'address.nameHint': 'Название подставлено — можно изменить',
+  'address.nameHome': 'Дом',
+  'address.nameWork': 'Работа',
+  'address.nameFriend': 'У друзей',
+  'address.nameDacha': 'Дача',
+  'address.autoFilling': 'Определяем адрес...',
+  'address.autoFilled': 'Адрес взят с карты — проверьте',
+
+  // ── Предложение добавить адрес ──
+  'addressAsk.title': 'Вы сейчас здесь?',
+  'addressAsk.text':
+    'Добавьте адрес доставки сразу — и заказ будет оформляться за несколько секунд.',
+  'addressAsk.here': 'Да, я здесь',
+  'addressAsk.hereHint': 'Местоположение определится автоматически',
+  'addressAsk.other': 'Другое место',
+  'addressAsk.otherHint': 'Отмечу на карте сам',
+  'addressAsk.later': 'Позже',
+  'addressAsk.optional': 'Необязательно — можно добавить позже',
 
   // ── Уведомления ──
   'notifications.title': 'Уведомления',

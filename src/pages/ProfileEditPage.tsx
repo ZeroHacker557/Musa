@@ -60,7 +60,7 @@ export function ProfileEditPage({ profile, onBack, onNotify }: Props) {
         <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>{t('profile.personal')}</h1>
       </header>
 
-      <form onSubmit={handleSave} className="px-5 pb-32 pt-6 sm:px-10 page-animate">
+      <form onSubmit={handleSave} className="kb-safe px-5 pt-6 sm:px-10 page-animate">
         <div className="space-y-5">
           <div>
             <label className="field-label">

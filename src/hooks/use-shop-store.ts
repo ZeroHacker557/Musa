@@ -17,6 +17,10 @@ const ROOT_PAGES: AppPage[] = ['home', 'catalog', 'favorites', 'orders', 'profil
 
 const LIKES_KEY = 'musaShopLikes'
 const CART_KEY = 'musaShopCart'
+/** «Manzil qo'shasizmi?» taklifi ko'rsatilganmi (bir marta so'raladi). */
+const ADDRESS_ASK_KEY = 'musaAddressAsked'
+/** Ilova tayyor bo'lgach taklifgacha kutiladigan vaqt. */
+const ADDRESS_ASK_DELAY = 2000
 
 type CartItems = Record<string, { quantity: number; size?: string; color?: string }>
 
@@ -155,6 +159,23 @@ export function useShopStore() {
     recipientName: '', recipientPhone: '',
   })
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  /**
+   * Profilning BIRINCHI javobi keldimi.
+   *
+   * «Manzil qo'shasizmi?» taklifi shu bayroqqa bog'liq: profil
+   * o'qilmasidan ko'rsatilsa, manzili bor mijozga ham chiqib qolardi.
+   */
+  const [profileReady, setProfileReady] = useState(false)
+  /** Taklif uchun 2 soniyalik kutish tugadimi. */
+  const [addressAskDue, setAddressAskDue] = useState(false)
+  const [addressAsked, setAddressAsked] = useState(() => {
+    try { return localStorage.getItem(ADDRESS_ASK_KEY) === '1' } catch { return true }
+  })
+  /**
+   * Manzil sahifasi qaysi ko'rinishda ochilsin: taklifdagi «shu yer» yoki
+   * «boshqa joy» tanlovi shu yerda saqlanadi.
+   */
+  const [addressIntent, setAddressIntent] = useState<'here' | 'other' | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
 
@@ -215,6 +236,7 @@ export function useShopStore() {
       if (!user) {
         setAuthReady(true)
         setAuthenticated(false)
+        setProfileReady(false)
         setUserProfile(null)
         setMyOrders([])
         setOrdersReady(true)
@@ -234,6 +256,7 @@ export function useShopStore() {
       })
       unsubProfile = subscribeToUserProfile(userId, (profile) => {
         if (profile) setUserProfile(profile as UserProfile)
+        setProfileReady(true)
       })
       unsubNotifications = subscribeToUserNotifications(userId, (notifs) => {
         setNotifications(notifs)
@@ -281,6 +304,25 @@ export function useShopStore() {
     [query, products],
   )
 
+  /*
+   * Yangi mijoz uchun «Manzilingiz shu yermi?» taklifi.
+   *
+   * Ilova ochilishi bilan emas: mijoz avval do'konni ko'rib ulgursin,
+   * shundan keyin — 2 soniyadan so'ng — xotirjam taklif chiqadi.
+   * Bir marta: rad etilsa yoki manzil qo'shilsa qaytib bezovta qilmaydi.
+   */
+  useEffect(() => {
+    if (addressAsked || !authReady || !isAuthenticated || !profileReady || loading) return
+    const timer = window.setTimeout(() => setAddressAskDue(true), ADDRESS_ASK_DELAY)
+    return () => window.clearTimeout(timer)
+  }, [addressAsked, authReady, isAuthenticated, profileReady, loading])
+
+  const dismissAddressPrompt = useCallback(() => {
+    setAddressAsked(true)
+    setAddressAskDue(false)
+    try { localStorage.setItem(ADDRESS_ASK_KEY, '1') } catch { /* xotira yopiq */ }
+  }, [])
+
   const navigate = useCallback((nextPage: AppPage) => {
     const uid = auth.currentUser?.uid
     if (nextPage === 'notifications' && uid) {
@@ -299,8 +341,18 @@ export function useShopStore() {
 
     setCartOpen(false)
     setSearchOpen(false)
+    // Manzil sahifasiga odatdagicha kirilsa ro'yxat ochiladi; taklifdan
+    // kelingan tanlov `openAddresses` ichida shundan keyin qo'yiladi
+    setAddressIntent(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
+
+  /** Manzil sahifasini kerakli ko'rinishda ochadi (taklifdan). */
+  const openAddresses = useCallback((intent: 'here' | 'other' | null = null) => {
+    navigate('addresses')
+    // navigate tanlovni tozalaydi — shuning uchun keyin qo'yiladi
+    setAddressIntent(intent)
+  }, [navigate])
 
   const setTheme = useCallback((mode: ThemeMode) => {
     setThemeState(mode)
@@ -504,6 +556,19 @@ export function useShopStore() {
     return true
   }, [isSubmitting, orderForm, cartProducts, notify, t])
 
+  /*
+   * Taklif faqat bosh sahifada va boshqa oyna ochiq bo'lmaganda
+   * ko'rsatiladi — savat yoki qidiruv ustidan chiqib xalaqit bermasin.
+   */
+  const askAddress =
+    addressAskDue
+    && !addressAsked
+    && (userProfile?.addresses?.length ?? 0) === 0
+    && page === 'home'
+    && !isCartOpen
+    && !isSearchOpen
+    && !checkoutDone
+
   return {
     page, history,
     // Bosh sahifadan boshqa har qanday sahifada orqaga qaytish mumkin —
@@ -518,6 +583,7 @@ export function useShopStore() {
     catalogCategory, openCategory,
     theme, setTheme, toggleTheme,
     navigate, goBack, openProduct, toggleLike,
+    askAddress, dismissAddressPrompt, openAddresses, addressIntent,
     setSearchOpen, setQuery,
     addToCart, updateCartQuantity,
     openCart, closeCart, goToCheckout,

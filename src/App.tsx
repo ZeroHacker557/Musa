@@ -3,11 +3,13 @@ import { BottomNav } from './components/layout/BottomNav'
 import { SearchOverlay } from './components/layout/SearchOverlay'
 import { CartDrawer } from './components/cart/CartDrawer'
 import { CartPrompt } from './components/cart/CartPrompt'
+import { AddressPrompt } from './components/address/AddressPrompt'
 import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
 import { useShopStore } from './hooks/use-shop-store'
 import { useSwipeNav } from './hooks/use-swipe-nav'
 import { usePresence } from './hooks/use-presence'
+import { useKeyboardInset } from './hooks/use-keyboard-inset'
 import { CatalogPage } from './pages/CatalogPage'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { FavoritesPage } from './pages/FavoritesPage'
@@ -57,6 +59,9 @@ function App() {
 
   // Telegram xavfsiz zonasi
   useEffect(() => watchSafeArea(), [])
+
+  // Klaviatura ochilganda pastdagi maydonlar to'silib qolmasin
+  useKeyboardInset()
 
   // Katalog keldi — ochilish animatsiyasi (index.html) tugashi mumkin
   useEffect(() => {
@@ -125,6 +130,15 @@ function App() {
           />
         )}
         {shop.checkoutDone && <CheckoutSuccess onViewOrders={() => shop.navigate('orders')} />}
+
+        {/* Yangi mijozga manzil taklifi — ilova ochilgach 2 soniyadan keyin */}
+        {shop.askAddress && (
+          <AddressPrompt
+            onHere={() => shop.openAddresses('here')}
+            onOther={() => shop.openAddresses('other')}
+            onDismiss={shop.dismissAddressPrompt}
+          />
+        )}
 
         <div className="page-wrapper">
           {shop.page === 'home' && (
@@ -237,6 +251,7 @@ function App() {
                   profile={shop.userProfile}
                   onBack={shop.goBack}
                   onNotify={shop.notify}
+                  intent={shop.addressIntent}
                 />
               </Suspense>
             </div>

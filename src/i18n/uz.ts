@@ -296,6 +296,24 @@ export const uz = {
     "Lokatsiyaga ruxsat berilmagan. Telegram sozlamalaridan ruxsat bering yoki xaritadan qo'lda belgilang.",
   'address.locationTimeout':
     "Lokatsiya aniqlanmadi — signal zaif bo'lishi mumkin. Qayta urinib ko'ring yoki xaritadan belgilang.",
+  'address.nameHint': "Nom o‘zi qo‘yildi — xohlasangiz o‘zgartiring",
+  'address.nameHome': 'Uy',
+  'address.nameWork': 'Ishxona',
+  'address.nameFriend': 'Do‘st uyi',
+  'address.nameDacha': 'Dala hovli',
+  'address.autoFilling': 'Manzil aniqlanmoqda...',
+  'address.autoFilled': 'Manzil xaritadan olindi — tekshirib oling',
+
+  // ── Manzil taklifi (yangi mijozga) ──
+  'addressAsk.title': 'Manzilingiz shu yermi?',
+  'addressAsk.text':
+    "Yetkazib berish manzilini hozir qo‘shib qo‘ysangiz, buyurtma berish bir necha soniyada tugaydi.",
+  'addressAsk.here': 'Ha, shu yer',
+  'addressAsk.hereHint': 'Joylashuv avtomatik olinadi',
+  'addressAsk.other': 'Boshqa joy',
+  'addressAsk.otherHint': 'Xaritadan o‘zim belgilayman',
+  'addressAsk.later': 'Keyinroq',
+  'addressAsk.optional': 'Ixtiyoriy — keyin ham qo‘shsa bo‘ladi',
 
   // ── Bildirishnomalar ──
   'notifications.title': 'Bildirishnomalar',

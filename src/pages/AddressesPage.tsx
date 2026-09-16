@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { ChevronLeft, Loader2, LocateFixed, MapPin, Maximize2, Minimize2, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Check, ChevronLeft, Loader2, LocateFixed, MapPin, Maximize2, Minimize2, Plus, Trash2 } from 'lucide-react'
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -7,8 +7,21 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png'
 import { updateUserProfile } from '../lib/firebase'
 import { auth } from '../lib/auth'
 import { hapticFeedback, hapticSuccess, requestLocation } from '../utils/telegram'
-import { useT } from '../i18n'
+import { reverseGeocode } from '../utils/geocode'
+import { useI18n, useT } from '../i18n'
 import type { Address, UserProfile } from '../types/domain'
+import type { TranslationKey } from '../i18n'
+
+/**
+ * Manzil nomi uchun tayyor variantlar.
+ *
+ * Mijozlar «Manzil nomi» maydonida adashib qolishardi — bu nima
+ * degani, nima yozish kerak? Endi nom O'ZI qo'yiladi (ro'yxatdagi
+ * birinchi ishlatilmagan variant) va bir bosishda almashtiriladi.
+ */
+const NAME_PRESETS: TranslationKey[] = [
+  'address.nameHome', 'address.nameWork', 'address.nameFriend', 'address.nameDacha',
+]
 
 // Leaflet standart ikonkasi bundler bilan ishlamaydi — qo'lda beramiz
 L.Marker.prototype.options.icon = L.icon({
@@ -42,11 +55,18 @@ type Props = {
   profile: UserProfile | null
   onBack: () => void
   onNotify: (msg: string) => void
+  /**
+   * Sahifa qaysi maqsadda ochildi (bosh sahifadagi taklifdan):
+   * 'here' — joylashuv darhol so'raladi, 'other' — xaritadan tanlanadi.
+   */
+  intent?: 'here' | 'other' | null
 }
 
-export function AddressesPage({ profile, onBack, onNotify }: Props) {
+export function AddressesPage({ profile, onBack, onNotify, intent = null }: Props) {
   const t = useT()
-  const addresses = profile?.addresses || []
+  const { lang } = useI18n()
+  // useMemo: har renderdagi yangi bo'sh massiv quyidagi memolarni qayta hisoblatmasin
+  const addresses = useMemo(() => profile?.addresses || [], [profile?.addresses])
 
   /**
    * Manzil qo'shish bosqichi.
@@ -58,7 +78,7 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
    * Tanlov alohida bosqich qilingan: ko'pchilik hozir turgan joyiga
    * buyurtma beradi va ularga xaritani titkilash shart emas.
    */
-  const [step, setStep] = useState<null | 'choose' | 'form'>(null)
+  const [step, setStep] = useState<null | 'choose' | 'form'>(intent ? 'form' : null)
   const [mapFull, setMapFull] = useState(false)
   const [loading, setLoading] = useState(false)
   const [newName, setNewName] = useState('')
@@ -66,6 +86,19 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
   const [mapCenter, setMapCenter] = useState(TASHKENT)
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [locating, setLocating] = useState(false)
+  /** Xaritadan manzil matni olinmoqda. */
+  const [geocoding, setGeocoding] = useState(false)
+  /** Manzil matni xaritadan to'ldirildi (mijoz tekshirib chiqsin). */
+  const [autoFilled, setAutoFilled] = useState(false)
+  /** Mijoz manzil matnini o'zi yozdimi — unda ustiga yozmaymiz. */
+  const typedAddress = useRef(false)
+
+  /** Bo'sh maydonga qo'yiladigan nom: ishlatilmagan birinchi variant. */
+  const suggestedName = useMemo(() => {
+    const used = new Set(addresses.map((a) => a.name.trim().toLowerCase()))
+    const free = NAME_PRESETS.map((key) => t(key)).find((name) => !used.has(name.toLowerCase()))
+    return free || `${t('address.name')} ${addresses.length + 1}`
+  }, [addresses, t])
 
   const handleCurrentLocation = async () => {
     if (locating) return
@@ -92,6 +125,53 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
       setLocating(false)
     }
   }
+
+  /**
+   * Formani ochish. Nom O'ZI yoziladi — mijozga faqat manzilni
+   * tasdiqlash qoladi. «Shu yer» bo'lsa joylashuv ham darhol so'raladi.
+   */
+  const startForm = async (mode: 'here' | 'other') => {
+    setNewName((current) => current.trim() || suggestedName)
+    setStep('form')
+    if (mode === 'here') await handleCurrentLocation()
+  }
+
+  // Taklifdan «shu yer» bilan kelingan bo'lsa — joylashuvni darhol so'raymiz
+  const started = useRef(false)
+  useEffect(() => {
+    if (!intent || started.current) return
+    started.current = true
+    void startForm(intent)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intent])
+
+  /*
+   * Joy belgilangach manzil matnini xaritadan olamiz.
+   *
+   * Mijozlar bu maydonni turlicha to'ldirishardi va kuryer topa
+   * olmasdi. Endi ko'cha va uy raqami tayyor keladi, mijoz faqat
+   * mo'ljalni qo'shadi. O'zi yozgan bo'lsa — tegilmaydi.
+   */
+  useEffect(() => {
+    if (!location) return
+    const ctrl = new AbortController()
+    // Nominatim siyosati: tez-tez so'ramaslik. Xaritada bir necha marta
+    // bosilsa faqat oxirgi nuqta so'raladi.
+    const timer = window.setTimeout(async () => {
+      setGeocoding(true)
+      const text = await reverseGeocode(location.lat, location.lng, lang, ctrl.signal)
+      if (ctrl.signal.aborted) return
+      setGeocoding(false)
+      // Mijoz o'zi yozgan bo'lsa ustiga yozmaymiz
+      if (!text || typedAddress.current) return
+      setNewFullAddress(text)
+      setAutoFilled(true)
+    }, 550)
+    return () => {
+      window.clearTimeout(timer)
+      ctrl.abort()
+    }
+  }, [location, lang])
 
   const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,6 +206,9 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
       setNewName('')
       setNewFullAddress('')
       setLocation(null)
+      setAutoFilled(false)
+      setGeocoding(false)
+      typedAddress.current = false
       hapticSuccess()
       onNotify(t('address.saved'))
     } catch (error) {
@@ -188,12 +271,7 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
           <button
             type="button"
             className="mode-card"
-            onClick={async () => {
-              setStep('form')
-              // Joylashuvni darhol so'raymiz — mijozga faqat
-              // ism va manzil matnini yozish qoladi
-              await handleCurrentLocation()
-            }}
+            onClick={() => { void startForm('here') }}
           >
             <span
               className="grid size-12 shrink-0 place-items-center rounded-2xl"
@@ -211,7 +289,7 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
             </span>
           </button>
 
-          <button type="button" className="mode-card" onClick={() => setStep('form')}>
+          <button type="button" className="mode-card" onClick={() => { void startForm('other') }}>
             <span
               className="grid size-12 shrink-0 place-items-center rounded-2xl"
               style={{ background: 'var(--royal-soft)', color: 'var(--royal)' }}
@@ -229,7 +307,7 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
           </button>
         </div>
       ) : step === 'form' ? (
-        <form onSubmit={handleSaveAddress} className="px-5 pb-32 pt-6 sm:px-10 page-animate">
+        <form onSubmit={handleSaveAddress} className="kb-safe px-5 pt-6 sm:px-10 page-animate">
           <div className="space-y-5">
             <div>
               <label className="field-label">
@@ -240,9 +318,30 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder={t('address.namePlaceholder')}
+                  /* Nomi allaqachon turibdi — bosilganda hammasi
+                     belgilanadi: o'chirish bilan ovora bo'lmasin */
+                  onFocus={(e) => e.currentTarget.select()}
                   required
                 />
               </div>
+              {/* Bir bosishda nom: mijoz nima yozishni o'ylab qolmasin */}
+              <div className="name-chips">
+                {NAME_PRESETS.map((key) => {
+                  const label = t(key)
+                  const active = newName.trim().toLowerCase() === label.toLowerCase()
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={'name-chip ' + (active ? 'active' : '')}
+                      onClick={() => { setNewName(label); hapticFeedback('light') }}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>{t('address.nameHint')}</p>
             </div>
 
             <div>
@@ -252,11 +351,28 @@ export function AddressesPage({ profile, onBack, onNotify }: Props) {
               <div className="field">
                 <input
                   value={newFullAddress}
-                  onChange={(e) => setNewFullAddress(e.target.value)}
+                  onChange={(e) => {
+                    // Bo'shatib yuborsa yana xaritadan to'ldirsa bo'ladi
+                    typedAddress.current = e.target.value.trim().length > 0
+                    setAutoFilled(false)
+                    setNewFullAddress(e.target.value)
+                  }}
                   placeholder={t('address.fullPlaceholder')}
                   required
                 />
               </div>
+              {/* Xaritadan olingan manzil — mijoz tekshirib, mo'ljal qo'shadi */}
+              {geocoding ? (
+                <p className="addr-status" style={{ color: 'var(--muted)' }}>
+                  <Loader2 size={13} className="animate-spin" />
+                  {t('address.autoFilling')}
+                </p>
+              ) : autoFilled ? (
+                <p className="addr-status" style={{ color: 'var(--brand)' }}>
+                  <Check size={13} />
+                  {t('address.autoFilled')}
+                </p>
+              ) : null}
             </div>
 
             <div>
