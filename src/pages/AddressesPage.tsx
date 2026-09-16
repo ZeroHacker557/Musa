@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronLeft, Loader2, LocateFixed, MapPin, Maximize2, Minimize2, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronLeft, Loader2, LocateFixed, MapPin, Maximize2, Minimize2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -79,6 +79,14 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
    * buyurtma beradi va ularga xaritani titkilash shart emas.
    */
   const [step, setStep] = useState<null | 'choose' | 'form'>(intent ? 'form' : null)
+  /**
+   * Tahrirlanayotgan manzil identifikatori; `null` — yangi manzil.
+   *
+   * Bitta forma ikkala ish uchun ishlaydi: mijoz saqlangan manzilga
+   * bossa maydonlar to'ldirilgan holda ochiladi va xarita o'sha
+   * nuqtaga uchadi — belgini surib qo'yish kifoya.
+   */
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [mapFull, setMapFull] = useState(false)
   const [loading, setLoading] = useState(false)
   const [newName, setNewName] = useState('')
@@ -92,6 +100,22 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
   const [autoFilled, setAutoFilled] = useState(false)
   /** Mijoz manzil matnini o'zi yozdimi — unda ustiga yozmaymiz. */
   const typedAddress = useRef(false)
+  /** Maydondagi joriy matn (effekt ichida o'qish uchun). */
+  const fullRef = useRef('')
+  /**
+   * Joylashuv MIJOZ tomonidan belgilandimi.
+   *
+   * Saqlangan manzil tahrirga ochilganda ham `location` to'ladi, lekin
+   * u allaqachon ma'lum — bekorga so'rov yubormaymiz.
+   */
+  const userPicked = useRef(false)
+  /**
+   * Xaritadan olingan, lekin AVTOMATIK qo'yilmagan manzil.
+   *
+   * Mijozning o'z matni bor bo'lsa uni bosib o'tmaymiz: yangi joyning
+   * manzili shunchaki taklif qilinadi, qo'yish-qo'ymaslik mijozning ishi.
+   */
+  const [suggestion, setSuggestion] = useState<string | null>(null)
 
   /** Bo'sh maydonga qo'yiladigan nom: ishlatilmagan birinchi variant. */
   const suggestedName = useMemo(() => {
@@ -107,6 +131,7 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
       const result = await requestLocation()
       if (result.ok) {
         const coords = { lat: result.lat, lng: result.lng }
+        userPicked.current = true
         setMapCenter(coords)
         setLocation(coords)
         hapticFeedback('medium')
@@ -126,11 +151,60 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
     }
   }
 
+  /** Forma maydonlarini boshlang'ich holatga qaytaradi. */
+  const resetForm = () => {
+    setNewName('')
+    setNewFullAddress('')
+    setLocation(null)
+    setAutoFilled(false)
+    setGeocoding(false)
+    setEditingId(null)
+    setSuggestion(null)
+    typedAddress.current = false
+    userPicked.current = false
+    fullRef.current = ''
+  }
+
+  /** Xaritada yangi nuqta belgilandi. */
+  const handlePickOnMap = (point: { lat: number; lng: number }) => {
+    userPicked.current = true
+    setLocation(point)
+  }
+
+  /** Taklif qilingan manzilni maydonga qo'yish. */
+  const applySuggestion = () => {
+    if (!suggestion) return
+    fullRef.current = suggestion
+    setNewFullAddress(suggestion)
+    setAutoFilled(true)
+    setSuggestion(null)
+    hapticFeedback('light')
+  }
+
+  /** Saqlangan manzilni tahrirlash — maydonlar to'ldirilgan holda ochiladi. */
+  const startEdit = (addr: Address) => {
+    setEditingId(addr.id)
+    setNewName(addr.name)
+    setNewFullAddress(addr.address)
+    fullRef.current = addr.address
+    userPicked.current = false
+    setSuggestion(null)
+    setLocation(addr.location)
+    setMapCenter(addr.location)
+    // Mijozning o'z matni saqlanadi: xaritadan kelgan matn uni bosib
+    // ketmasin. Maydon bo'shatilsa — yana avtomatik to'ldiriladi.
+    typedAddress.current = true
+    setAutoFilled(false)
+    setStep('form')
+    hapticFeedback('light')
+  }
+
   /**
    * Formani ochish. Nom O'ZI yoziladi — mijozga faqat manzilni
    * tasdiqlash qoladi. «Shu yer» bo'lsa joylashuv ham darhol so'raladi.
    */
   const startForm = async (mode: 'here' | 'other') => {
+    setEditingId(null)
     setNewName((current) => current.trim() || suggestedName)
     setStep('form')
     if (mode === 'here') await handleCurrentLocation()
@@ -153,7 +227,8 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
    * mo'ljalni qo'shadi. O'zi yozgan bo'lsa — tegilmaydi.
    */
   useEffect(() => {
-    if (!location) return
+    // Saqlangan manzil ochilganda so'rov yubormaymiz — manzil tayyor
+    if (!location || !userPicked.current) return
     const ctrl = new AbortController()
     // Nominatim siyosati: tez-tez so'ramaslik. Xaritada bir necha marta
     // bosilsa faqat oxirgi nuqta so'raladi.
@@ -162,8 +237,13 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
       const text = await reverseGeocode(location.lat, location.lng, lang, ctrl.signal)
       if (ctrl.signal.aborted) return
       setGeocoding(false)
-      // Mijoz o'zi yozgan bo'lsa ustiga yozmaymiz
-      if (!text || typedAddress.current) return
+      if (!text) return
+      // Mijoz o'zi yozgan bo'lsa ustiga yozmaymiz — taklif qilamiz
+      if (typedAddress.current && fullRef.current.trim()) {
+        setSuggestion(text.trim() === fullRef.current.trim() ? null : text)
+        return
+      }
+      fullRef.current = text
       setNewFullAddress(text)
       setAutoFilled(true)
     }, 550)
@@ -195,22 +275,30 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
 
     setLoading(true)
     try {
-      const newAddress: Address = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: newName.trim(),
-        address: newFullAddress.trim(),
-        location,
-      }
-      await updateUserProfile(Number(uid), { addresses: [...addresses, newAddress] })
+      // Tahrirda ID o'zgarmaydi: buyurtmada tanlangan manzilga ishora
+      // uzilib qolmasin
+      const next: Address[] = editingId
+        ? addresses.map((a) =>
+            a.id === editingId
+              ? { ...a, name: newName.trim(), address: newFullAddress.trim(), location }
+              : a,
+          )
+        : [
+            ...addresses,
+            {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              name: newName.trim(),
+              address: newFullAddress.trim(),
+              location,
+            },
+          ]
+
+      await updateUserProfile(Number(uid), { addresses: next })
+      const wasEditing = editingId !== null
       setStep(null)
-      setNewName('')
-      setNewFullAddress('')
-      setLocation(null)
-      setAutoFilled(false)
-      setGeocoding(false)
-      typedAddress.current = false
+      resetForm()
       hapticSuccess()
-      onNotify(t('address.saved'))
+      onNotify(t(wasEditing ? 'address.updated' : 'address.saved'))
     } catch (error) {
       console.error('[Manzil] saqlanmadi:', error)
       onNotify(t('error.saveFailed'))
@@ -240,9 +328,12 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
       <header className="flex items-center gap-3 px-5 pt-8 sm:px-10">
         <button
           onClick={() => {
-            // Formadan tanlovga, tanlovdan ro'yxatga, ro'yxatdan chiqish
-            if (step === 'form') setStep('choose')
-            else if (step === 'choose') setStep(null)
+            // Tahrirdan to'g'ri ro'yxatga, yangi manzildan tanlovga,
+            // tanlovdan ro'yxatga, ro'yxatdan sahifadan chiqamiz
+            if (step === 'form') {
+              setStep(editingId ? null : 'choose')
+              resetForm()
+            } else if (step === 'choose') setStep(null)
             else onBack()
           }}
           className="back-button"
@@ -251,7 +342,7 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
           <ChevronLeft size={22} />
         </button>
         <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>
-          {step ? t('address.new') : t('address.title')}
+          {step ? t(editingId ? 'address.edit' : 'address.new') : t('address.title')}
         </h1>
       </header>
 
@@ -354,6 +445,7 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
                   onChange={(e) => {
                     // Bo'shatib yuborsa yana xaritadan to'ldirsa bo'ladi
                     typedAddress.current = e.target.value.trim().length > 0
+                    fullRef.current = e.target.value
                     setAutoFilled(false)
                     setNewFullAddress(e.target.value)
                   }}
@@ -373,6 +465,15 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
                   {t('address.autoFilled')}
                 </p>
               ) : null}
+
+              {/* Yangi joyning manzili — mijozning o'z matnini bosib o'tmaymiz */}
+              {suggestion && (
+                <button type="button" className="addr-suggest" onClick={applySuggestion}>
+                  <MapPin size={13} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate text-left">{suggestion}</span>
+                  <b className="shrink-0">{t('address.useSuggestion')}</b>
+                </button>
+              )}
             </div>
 
             <div>
@@ -387,7 +488,7 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
                   <MapUpdater center={mapCenter} />
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
                   {location && <Marker position={location} />}
-                  <MapEvents onPick={setLocation} />
+                  <MapEvents onPick={handlePickOnMap} />
                 </MapContainer>
 
                 <button
@@ -463,26 +564,35 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
           ) : (
             <div className="space-y-3">
               {addresses.map((addr) => (
-                <div
-                  key={addr.id}
-                  className="flex items-center gap-4 rounded-2xl border p-4"
-                  style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}
-                >
-                  <div
-                    className="grid size-10 shrink-0 place-items-center rounded-full"
-                    style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+                <div key={addr.id} className="address-row">
+                  {/* Butun qator bosiladi — nom, manzil va joylashuv tahrirlanadi */}
+                  <button
+                    type="button"
+                    className="address-row__main"
+                    onClick={() => startEdit(addr)}
+                    aria-label={`${addr.name} — ${t('address.edit')}`}
                   >
-                    <MapPin size={19} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-bold" style={{ color: 'var(--ink)' }}>{addr.name}</h4>
-                    <p className="mt-0.5 truncate text-xs font-medium" style={{ color: 'var(--muted)' }}>{addr.address}</p>
-                  </div>
+                    <span
+                      className="grid size-10 shrink-0 place-items-center rounded-full"
+                      style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+                    >
+                      <MapPin size={19} />
+                    </span>
+                    <span className="min-w-0 flex-1 text-left">
+                      <b className="block truncate font-bold" style={{ color: 'var(--ink)' }}>{addr.name}</b>
+                      <span className="mt-0.5 block truncate text-xs font-medium" style={{ color: 'var(--muted)' }}>
+                        {addr.address}
+                      </span>
+                    </span>
+                    <span className="address-row__edit" aria-hidden="true">
+                      <Pencil size={15} />
+                    </span>
+                  </button>
+
                   <button
                     onClick={() => handleDeleteAddress(addr.id)}
-                    className="p-2 transition-colors"
-                    style={{ color: 'var(--muted)' }}
-                    aria-label={t('common.cancel')}
+                    className="address-row__delete"
+                    aria-label={t('address.deleteAction')}
                   >
                     <Trash2 size={19} />
                   </button>
@@ -491,8 +601,14 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
             </div>
           )}
 
+          {addresses.length > 0 && (
+            <p className="mt-3 text-center text-xs" style={{ color: 'var(--faint)' }}>
+              {t('address.editHint')}
+            </p>
+          )}
+
           <button
-            onClick={() => setStep('choose')}
+            onClick={() => { resetForm(); setStep('choose') }}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed py-4 font-bold transition"
             style={{ borderColor: 'var(--brand-line)', background: 'var(--brand-soft)', color: 'var(--brand)' }}
           >

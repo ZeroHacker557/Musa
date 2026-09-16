@@ -281,6 +281,10 @@ export const ru: Record<TranslationKey, string> = {
   'address.emptyText': 'Вы ещё не добавили адрес доставки',
   'address.add': 'Добавить адрес',
   'address.saved': 'Адрес сохранён!',
+  'address.updated': 'Адрес обновлён!',
+  'address.edit': 'Изменить адрес',
+  'address.editHint': 'Нажмите на адрес, чтобы изменить его',
+  'address.deleteAction': 'Удалить адрес',
   'address.deleted': 'Адрес удалён',
   'address.fillAll': 'Заполните все поля и отметьте место на карте',
   'address.myLocation': 'Где я',
@@ -296,6 +300,7 @@ export const ru: Record<TranslationKey, string> = {
   'address.nameDacha': 'Дача',
   'address.autoFilling': 'Определяем адрес...',
   'address.autoFilled': 'Адрес взят с карты — проверьте',
+  'address.useSuggestion': 'вставить',
 
   // ── Предложение добавить адрес ──
   'addressAsk.title': 'Вы сейчас здесь?',

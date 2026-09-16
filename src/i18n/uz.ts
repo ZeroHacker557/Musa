@@ -288,6 +288,10 @@ export const uz = {
   'address.emptyText': "Siz hali yetkazib berish manzilini qo'shmagansiz",
   'address.add': "Yangi manzil qo'shish",
   'address.saved': 'Manzil saqlandi!',
+  'address.updated': 'Manzil yangilandi!',
+  'address.edit': 'Manzilni o‘zgartirish',
+  'address.editHint': 'Manzilni o‘zgartirish uchun ustiga bosing',
+  'address.deleteAction': 'Manzilni o‘chirish',
   'address.deleted': "Manzil o'chirildi",
   'address.fillAll': "Iltimos, barcha maydonlarni to'ldiring va xaritadan joy tanlang",
   'address.myLocation': 'Qayerdaman',
@@ -303,6 +307,7 @@ export const uz = {
   'address.nameDacha': 'Dala hovli',
   'address.autoFilling': 'Manzil aniqlanmoqda...',
   'address.autoFilled': 'Manzil xaritadan olindi — tekshirib oling',
+  'address.useSuggestion': 'qo‘yish',
 
   // ── Manzil taklifi (yangi mijozga) ──
   'addressAsk.title': 'Manzilingiz shu yermi?',

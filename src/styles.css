@@ -2102,3 +2102,75 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .addr-sheet, .addr-sheet__card, .addr-sheet__icon { animation: none; }
 }
+
+/* ====== Saqlangan manzil qatori ======
+ *
+ * Butun qator bosiladi — manzil va joylashuv tahrirlanadi. O'chirish
+ * alohida tugma: bir barmoq harakati bilan tasodifan bosilmasin.
+ */
+.address-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.address-row:hover { border-color: var(--brand-line); box-shadow: var(--shadow-sm); }
+
+.address-row__main {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.9rem 0.5rem 0.9rem 1rem;
+  text-align: left;
+  transition: background 0.2s ease, transform 0.12s ease;
+}
+.address-row__main:active { transform: scale(0.99); background: var(--surface-2); }
+
+.address-row__edit {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.address-row__main:hover .address-row__edit { background: var(--brand-soft); color: var(--brand); }
+
+.address-row__delete {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.address-row__delete:hover { background: var(--danger-soft, var(--surface-2)); color: var(--danger); }
+.address-row__delete:active { transform: scale(0.94); }
+
+/* Xaritadan topilgan manzil taklifi (mijozning o'z matni turganda) */
+.addr-suggest {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 0.45rem;
+  border: 1px dashed var(--brand-line);
+  border-radius: var(--r-sm);
+  background: var(--brand-soft);
+  color: var(--brand);
+  padding: 0.5rem 0.7rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  transition: background 0.2s ease, transform 0.12s ease;
+}
+.addr-suggest:active { transform: scale(0.99); }
+.addr-suggest b { text-decoration: underline; }
