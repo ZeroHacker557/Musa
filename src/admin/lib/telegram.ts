@@ -88,7 +88,10 @@ export function fullscreenState(): FullscreenState {
 
 export function subscribeFullscreen(listener: (s: FullscreenState) => void) {
   listeners.add(listener)
-  return () => listeners.delete(listener)
+  // useEffect tozalovchisi hech narsa qaytarmasligi kerak
+  return () => {
+    listeners.delete(listener)
+  }
 }
 
 /** Tugmadan chaqiriladi: to'liq ekranga kirish yoki chiqish. */
