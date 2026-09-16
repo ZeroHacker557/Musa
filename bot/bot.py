@@ -25,11 +25,11 @@ from aiogram.client.default import DefaultBotProperties
 
 # Karta ma'lumoti config.py dan emas, settings/payment hujjatidan olinadi (F-07)
 from config import (
-    BOT_TOKEN, MINI_APP_URL,
+    BOT_TOKEN, MINI_APP_URL, ADMIN_PANEL_URL,
     SUPPORT_PHONE, SUPPORT_EMAIL, SUPPORT_TELEGRAM, COMPANY_CITY, WORK_HOURS,
 )
 # Adminlar ro'yxati dinamik — panel orqali qo'shiladi/o'chiriladi
-from admins import all_admins, is_admin
+from admins import all_admins, is_admin, can_open_panel
 import firebase_db as db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -65,7 +65,44 @@ def main_kb(admin: bool = False):
         [KeyboardButton(text="📦 Buyurtmalarim")],
         [KeyboardButton(text="📞 Biz bilan aloqa"), KeyboardButton(text="ℹ️ Yordam")]
     ]
+    # Admin panel tugmasi FAQAT adminlarda: oddiy mijoz uni umuman
+    # ko'rmaydi. Bosilganda panel shu yerning o'zida ochiladi.
+    if admin:
+        rows.insert(0, [KeyboardButton(
+            text=PANEL_BUTTON,
+            web_app=WebAppInfo(url=ADMIN_PANEL_URL),
+        )])
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
+
+
+PANEL_BUTTON = "🛠 Admin panel"
+
+
+def panel_kb() -> InlineKeyboardMarkup:
+    """
+    Admin panelni ochadigan inline tugma.
+
+    `web_app` tugmasi — oddiy havola emas: panel Telegramning o'zida,
+    alohida brauzer ochmasdan ishga tushadi va kompyuterda butun
+    ekranni egallaydi (src/admin/lib/telegram.ts).
+
+    Kirish har safar so'ralmaydi: admin bir marta email/parol bilan
+    kiradi, seans saqlanadi va keyingi ochilishlarda panel darhol
+    ochiladi.
+    """
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text=PANEL_BUTTON,
+        web_app=WebAppInfo(url=ADMIN_PANEL_URL),
+    )]])
+
+
+PANEL_TEXT = (
+    "🛠 <b>Admin panel</b>\n"
+    "——————————————\n\n"
+    "Buyurtmalar, mahsulotlar, hisobotlar va sozlamalar — hammasi shu yerda.\n\n"
+    "👇 Tugmani bosing, panel shu oynada ochiladi.\n"
+    "<i>Birinchi marta email va parol so'raladi, keyin esa o'zi kirib turadi.</i>"
+)
 
 
 def contact_kb() -> ReplyKeyboardMarkup:
@@ -824,7 +861,8 @@ async def handle_my_orders(message: Message):
 @dp.message(F.text.startswith("/start"))
 async def cmd_start(message: Message, state: FSMContext):
     user     = message.from_user
-    admin = is_admin(user.id)
+    # Panelga kira oladiganlar: adminlar va paneldagi owner/admin xodimlar
+    admin = can_open_panel(user.id)
 
     # ── Deep link: /start receipt_<hujjat_id> ──
     # Yangi havolalar Firestore hujjat id'sini yuboradi. Eski havolalarda
@@ -887,6 +925,10 @@ async def cmd_start(message: Message, state: FSMContext):
     )
     await message.answer(text, reply_markup=main_kb(admin))
 
+    # Adminlarga panelga kirish tugmasi — mijozlarda bu xabar bo'lmaydi
+    if admin:
+        await message.answer(PANEL_TEXT, reply_markup=panel_kb())
+
     # Telefon raqami hali saqlanmagan bo'lsa, bir bosishda so'raymiz.
     # Mini app buni buyurtma formasiga avtomatik qo'yadi (F-26).
     saved = db.get_user(user.id) or {}
@@ -914,7 +956,7 @@ async def handle_contact(message: Message):
         )
         return
 
-    admin = is_admin(message.from_user.id)
+    admin = can_open_panel(message.from_user.id)
     phone = contact.phone_number
     if not phone.startswith("+"):
         phone = f"+{phone}"
@@ -1046,6 +1088,28 @@ async def cb_review(callback: CallbackQuery):
             )
     except Exception as e:
         logger.debug(f"[REVIEW] xabar yangilanmadi: {e}")
+
+
+# ─── Admin: /panel ─────────────────────────────
+
+@dp.message(Command("panel"))
+async def cmd_panel(message: Message):
+    """Admin panelni ochish tugmasini yuboradi (faqat adminlarga)."""
+    if not can_open_panel(message.from_user.id):
+        await message.answer("🛠 Bu buyruq faqat <b>adminlar</b> uchun.")
+        return
+    await message.answer(PANEL_TEXT, reply_markup=panel_kb())
+
+
+@dp.message(F.text == PANEL_BUTTON)
+async def handle_panel_button(message: Message):
+    """
+    Tugma matni kelib qolsa (eski mijozda `web_app` ishlamasa) —
+    inline tugma bilan javob beramiz, admin baribir panelga kiradi.
+    """
+    if not can_open_panel(message.from_user.id):
+        return
+    await message.answer(PANEL_TEXT, reply_markup=panel_kb())
 
 
 # ─── Kuryer: /bugun ──────────────────────────────────────────

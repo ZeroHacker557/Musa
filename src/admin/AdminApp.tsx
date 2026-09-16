@@ -1,6 +1,7 @@
 import { Loader2, ShieldAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { apiGet } from './lib/api'
+import { apiGet, apiPost } from './lib/api'
+import { getInitData, isInTelegram } from './lib/telegram'
 import { logout, watchUser, type Staff } from './lib/auth'
 import { useRoute } from './lib/router'
 import { useOrders } from './lib/live'
@@ -22,6 +23,28 @@ import { SettingsPage } from './pages/SettingsPage'
 import { can } from './lib/auth'
 import { applyTheme, getStoredTheme } from '../utils/theme'
 import { playNewOrderChime, unlockAudio } from './lib/chime'
+
+/**
+ * Panel Telegram ichida ochilgan bo'lsa, xodimning Telegram ID sini
+ * o'z hisobiga biriktiradi.
+ *
+ * Shundan keyin bot unga «🛠 Admin panel» tugmasini ko'rsatadi —
+ * ID ni qo'lda yozib qo'yish shart emas. Imzoni server tekshiradi.
+ * Seansda bir marta: qayta-qayta so'rov yubormaymiz.
+ */
+let telegramLinkTried = false
+
+async function linkTelegramOnce() {
+  if (telegramLinkTried || !isInTelegram()) return
+  telegramLinkTried = true
+  try {
+    await apiPost('action', { action: 'staff.linkTelegram', initData: getInitData() })
+  } catch (error) {
+    // Biriktirib bo'lmadi — panel baribir ishlaydi, faqat botdagi
+    // tugma ko'rinmaydi. Sababi konsolda qoladi.
+    console.warn('[admin] Telegram ID biriktirilmadi:', error)
+  }
+}
 
 type State =
   | { phase: 'loading' }
@@ -47,6 +70,7 @@ export function AdminApp() {
         // Rolga mijoz tomonida ishonilmaydi — serverdan so'raladi
         const { staff } = await apiGet<{ staff: Staff }>('session')
         setState({ phase: 'ready', staff })
+        void linkTelegramOnce()
       } catch (error) {
         setState({
           phase: 'denied',

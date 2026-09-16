@@ -923,6 +923,31 @@ def get_extra_admin_ids() -> set:
         return set()
 
 
+def get_panel_staff_ids() -> set:
+    """
+    Admin panelga kira oladigan xodimlarning Telegram ID lari.
+
+    Manba — `staff` kolleksiyasi: panelda xodim qo'shilganda yoki
+    xodimning o'zi panelni Telegram ichida ochib kirganda ID shu yerga
+    yoziladi (api/_lib/actions/people.ts → staffLinkTelegram).
+
+    Faqat FAOL `owner`/`admin` xodimlar. Kuryerlar bu ro'yxatga
+    kirmaydi: ularning ishi buyurtma tugmalari va /bugun.
+    """
+    ids = set()
+    try:
+        for doc in db.collection("staff").where("role", "in", ["owner", "admin"]).get():
+            data = doc.to_dict() or {}
+            if data.get("active") is False:
+                continue
+            tid = data.get("telegramId")
+            if tid:
+                ids.add(int(tid))
+    except Exception as e:
+        print(f"[ERR] get_panel_staff_ids: {e}")
+    return ids
+
+
 def add_extra_admin(user_id: int) -> bool:
     try:
         ref = db.collection(_ADMINS_DOC[0]).document(_ADMINS_DOC[1])

@@ -40,6 +40,9 @@ BOT_USERNAME = "musauz_bot"
 ADMIN_IDS    = {7203124812}   # Egalar — panel orqali o'chirib bo'lmaydi
 # BotFather /setdomain da ham aynan shu domen ko'rsatilgan bo'lishi kerak.
 MINI_APP_URL = "https://musa-delivery.vercel.app"
+# Admin panel — o'sha domendagi alohida sahifa. Bot uni faqat
+# adminlarga ko'rsatadi va u Telegram oynasida to'liq ekranda ochiladi.
+ADMIN_PANEL_URL = f"{MINI_APP_URL}/admin.html"
 
 # ── Kompaniya aloqa ma'lumotlari (bot javoblarida ko'rinadi) ──
 # Frontend tomonidagi nusxasi: src/config/brand.ts

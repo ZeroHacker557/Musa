@@ -942,3 +942,29 @@
   background: linear-gradient(180deg, var(--brand) 0%, var(--brand-soft-2) 100%);
   transition: height 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* ══════════ Telegram ichida ochilganda ══════════
+ *
+ * Bot adminlarga «🛠 Admin panel» tugmasini beradi va panel Telegram
+ * oynasida ochiladi (src/admin/lib/telegram.ts). To'liq ekran rejimida
+ * Telegram o'z boshqaruv tugmalarini sahifa USTIGA chizadi — tepadagi
+ * panel shuncha pastga suriladi, aks holda sarlavha va menyu tugmasi
+ * ularning ostida qolib ketadi.
+ */
+:root {
+  --adm-inset-top: 0px;
+  --adm-inset-bottom: 0px;
+}
+
+.in-telegram .adm-topbar {
+  height: calc(var(--admin-topbar) + var(--adm-inset-top));
+  padding-top: var(--adm-inset-top);
+}
+.in-telegram .adm-main {
+  padding-top: calc(var(--admin-topbar) + var(--adm-inset-top));
+  padding-bottom: var(--adm-inset-bottom);
+}
+.in-telegram .adm-sidebar {
+  padding-top: calc(0.9rem + var(--adm-inset-top));
+  padding-bottom: calc(0.9rem + var(--adm-inset-bottom));
+}

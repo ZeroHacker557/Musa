@@ -1,5 +1,6 @@
 import { adminAuth, adminDb } from '../firebase-admin.js'
 import { sendMessage } from '../telegram.js'
+import { verifyInitData } from '../telegram-auth.js'
 import type { Staff, StaffRole } from '../admin-auth.js'
 
 const ROLES: StaffRole[] = ['owner', 'admin', 'courier']
@@ -238,4 +239,47 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
     processed: snap.size,
     nextCursor: snap.size === limit && last ? last.id : null,
   }
+}
+
+/**
+ * Panelga kirgan xodimning Telegram hisobini o'ziga biriktiradi.
+ *
+ * NEGA KERAK: bot «🛠 Admin panel» tugmasini faqat ID si ma'lum
+ * xodimlarga ko'rsatadi. Ilgari bu ID ni ega qo'lda yozib qo'yishi
+ * kerak edi. Endi admin panelni Telegram ichida bir marta ochib
+ * kirsa — ID o'zi yozilib qoladi va keyingi safar tugma darhol
+ * ko'rinadi.
+ *
+ * Ishonch manbai — Telegram imzosi (initData HMAC). Mijoz yuborgan
+ * raqamga ishonilmaydi: tokenni bilmasdan boshqa odamning ID si bilan
+ * to'g'ri imzo yasab bo'lmaydi. Bitta Telegram hisobi bitta xodimga
+ * biriktiriladi — aks holda botdagi buyurtma tugmalari kimniki
+ * ekani chalkashib ketardi.
+ */
+export async function staffLinkTelegram(actor: Staff, body: Record<string, unknown>) {
+  const botToken = process.env.BOT_TOKEN
+  if (!botToken) throw new Error('Server sozlanmagan')
+
+  const user = verifyInitData(text(body.initData), botToken)
+  const telegramId = user.id
+  const db = await adminDb()
+
+  const clash = await db.collection('staff').where('telegramId', '==', telegramId).get()
+  const other = clash.docs.find((doc) => doc.id !== actor.uid)
+  if (other) {
+    throw new Error('Bu Telegram hisobi boshqa xodimga biriktirilgan')
+  }
+
+  if (actor.telegramId === telegramId) return { telegramId, linked: false }
+
+  await db.collection('staff').doc(actor.uid).set(
+    {
+      telegramId,
+      telegramUsername: user.username ?? null,
+      telegramLinkedAt: new Date().toISOString(),
+    },
+    { merge: true },
+  )
+
+  return { telegramId, linked: true }
 }

@@ -6,7 +6,7 @@ import {
   categoryDelete, categorySave, orderSave, productBulkUpdate, productDelete, productSave,
   promoDelete, promoSave, requireCatalogAccess,
 } from '../_lib/actions/catalog.js'
-import { broadcast, staffDelete, staffSave } from '../_lib/actions/people.js'
+import { broadcast, staffDelete, staffLinkTelegram, staffSave } from '../_lib/actions/people.js'
 import { catalogLayout, sectionDelete, sectionSave } from '../_lib/actions/sections.js'
 import { promotionDelete, promotionSave } from '../_lib/actions/promotions.js'
 import { settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
@@ -45,6 +45,8 @@ const HANDLERS: Record<string, Handler> = {
 
   // Odamlar
   'staff.save': staffSave,
+  // Panel Telegram ichida ochilganda xodim o'z ID sini biriktiradi
+  'staff.linkTelegram': staffLinkTelegram,
   'staff.delete': staffDelete,
   'broadcast.send': broadcast,
 

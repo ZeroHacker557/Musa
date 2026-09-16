@@ -357,6 +357,12 @@ export function StaffPage({ me }: { me: Staff }) {
                 Buyurtmalar shu Telegram hisobiga tushadi. ID ni @userinfobot beradi.
                 {draft.role === 'courier' && ' Kuryer uchun majburiy.'}
               </p>
+              {draft.role !== 'courier' && (
+                <p className="mt-1 text-xs" style={{ color: 'var(--faint)' }}>
+                  Bo‘sh qoldirsangiz ham bo‘ladi: xodim botdagi «🛠 Admin panel»
+                  tugmasi orqali panelga kirganda ID o‘zi yozilib qoladi.
+                </p>
+              )}
             </div>
 
             <label className="flex cursor-pointer items-center gap-2.5 sm:col-span-2">
