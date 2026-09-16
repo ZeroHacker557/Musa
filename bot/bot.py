@@ -68,10 +68,7 @@ def main_kb(admin: bool = False):
     # Admin panel tugmasi FAQAT adminlarda: oddiy mijoz uni umuman
     # ko'rmaydi. Bosilganda panel shu yerning o'zida ochiladi.
     if admin:
-        rows.insert(0, [KeyboardButton(
-            text=PANEL_BUTTON,
-            web_app=WebAppInfo(url=ADMIN_PANEL_URL),
-        )])
+        rows.insert(0, [KeyboardButton(text=PANEL_BUTTON)])
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
@@ -80,44 +77,28 @@ PANEL_BUTTON = "🛠 Admin panel"
 
 def panel_kb() -> InlineKeyboardMarkup:
     """
-    Admin panelni ochadigan inline tugma.
+    Admin panelni ochadigan tugma — oddiy HAVOLA.
 
-    Birinchisi — `web_app`: panel Telegramning o'zida ochiladi va
-    imkoni bo'lsa to'liq ekranga chiqadi (src/admin/lib/telegram.ts).
-    Telefonda shu qulay.
-
-    Ikkinchisi — oddiy havola: kompyuterda Telegram mini appni telefon
-    o'lchamidagi kichik oynada ochadi va to'liq ekran har bir
-    versiyada ishlamaydi. Brauzerda esa panel butun ekranni egallaydi.
+    Ilgari bu `web_app` tugmasi edi: panel Telegram oynasida ochilardi.
+    Kompyuterda o'sha oyna telefon o'lchamida qolib ketardi, to'liq
+    ekran esa Telegram versiyasiga bog'liq bo'lib, hamma joyda
+    ishlamasdi. Oddiy havola brauzerni ochadi va panel butun ekranni
+    egallaydi — admin uchun ish shu tarzda qulayroq.
 
     Kirish har safar so'ralmaydi: admin bir marta email/parol bilan
-    kiradi, seans saqlanadi va keyingi ochilishlarda panel darhol
-    ochiladi.
+    kiradi, brauzer seansi saqlanadi.
     """
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text=PANEL_BUTTON,
-            web_app=WebAppInfo(url=ADMIN_PANEL_URL),
-        )],
-        # Kompyuterda Telegram mini appni telefon o'lchamidagi oynada
-        # ochadi, to'liq ekran esa Telegram versiyasiga bog'liq va
-        # hamma joyda ishlamaydi. Brauzerda panel butun ekranni
-        # egallaydi — shuning uchun ikkinchi tugma.
-        [InlineKeyboardButton(
-            text="🖥 Brauzerda ochish (katta ekran)",
-            url=ADMIN_PANEL_URL,
-        )],
-    ])
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text=PANEL_BUTTON,
+        url=ADMIN_PANEL_URL,
+    )]])
 
 
 PANEL_TEXT = (
     "🛠 <b>Admin panel</b>\n"
     "——————————————\n\n"
     "Buyurtmalar, mahsulotlar, hisobotlar va sozlamalar — hammasi shu yerda.\n\n"
-    "📱 <b>Telefonda:</b> birinchi tugma — panel shu yerning "
-    "o‘zida, to‘liq ekranda ochiladi.\n"
-    "🖥 <b>Kompyuterda:</b> ikkinchi tugma qulayroq — panel brauzerda, "
-    "butun ekran bo‘ylab ochiladi.\n\n"
+    "👇 Tugmani bosing — panel brauzerda, butun ekran bo‘ylab ochiladi.\n"
     "<i>Birinchi marta email va parol so'raladi, keyin esa o'zi kirib turadi.</i>"
 )
 
