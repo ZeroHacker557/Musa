@@ -2,8 +2,9 @@ import { initializeApp, getApps } from 'firebase/app'
 import {
   browserLocalPersistence,
   getAuth,
+  indexedDBLocalPersistence,
+  initializeAuth,
   onAuthStateChanged,
-  setPersistence,
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
@@ -21,11 +22,31 @@ import { firebaseConfig } from '../../config/firebase'
  */
 const app = getApps()[0] ?? initializeApp(firebaseConfig)
 
-export const auth = getAuth(app)
+/**
+ * Seans IKKI joyda saqlanadi: avval IndexedDB, u ishlamasa localStorage.
+ *
+ * NEGA: panel Telegram ichida ham ochiladi. Telegram WebView'i
+ * ba'zan localStorage'ni tozalab yuboradi — o'shanda admin har
+ * ochganda qaytadan kirishga majbur bo'lardi. IndexedDB esa
+ * saqlanib qoladi. Ro'yxat tartibi bilan beriladi: birinchisi
+ * ishlamasa, keyingisiga tushadi.
+ */
+function createAuth() {
+  try {
+    return initializeAuth(app, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+    })
+  } catch {
+    // Allaqachon yaratilgan bo'lsa (masalan HMR) — o'shani olamiz
+    return getAuth(app)
+  }
+}
+
+export const auth = createAuth()
 export const db = getFirestore(app)
 
-/** Sahifa yopilib ochilganda ham kirgan holat saqlanadi. */
-export const persistenceReady = setPersistence(auth, browserLocalPersistence).catch(() => {})
+/** Kirishdan oldin kutiladi — saqlash usuli yuqorida tanlab bo'lingan. */
+export const persistenceReady = Promise.resolve()
 
 export type StaffRole = 'owner' | 'admin' | 'courier'
 

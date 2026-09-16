@@ -56,7 +56,22 @@ export async function requireStaff(
   try {
     const decoded = await (await adminAuth()).verifyIdToken(token, true)
     uid = decoded.uid
-  } catch {
+  } catch (error) {
+    /*
+     * Ikki xil xato bir xil ko'rinmasin.
+     *
+     * Token haqiqatan eskirgan bo'lsa — qaytadan kirish kerak. Lekin
+     * Google'ga ulanib bo'lmasa yoki funksiya sovuqdan ishga tushayotgan
+     * bo'lsa ham shu yerga tushardi va admin «seans tugadi» deb
+     * chiqarib yuborilardi. Bunday xato o'tkinchi — 503 qaytaramiz,
+     * panel esa o'zi qayta uradi (src/admin/AdminApp.tsx).
+     */
+    const code = (error as { code?: string })?.code || ''
+    if (code === 'auth/internal-error' || code === 'auth/network-request-failed') {
+      console.error('[admin-auth] tekshirib bo‘lmadi:', error)
+      fail(res, 503, 'Serverga ulanib bo‘lmadi — qayta urinib ko‘ring')
+      return null
+    }
     fail(res, 401, 'Seans muddati tugagan — qaytadan kiring')
     return null
   }

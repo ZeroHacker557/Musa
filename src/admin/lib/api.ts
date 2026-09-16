@@ -17,11 +17,11 @@ export class AdminApiError extends Error {
  * muddati tugaganda qayta so'raydi, shuning uchun bu qimmat emas. Buning
  * evaziga xodim bloklangach, keyingi so'rovdayoq 403 qaytadi.
  */
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}, forceToken = false): Promise<T> {
   const user = auth.currentUser
   if (!user) throw new AdminApiError('Tizimga kirilmagan', 401)
 
-  const token = await user.getIdToken()
+  const token = await user.getIdToken(forceToken)
   const response = await fetch(`/api/admin/${path}`, {
     ...init,
     headers: {
@@ -30,6 +30,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init.headers,
     },
   })
+
+  /*
+   * 401 — token eskirgan yoki bekor qilingan.
+   *
+   * Ilova uzoq yopiq turgandan keyin ochilganda (masalan Telegram
+   * ichida) keshdagi token muddati o'tgan bo'lishi mumkin. Bir marta
+   * MAJBURIY yangilab qayta urinamiz — admin uchun hech narsa
+   * o'zgarmaydi, ilgari esa «ruxsat berilmadi» chiqardi.
+   */
+  if (response.status === 401 && !forceToken) {
+    return request<T>(path, init, true)
+  }
 
   let payload: unknown = null
   try {

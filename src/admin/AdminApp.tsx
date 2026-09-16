@@ -1,11 +1,13 @@
 import { Loader2, ShieldAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { apiGet, apiPost } from './lib/api'
+import { AdminApiError, apiGet, apiPost } from './lib/api'
 import { getInitData, isInTelegram } from './lib/telegram'
+import { withRetry } from './lib/retry'
 import { logout, watchUser, type Staff } from './lib/auth'
 import { useRoute } from './lib/router'
 import { useOrders } from './lib/live'
 import { Shell } from './components/Shell'
+import { ConnectionError } from './components/ConnectionError'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { OrdersPage } from './pages/OrdersPage'
@@ -46,14 +48,34 @@ async function linkTelegramOnce() {
   }
 }
 
+/**
+ * Seansni serverdan tekshiradi, o'tkinchi xatolarda qayta urinadi.
+ *
+ * Tarmoq uzilishi, serverning sovuq ishga tushishi yoki eskirgan
+ * token — bularning hammasi bir lahzalik. Ilgari shunday xato
+ * darhol «Ruxsat berilmadi» ekraniga olib borardi va admin
+ * qaytadan kirishga majbur bo'lardi. Endi faqat HAQIQIY rad javobi
+ * (403) shu ekranni chiqaradi.
+ */
+async function loadSession(): Promise<Staff> {
+  const { staff } = await withRetry(() => apiGet<{ staff: Staff }>('session'), {
+    // 403 — bu hisob xodim emas yoki bloklangan: urinib ham foyda yo'q
+    isFatal: (error) => error instanceof AdminApiError && error.status === 403,
+  })
+  return staff
+}
+
 type State =
   | { phase: 'loading' }
   | { phase: 'anonymous' }
   | { phase: 'denied'; reason: string }
+  | { phase: 'error'; reason: string }
   | { phase: 'ready'; staff: Staff }
 
 export function AdminApp() {
   const [state, setState] = useState<State>({ phase: 'loading' })
+  /** «Qayta urinish» bosilganda tekshiruv qaytadan ishga tushadi. */
+  const [attempt, setAttempt] = useState(0)
   const { route, param, navigate } = useRoute()
 
   // Tema mini app bilan bir xil kalitdan o'qiladi
@@ -68,17 +90,27 @@ export function AdminApp() {
       setState({ phase: 'loading' })
       try {
         // Rolga mijoz tomonida ishonilmaydi — serverdan so'raladi
-        const { staff } = await apiGet<{ staff: Staff }>('session')
+        const staff = await loadSession()
         setState({ phase: 'ready', staff })
         void linkTelegramOnce()
       } catch (error) {
-        setState({
-          phase: 'denied',
-          reason: error instanceof Error ? error.message : 'Ruxsat yo‘q',
-        })
+        const reason = error instanceof Error ? error.message : 'Noma‘lum xato'
+        const status = error instanceof AdminApiError ? error.status : 0
+        if (status === 403) {
+          // Hisob xodim emas yoki bloklangan
+          setState({ phase: 'denied', reason })
+        } else if (status === 401) {
+          // Token haqiqatan eskirgan (yangilangani ham yaramadi) —
+          // chalkash «ruxsat yo‘q» o‘rniga toza kirish oynasi
+          setState({ phase: 'anonymous' })
+          void logout()
+        } else {
+          // Aloqa yoki server muammosi — seansdan chiqarmaymiz
+          setState({ phase: 'error', reason })
+        }
       }
     })
-  }, [])
+  }, [attempt])
 
   if (state.phase === 'loading') {
     return (
@@ -89,6 +121,22 @@ export function AdminApp() {
   }
 
   if (state.phase === 'anonymous') return <LoginPage />
+
+  /*
+   * Aloqa uzilgan yoki server javob bermadi.
+   *
+   * Bu ruxsat masalasi EMAS, shuning uchun seansdan chiqarilmaydi:
+   * admin «Qayta urinish» ni bosadi va ishini davom ettiradi.
+   */
+  if (state.phase === 'error') {
+    return (
+      <ConnectionError
+        reason={state.reason}
+        onRetry={() => { setState({ phase: 'loading' }); setAttempt((n) => n + 1) }}
+        onLogout={() => logout()}
+      />
+    )
+  }
 
   if (state.phase === 'denied') {
     return (
