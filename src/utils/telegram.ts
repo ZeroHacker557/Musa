@@ -91,8 +91,12 @@ interface TelegramWebApp {
   setBottomBarColor?: (color: string) => void
   enableClosingConfirmation?: () => void
   disableVerticalSwipes?: () => void
-  onEvent?: (event: string, handler: () => void) => void
-  offEvent?: (event: string, handler: () => void) => void
+  /** Bot API 8.0+: Telegram sarlavhasisiz, butun ekran. */
+  requestFullscreen?: () => void
+  exitFullscreen?: () => void
+  isFullscreen?: boolean
+  onEvent?: (event: string, handler: (payload?: unknown) => void) => void
+  offEvent?: (event: string, handler: (payload?: unknown) => void) => void
   isVersionAtLeast?: (version: string) => boolean
   /** Bot API 8.0+ da mavjud; eski mijozlarda undefined. */
   LocationManager?: TelegramLocationManager
@@ -185,16 +189,66 @@ export function initTelegram() {
 
   // Xarid jarayonida tasodifan yopilib qolmasin
   tg.enableClosingConfirmation?.()
+
+  enterFullscreen(tg)
 }
 
-/** Telegram xavfsiz zonasini CSS o'zgaruvchilariga yozamiz. */
+/** To'liq ekran faqat telefonda: kompyuterda u butun monitorni egallab oladi. */
+const MOBILE_PLATFORMS = ['ios', 'android', 'android_x']
+
+/**
+ * Telegram sarlavhasini olib tashlab, ilovani butun ekranga chiqaradi.
+ *
+ * Bot API 8.0+. Sarlavha o'rnida Telegram faqat ikki kichik suzuvchi
+ * tugma qoldiradi (yopish/orqaga va «...»), ilova esa status paneligacha
+ * cho'ziladi. Ilova kontenti o'sha tugmalar ostida qolmasligi uchun
+ * xavfsiz zona `applySafeArea` da hisoblanadi.
+ *
+ * Eski Telegram yoki rad javobi (`fullscreenFailed`) — ilova oddiy
+ * oynada ishlayveradi, foydalanuvchi hech narsani sezmaydi.
+ */
+function enterFullscreen(tg: TelegramWebApp) {
+  if (!MOBILE_PLATFORMS.includes(tg.platform)) return
+  if (!tg.isVersionAtLeast?.('8.0') || !tg.requestFullscreen) return
+
+  const root = document.documentElement
+  const sync = () => {
+    root.classList.toggle('tg-fullscreen', Boolean(tg.isFullscreen))
+    applySafeArea()
+  }
+  tg.onEvent?.('fullscreenChanged', sync)
+  tg.onEvent?.('fullscreenFailed', (payload) => {
+    const error = (payload as { error?: string } | undefined)?.error
+    if (error !== 'ALREADY_FULLSCREEN') console.info('[telegram] to‘liq ekran mumkin emas:', error)
+    sync()
+  })
+
+  try {
+    tg.requestFullscreen()
+    // Sarlavha yo'q — ro'yxatni tepaga surganda oyna yopilib ketmasin (7.7+).
+    // Yopish uchun Telegram'ning suzuvchi tugmasi qoladi.
+    if (tg.isVersionAtLeast('7.7')) tg.disableVerticalSwipes?.()
+  } catch (error) {
+    console.info('[telegram] to‘liq ekran yoqilmadi:', error)
+  }
+  sync()
+}
+
+/**
+ * Telegram xavfsiz zonasini CSS o'zgaruvchilariga yozamiz.
+ *
+ * Ikki qatlam QO'SHILADI (Telegram hujjati bo'yicha):
+ *   safeAreaInset        — qurilmaniki: status panel, «chelka», pastki chiziq;
+ *   contentSafeAreaInset — Telegram'niki: to'liq ekrandagi suzuvchi tugmalar.
+ * Ilgari ulardan bittasi olinardi — to'liq ekranda kontent status panel
+ * yoki Telegram tugmalari ostida qolib ketardi.
+ */
 export function applySafeArea() {
   const tg = getTelegram()
   const root = document.documentElement
 
-  const bottom =
-    tg?.contentSafeAreaInset?.bottom ?? tg?.safeAreaInset?.bottom ?? 0
-  const top = tg?.contentSafeAreaInset?.top ?? tg?.safeAreaInset?.top ?? 0
+  const bottom = (tg?.safeAreaInset?.bottom ?? 0) + (tg?.contentSafeAreaInset?.bottom ?? 0)
+  const top = (tg?.safeAreaInset?.top ?? 0) + (tg?.contentSafeAreaInset?.top ?? 0)
 
   // env() qiymati mavjud bo'lsa u ham hisobga olinsin
   root.style.setProperty('--safe-bottom', `max(${bottom}px, env(safe-area-inset-bottom, 0px))`)
@@ -214,11 +268,13 @@ export function watchSafeArea(): () => void {
   tg?.onEvent?.('viewportChanged', onViewport)
   tg?.onEvent?.('safeAreaChanged', onViewport)
   tg?.onEvent?.('contentSafeAreaChanged', onViewport)
+  tg?.onEvent?.('fullscreenChanged', onViewport)
 
   return () => {
     tg?.offEvent?.('viewportChanged', onViewport)
     tg?.offEvent?.('safeAreaChanged', onViewport)
     tg?.offEvent?.('contentSafeAreaChanged', onViewport)
+    tg?.offEvent?.('fullscreenChanged', onViewport)
   }
 }
 

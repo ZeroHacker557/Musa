@@ -320,6 +320,14 @@ export const uz = {
   'addressAsk.later': 'Keyinroq',
   'addressAsk.optional': 'Ixtiyoriy — keyin ham qo‘shsa bo‘ladi',
 
+  // ── Ochilish reklamasi ──
+  'ad.skip': 'O‘tkazib yuborish',
+  'ad.close': 'Yopish',
+  'ad.prev': 'Oldingi',
+  'ad.next': 'Keyingi',
+  'ad.mute': 'Ovozni o‘chirish',
+  'ad.unmute': 'Ovozni yoqish',
+
   // ── Bildirishnomalar ──
   'notifications.title': 'Bildirishnomalar',
   'notifications.empty': "Bildirishnomalar yo'q",

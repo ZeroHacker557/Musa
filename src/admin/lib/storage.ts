@@ -104,3 +104,40 @@ export async function uploadProductImage(file: File): Promise<UploadedImage> {
 
   return { url, optimized, thumb }
 }
+
+/* ── Ochilish reklamasi ─────────────────────────────────── */
+
+const AD_VIDEO_MAX = 40 * 1024 * 1024
+const AD_IMAGE_MAX = 15 * 1024 * 1024
+/** MP4 hamma telefonda o'ynaydi; MOV (iPhone) ba'zi Android'larda ochilmasligi mumkin. */
+const AD_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
+
+export type UploadedAdMedia = { type: 'image' | 'video'; url: string }
+
+/**
+ * Reklama slaydi uchun rasm yoki videoni `ads/` ga yuklaydi.
+ *
+ * Rasm telefon ekrani uchun siqiladi (uzun tomoni 1920px, WebP) —
+ * asl nusxa saqlanmaydi, reklamada kattalashtirish yo'q. Video esa
+ * o'zgartirilmay yuklanadi: brauzerda videoni siqish imkoni yo'q,
+ * shuning uchun hajmi 40 MB bilan cheklangan (storage.rules ham shunday).
+ */
+export async function uploadAdMedia(file: File): Promise<UploadedAdMedia> {
+  const base = `ads/${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+  if (file.type.startsWith('image/')) {
+    if (file.size > AD_IMAGE_MAX) throw new Error('Rasm 15 MB dan katta bo‘lmasin')
+    const blob = await compress(file, 1920, 0.85)
+    const ext = blob.type === 'image/webp' ? 'webp' : 'jpg'
+    return { type: 'image', url: await put(`${base}.${ext}`, blob, blob.type) }
+  }
+
+  if (file.type.startsWith('video/')) {
+    if (!AD_VIDEO_TYPES.includes(file.type)) throw new Error('Video MP4 formatida bo‘lsin')
+    if (file.size > AD_VIDEO_MAX) throw new Error('Video 40 MB dan katta bo‘lmasin — qisqaroq yoki siqilgan variantini yuklang')
+    const ext = file.type === 'video/webm' ? 'webm' : file.type === 'video/quicktime' ? 'mov' : 'mp4'
+    return { type: 'video', url: await put(`${base}.${ext}`, file, file.type) }
+  }
+
+  throw new Error('Faqat rasm yoki video fayl')
+}

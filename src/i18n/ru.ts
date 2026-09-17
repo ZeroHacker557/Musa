@@ -313,6 +313,14 @@ export const ru: Record<TranslationKey, string> = {
   'addressAsk.later': 'Позже',
   'addressAsk.optional': 'Необязательно — можно добавить позже',
 
+  // ── Рекламный экран ──
+  'ad.skip': 'Пропустить',
+  'ad.close': 'Закрыть',
+  'ad.prev': 'Назад',
+  'ad.next': 'Далее',
+  'ad.mute': 'Выключить звук',
+  'ad.unmute': 'Включить звук',
+
   // ── Уведомления ──
   'notifications.title': 'Уведомления',
   'notifications.empty': 'Уведомлений нет',

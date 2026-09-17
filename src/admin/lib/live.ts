@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { db } from './auth'
 import type { Category, Order, Product, PromoCode, Section } from '../../types/domain'
 import { readPromotion, type Promotion } from '../../utils/promotions'
+import { EMPTY_AD, readSplashAd, type SplashAd } from '../../utils/splash-ad'
 
 /**
  * Firestore'dan jonli ma'lumot.
@@ -225,6 +226,33 @@ export function usePromotions() {
   )
 
   return { promotions, loading, error }
+}
+
+/** Ochilish reklamasi (`ads/splash`). Hujjat hali yo'q bo'lsa — bo'sh, o'chirilgan reklama. */
+export function useSplashAd() {
+  const [ad, setAd] = useState<SplashAd>(EMPTY_AD)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<'rules' | 'other' | null>(null)
+
+  useEffect(
+    () =>
+      onSnapshot(
+        doc(db, 'ads', 'splash'),
+        (snapshot) => {
+          setAd(snapshot.exists() ? readSplashAd(snapshot.data()) : EMPTY_AD)
+          setLoading(false)
+          setError(null)
+        },
+        (err) => {
+          console.error('[admin] reklamani o‘qib bo‘lmadi:', err)
+          setError((err as { code?: string }).code === 'permission-denied' ? 'rules' : 'other')
+          setLoading(false)
+        },
+      ),
+    [],
+  )
+
+  return { ad, loading, error }
 }
 
 export type PromoRow = PromoCode & { id: string; maxUses?: number; expiresAt?: string | null }

@@ -1,9 +1,10 @@
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { BottomNav } from './components/layout/BottomNav'
 import { SearchOverlay } from './components/layout/SearchOverlay'
 import { CartDrawer } from './components/cart/CartDrawer'
 import { CartPrompt } from './components/cart/CartPrompt'
 import { AddressPrompt } from './components/address/AddressPrompt'
+import { SplashAd } from './components/promo/SplashAd'
 import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
 import { useShopStore } from './hooks/use-shop-store'
@@ -85,6 +86,9 @@ function App() {
     }
   }, [shop.userProfile?.language, lang, setLang])
 
+  // Ochilish reklamasi ko'rinib turganda manzil taklifi kutib turadi
+  const [adVisible, setAdVisible] = useState(false)
+
   const goToCatalog = () => shop.navigate('catalog')
   // Savat yopilganda ham silliq tushib ketsin — styles.css `.cart-drawer.leaving`
   const cartPresence = usePresence(shop.isCartOpen, 280)
@@ -132,13 +136,21 @@ function App() {
         {shop.checkoutDone && <CheckoutSuccess onViewOrders={() => shop.navigate('orders')} />}
 
         {/* Yangi mijozga manzil taklifi — ilova ochilgach 2 soniyadan keyin */}
-        {shop.askAddress && (
+        {shop.askAddress && !adVisible && (
           <AddressPrompt
             onHere={() => shop.openAddresses('here')}
             onOther={() => shop.openAddresses('other')}
             onDismiss={shop.dismissAddressPrompt}
           />
         )}
+
+        {/* Ochilish reklamasi — admin panel → «Reklama banneri» */}
+        <SplashAd
+          products={shop.products}
+          onOpenCategory={shop.openCategory}
+          onOpenProduct={shop.openProduct}
+          onVisibleChange={setAdVisible}
+        />
 
         <div className="page-wrapper">
           {shop.page === 'home' && (

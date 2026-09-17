@@ -1773,6 +1773,187 @@ a { color: inherit; text-decoration: none; }
   .toast { bottom: calc(6rem + var(--safe-bottom)); }
 }
 
+/* ====== Ochilish reklamasi (SplashAdView) ======
+   Butun ekranli «stories»: tepada slayd chiziqlari, pastda havola
+   tugmasi va «O'tkazib yuborish». Media ostida doim qora — matn va
+   tugmalar har qanday rasm ustida o'qilsin, shuning uchun bu yerda
+   tokenlar emas, aniq ranglar. Admin paneldagi telefon ko'rinishi ham
+   shu uslublardan foydalanadi (`--preview`). */
+.splash-ad {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  -webkit-tap-highlight-color: transparent;
+  animation: splashAdIn 0.28s ease both;
+}
+.splash-ad.leaving { animation: splashAdOut 0.22s ease both; }
+.splash-ad--preview {
+  position: absolute;
+  z-index: 1;
+  animation: none;
+  /* Telefon ko'rinishida status panel va pastki chiziq o'rni */
+  --safe-top: 26px;
+  --safe-bottom: 10px;
+}
+@keyframes splashAdIn { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: none; } }
+@keyframes splashAdOut { to { opacity: 0; transform: scale(0.98); } }
+
+.splash-ad__stage {
+  position: absolute;
+  inset: 0;
+  /* Gorizontal surishni brauzer o'zlashtirib olmasin — slaydlar surib almashadi */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.splash-ad__backdrop {
+  position: absolute;
+  inset: -40px;
+  background-position: center;
+  background-size: cover;
+  filter: blur(28px) brightness(0.5) saturate(1.2);
+}
+.splash-ad__media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.splash-ad__media.is-cover { object-fit: cover; }
+.splash-ad__media.is-contain { object-fit: contain; }
+.splash-ad__media.is-ready { opacity: 1; }
+
+/* Tepa va past qorong'ilashadi — chiziqlar va tugmalar yorqin rasmda ham ko'rinadi */
+.splash-ad__shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 0.45) 0%, transparent calc(var(--safe-top) + 90px)),
+    linear-gradient(0deg, rgb(0 0 0 / 0.6) 0%, transparent calc(var(--safe-bottom) + 190px));
+}
+.splash-ad__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgb(255 255 255 / 0.8);
+  pointer-events: none;
+}
+
+.splash-ad__bars {
+  position: absolute;
+  top: calc(var(--safe-top) + 10px);
+  left: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  pointer-events: none;
+}
+.splash-ad__bar {
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.32);
+}
+.splash-ad__bar > i {
+  display: block;
+  height: 100%;
+  background: #fff;
+  transform-origin: left center;
+}
+
+/* Chap/o'ng strelkalar — ekran o'rtasida, yarim shaffof */
+.splash-ad__nav {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  margin-top: -21px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.3);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: opacity 0.2s ease, transform 0.15s ease, background 0.15s ease;
+}
+.splash-ad__nav--prev { left: 10px; }
+.splash-ad__nav--next { right: 10px; }
+.splash-ad__nav:active { transform: scale(0.9); background: rgb(0 0 0 / 0.5); }
+/* Birinchi slaydda «oldingi» yo'q — joyi saqlanadi, ko'rinmaydi */
+.splash-ad__nav:disabled { opacity: 0; pointer-events: none; }
+
+.splash-ad__round {
+  position: absolute;
+  top: calc(var(--safe-top) + 24px);
+  right: 12px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.35);
+  color: #fff;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.splash-ad__round:active { transform: scale(0.92); }
+
+.splash-ad__bottom {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--safe-bottom) + 16px);
+  display: grid;
+  gap: 10px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+/* Havola tugmasi — katalog chiplari bilan bir xil oltin (logodagi rang) */
+.splash-ad__cta {
+  display: flex;
+  min-width: 0;
+  height: 54px;
+  padding: 0 1.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 16px;
+  background: linear-gradient(160deg, #fde08b 0%, #f9d05f 100%);
+  color: #3a2906;
+  font-size: 1rem;
+  font-weight: 800;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.35);
+  transition: transform 0.15s ease;
+}
+.splash-ad__cta:active { transform: scale(0.97); }
+.splash-ad__skip {
+  height: 46px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.16);
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.splash-ad__skip:active { transform: scale(0.97); background: rgb(255 255 255 / 0.24); }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-ad, .splash-ad.leaving { animation-duration: 0.01s; }
+}
+
 /* ====== Search Overlay ====== */
 .search-overlay {
   position: fixed;

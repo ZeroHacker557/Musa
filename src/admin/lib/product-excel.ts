@@ -182,7 +182,10 @@ export function planImport(rows: string[][], products: ProductRow[], categories:
       }
 
       const priceCell = cell('price')
-      if (priceCell !== undefined) {
+      // Bo'sh narx — «tegilmasin» degani. Narx yig'ish faylida (rasm +
+      // nom + bo'sh narx) hamma qator ham to'ldirilmasligi mumkin:
+      // to'ldirilmagani xato emas, shunchaki o'zgarmaydi.
+      if (priceCell !== undefined && priceCell !== '') {
         const price = money(priceCell)
         if (price === null || Number.isNaN(price) || price <= 0) throw new Error('Narx noldan katta son bo‘lishi kerak')
         record('price', Number(product.price) || 0, price, price)

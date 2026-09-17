@@ -4,6 +4,7 @@ import { getStorage } from 'firebase/storage'
 import { firebaseConfig } from '../config/firebase'
 import { parseDate } from '../utils/date'
 import { readPromotion, type Promotion } from '../utils/promotions'
+import { readSplashAd, type SplashAd } from '../utils/splash-ad'
 import type { Product, Category, Section, Order, PaymentSettings, DeliverySettings, Notification, UserProfile } from '../types/domain'
 
 // Initialize Firebase
@@ -170,6 +171,21 @@ export function subscribeToUserProfile(userId: number, callback: (profile: UserP
 export async function updateUserProfile(userId: number, data: Partial<UserProfile>) {
   const userRef = doc(db, 'users', String(userId))
   await updateDoc(userRef, data)
+}
+
+/**
+ * Ochilish reklamasi (`ads/splash`). Jonli kuzatilmaydi — ilova
+ * ochilganda bir marta o'qiladi. O'qib bo'lmasa `null`: reklama
+ * chiqmaydi, do'kon odatdagidek ochiladi.
+ */
+export async function fetchSplashAd(): Promise<SplashAd | null> {
+  try {
+    const snapshot = await getDoc(doc(db, 'ads', 'splash'))
+    return snapshot.exists() ? readSplashAd(snapshot.data()) : null
+  } catch (error) {
+    console.warn('[Firebase] reklamani o‘qib bo‘lmadi:', error)
+    return null
+  }
 }
 
 /** Vaqtli aksiyalar — narx qoidasi src/utils/promotions.ts da. */

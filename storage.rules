@@ -25,6 +25,14 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // Ochilish reklamasi: rasm va video. Video og'irroq — 40 MB gacha.
+    match /ads/{fileName} {
+      allow read: if true;
+      allow write: if role() in ['owner', 'admin']
+                   && request.resource.size < 40 * 1024 * 1024
+                   && request.resource.contentType.matches('(image|video)/.*');
+    }
+
     // To'lov cheklari — bot yuklaydi (Admin SDK), mijoz ko'ra olmaydi
     match /{allPaths=**} {
       allow read, write: if false;

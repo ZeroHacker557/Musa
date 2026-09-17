@@ -9,6 +9,7 @@ import {
 import { broadcast, staffDelete, staffLinkTelegram, staffSave } from '../_lib/actions/people.js'
 import { catalogLayout, sectionDelete, sectionSave } from '../_lib/actions/sections.js'
 import { promotionDelete, promotionSave } from '../_lib/actions/promotions.js'
+import { adSave } from '../_lib/actions/ads.js'
 import { settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
 
 type Body = Record<string, unknown>
@@ -34,6 +35,7 @@ const HANDLERS: Record<string, Handler> = {
   'product.bulkUpdate': (staff, body) => (requireCatalogAccess(staff), productBulkUpdate(body)),
   'promotion.save': (staff, body) => (requireCatalogAccess(staff), promotionSave(body)),
   'promotion.delete': (staff, body) => (requireCatalogAccess(staff), promotionDelete(body)),
+  'ad.save': (staff, body) => (requireCatalogAccess(staff), adSave(body)),
   'category.save': (staff, body) => (requireCatalogAccess(staff), categorySave(body)),
   'category.delete': (staff, body) => (requireCatalogAccess(staff), categoryDelete(body)),
   'promo.save': (staff, body) => (requireCatalogAccess(staff), promoSave(body)),

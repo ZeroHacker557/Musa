@@ -1,5 +1,5 @@
 import {
-  BarChart3, BrainCircuit, Boxes, ExternalLink, FileBarChart, Flame, Layers, LayoutGrid, LogOut, Maximize2,
+  BarChart3, BrainCircuit, Boxes, Clapperboard, ExternalLink, FileBarChart, Flame, Layers, LayoutGrid, LogOut, Maximize2,
   Megaphone, Menu, Minimize2, Moon, Settings, ShoppingBag, Sun, Tag, Users, UserCog, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -31,6 +31,7 @@ const NAV: NavEntry[] = [
   { route: 'categories', label: 'Kategoriyalar', icon: LayoutGrid, min: 'admin' },
   { route: 'sections', label: 'Bo‘limlar va tartib', icon: Layers, min: 'admin' },
   { route: 'promotions', label: 'Vaqtli aksiyalar', icon: Flame, min: 'admin' },
+  { route: 'ads', label: 'Reklama banneri', icon: Clapperboard, min: 'admin' },
   { route: 'promocodes', label: 'Promokodlar', icon: Tag, min: 'admin' },
 
   { route: 'customers', label: 'Mijozlar', icon: Users, min: 'admin', section: 'Odamlar' },
@@ -50,6 +51,7 @@ const TITLES: Record<Route, string> = {
   categories: 'Kategoriyalar',
   sections: 'Bo‘limlar va tartib',
   promotions: 'Vaqtli aksiyalar',
+  ads: 'Reklama banneri',
   reports: 'Hisobotlar',
   customers: 'Mijozlar',
   broadcast: 'Ommaviy xabar',

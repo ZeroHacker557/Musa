@@ -68,6 +68,13 @@ service cloud.firestore {
       allow write: if false;   // faqat /api/admin/action
     }
 
+    // Ochilish reklamasi (ads/splash) — ilova ochilganda, mijoz tizimga
+    // kirishidan OLDIN o'qiladi, shuning uchun o'qish ochiq.
+    match /ads/{adId} {
+      allow read: if true;
+      allow write: if false;   // faqat /api/admin/action (ad.save)
+    }
+
     // ── Profil: faqat o'zinikini ────────────────────────────
     // Foydalanuvchi ismi, telefoni va manzillarini o'zgartira oladi.
     // Boshqa maydonlarni (masalan rollarni) o'zgartira olmaydi.
