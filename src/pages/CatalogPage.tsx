@@ -72,6 +72,7 @@ export function CatalogPage({
     <>
       <PageHeader
         title={t('catalog.title')}
+        shortTitle={t('catalog.short')}
         onBack={onBack}
         onSearch={onSearch}
         onFavorites={onFavorites}

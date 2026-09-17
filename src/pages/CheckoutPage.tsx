@@ -12,6 +12,7 @@ import { getPaymentSettings, getDeliverySettings } from '../lib/firebase'
 import { apiPost, ApiError } from '../lib/api'
 import { useT } from '../i18n'
 import type { AppPage, DeliverySettings, OrderForm, PaymentSettings, Product, UserProfile } from '../types/domain'
+import { PageTitle } from '../components/layout/PageTitle'
 
 type AppliedPromo = {
   code: string
@@ -116,11 +117,11 @@ export function CheckoutPage({
 
   return (
     <>
-      <header className="flex items-center gap-3 px-5 pt-8 sm:px-10 page-animate">
+      <header className="page-head page-head--solo flex items-center gap-3 px-5 pt-8 sm:px-10 page-animate">
         <button onClick={onBack} className="back-button" aria-label={t('common.back')}>
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>{t('checkout.title')}</h1>
+        <PageTitle className="text-2xl font-extrabold">{t('checkout.title')}</PageTitle>
       </header>
 
       <div className="kb-safe px-5 pt-6 sm:px-10 page-animate">

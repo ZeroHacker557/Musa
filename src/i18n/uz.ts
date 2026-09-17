@@ -60,6 +60,7 @@ export const uz = {
 
   // ── Katalog ──
   'catalog.title': 'Mahsulotlar katalogi',
+  'catalog.short': 'Mahsulotlar',
   'catalog.filters': 'Filtrlar',
   'catalog.sortCheap': 'Arzon narx',
   'catalog.sortExpensive': 'Qimmat narx',
@@ -323,8 +324,6 @@ export const uz = {
   // ── Ochilish reklamasi ──
   'ad.skip': 'O‘tkazib yuborish',
   'ad.close': 'Yopish',
-  'ad.prev': 'Oldingi',
-  'ad.next': 'Keyingi',
   'ad.mute': 'Ovozni o‘chirish',
   'ad.unmute': 'Ovozni yoqish',
 

@@ -55,6 +55,7 @@ export const ru: Record<TranslationKey, string> = {
 
   // ── Каталог ──
   'catalog.title': 'Каталог товаров',
+  'catalog.short': 'Товары',
   'catalog.filters': 'Фильтры',
   'catalog.sortCheap': 'Сначала дешёвые',
   'catalog.sortExpensive': 'Сначала дорогие',
@@ -316,8 +317,6 @@ export const ru: Record<TranslationKey, string> = {
   // ── Рекламный экран ──
   'ad.skip': 'Пропустить',
   'ad.close': 'Закрыть',
-  'ad.prev': 'Назад',
-  'ad.next': 'Далее',
   'ad.mute': 'Выключить звук',
   'ad.unmute': 'Включить звук',
 

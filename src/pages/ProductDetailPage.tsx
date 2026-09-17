@@ -14,6 +14,7 @@ import { apiPost, ApiError } from '../lib/api'
 import { track } from '../lib/track'
 import { useT } from '../i18n'
 import type { Product, Review } from '../types/domain'
+import { PageTitle } from '../components/layout/PageTitle'
 
 type Props = {
   product: Product
@@ -103,12 +104,12 @@ export function ProductDetailPage({
 
   return (
     <>
-      <header className="flex items-center justify-between px-5 pt-8 sm:px-10 page-animate">
+      <header className="page-head flex items-center justify-between px-5 pt-8 sm:px-10 page-animate">
         <button onClick={onBack} className="back-button" aria-label={t('common.back')}>
           <ArrowLeft size={20} />
         </button>
-        <h2 className="text-lg font-bold" style={{ color: 'var(--ink)' }}>{t('product.title')}</h2>
-        <div className="flex gap-1">
+        <PageTitle as="h2" className="text-lg font-bold">{t('product.title')}</PageTitle>
+        <div className="ml-auto flex gap-1">
           <button
             onClick={() => onToggleLike(product.id)}
             className="icon-button"

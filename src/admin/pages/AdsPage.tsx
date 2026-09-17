@@ -41,7 +41,7 @@ const LINK_KINDS: { key: LinkKind; label: string; icon: typeof Link2 }[] = [
 ]
 
 const PREVIEW_LABELS = {
-  skip: 'O‘tkazib yuborish', close: 'Yopish', prev: 'Oldingi', next: 'Keyingi',
+  skip: 'O‘tkazib yuborish', close: 'Yopish',
   mute: 'Ovozni o‘chirish', unmute: 'Ovozni yoqish',
 }
 
@@ -181,7 +181,10 @@ export function AdsPage() {
         }
         // Har fayl yuklanishi bilan qo'shiladi — keyingisi xato bersa ham
         // oldingilari yo'qolmaydi
-        setDraft((d) => (d ? { ...d, slides: [...d.slides, slide] } : d))
+        // Bo'sh reklamaga birinchi slayd qo'shilsa — o'zi yoqiladi. Ilgari
+        // o'chiq qolib ketardi: admin slayd qo'shib saqlardi, mijozga esa
+        // hech narsa chiqmasdi va sababi ko'rinmasdi.
+        setDraft((d) => (d ? { ...d, active: d.slides.length === 0 ? true : d.active, slides: [...d.slides, slide] } : d))
         setSelected(draft.slides.length + added)
         added++
       }
@@ -214,7 +217,9 @@ export function AdsPage() {
       })
       baselineRef.current = JSON.stringify(draft)
       setBaseline(baselineRef.current)
-      show(draft.active ? 'Saqlandi — mijozlar ilovani ochganda ko‘radi' : 'Saqlandi (reklama o‘chirilgan)')
+      if (draft.active) show('Saqlandi — mijozlar ilovani ochganda ko‘radi')
+      else if (draft.slides.length) show('Saqlandi, lekin reklama O‘CHIRILGAN — mijozlarga chiqmaydi. «Reklamani yoqish» belgisini qo‘yib, qayta saqlang', 'error')
+      else show('Saqlandi')
     } catch (err) {
       show(err instanceof Error ? err.message : 'Saqlanmadi', 'error')
     } finally {
@@ -256,8 +261,8 @@ export function AdsPage() {
             <label
               className="flex cursor-pointer items-center gap-3 rounded-xl border p-3"
               style={{
-                borderColor: draft.active ? 'var(--brand)' : 'var(--line)',
-                background: draft.active ? 'var(--brand-soft)' : 'var(--surface)',
+                borderColor: draft.active ? 'var(--brand)' : draft.slides.length ? 'var(--warning)' : 'var(--line)',
+                background: draft.active ? 'var(--brand-soft)' : draft.slides.length ? 'var(--warning-soft)' : 'var(--surface)',
               }}
             >
               <input
@@ -268,9 +273,18 @@ export function AdsPage() {
               />
               <Clapperboard size={18} style={{ color: draft.active ? 'var(--brand-strong)' : 'var(--muted)' }} />
               <span className="min-w-0">
-                <b className="block text-sm">{draft.active ? 'Reklama yoqilgan' : 'Reklama o‘chirilgan'}</b>
-                <span className="block text-xs" style={{ color: 'var(--muted)' }}>
-                  O‘chirilsa slaydlar saqlanib qoladi, faqat mijozlarga chiqmaydi
+                <b className="block text-sm">
+                  {draft.active ? 'Reklama yoqilgan — mijozlarga chiqadi' : 'Reklamani yoqish'}
+                </b>
+                <span
+                  className="block text-xs"
+                  style={{ color: !draft.active && draft.slides.length ? 'var(--warning)' : 'var(--muted)', fontWeight: !draft.active && draft.slides.length ? 700 : 400 }}
+                >
+                  {draft.active
+                    ? 'Belgini olib tashlasangiz slaydlar saqlanib qoladi, faqat mijozlarga chiqmaydi'
+                    : draft.slides.length
+                      ? 'Hozir o‘chiq — mijozlarga CHIQMAYDI. Belgini qo‘yib, «Saqlash» ni bosing'
+                      : 'Slayd qo‘shilganda o‘zi yoqiladi'}
                 </span>
               </span>
             </label>

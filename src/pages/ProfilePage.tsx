@@ -9,6 +9,7 @@ import { getTelegramUser } from '../utils/telegram'
 import { useI18n, type TranslationKey } from '../i18n'
 import type { ThemeMode } from '../utils/theme'
 import type { AppPage, Order, UserProfile } from '../types/domain'
+import { PageTitle } from '../components/layout/PageTitle'
 
 type Option = {
   icon: LucideIcon
@@ -73,9 +74,10 @@ export function ProfilePage({ profile, orders, ordersReady, theme, onToggleTheme
 
   return (
     <>
-      <header className="flex items-center justify-between px-5 pt-8 sm:px-10">
-        <h1 className="text-3xl font-extrabold" style={{ color: 'var(--ink)' }}>{t('profile.title')}</h1>
-        <IconButton label={t('notifications.title')} onClick={() => onNavigate('notifications')}>
+      <header className="page-head flex items-center justify-between px-5 pt-8 sm:px-10">
+        <PageTitle className="text-3xl font-extrabold">{t('profile.title')}</PageTitle>
+        {/* ml-auto: to'liq ekranda nom tepaga ketgach ham tugma o'ngda qolsin */}
+        <IconButton label={t('notifications.title')} onClick={() => onNavigate('notifications')} className="ml-auto">
           <Bell />
         </IconButton>
       </header>

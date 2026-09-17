@@ -1871,28 +1871,6 @@ a { color: inherit; text-decoration: none; }
   transform-origin: left center;
 }
 
-/* Chap/o'ng strelkalar — ekran o'rtasida, yarim shaffof */
-.splash-ad__nav {
-  position: absolute;
-  top: 50%;
-  display: grid;
-  width: 42px;
-  height: 42px;
-  margin-top: -21px;
-  place-items: center;
-  border-radius: 50%;
-  background: rgb(0 0 0 / 0.3);
-  color: #fff;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: opacity 0.2s ease, transform 0.15s ease, background 0.15s ease;
-}
-.splash-ad__nav--prev { left: 10px; }
-.splash-ad__nav--next { right: 10px; }
-.splash-ad__nav:active { transform: scale(0.9); background: rgb(0 0 0 / 0.5); }
-/* Birinchi slaydda «oldingi» yo'q — joyi saqlanadi, ko'rinmaydi */
-.splash-ad__nav:disabled { opacity: 0; pointer-events: none; }
-
 .splash-ad__round {
   position: absolute;
   top: calc(var(--safe-top) + 24px);
@@ -1952,6 +1930,88 @@ a { color: inherit; text-decoration: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .splash-ad, .splash-ad.leaving { animation-duration: 0.01s; }
+}
+
+/* ====== To'liq ekran: tepa panel va sahifa sarlavhalari ======
+   Telegram to'liq ekranida (html.tg-fullscreen, utils/telegram.ts) sahifa
+   nomi Telegram'ning «Back» va «⋯» tugmalari orasiga ko'chadi (TopBar),
+   sahifadagi sarlavha va takroriy «orqaga» yashiriladi — kontent tepaga
+   ko'tariladi. Oddiy oynada bularning hech biri ta'sir qilmaydi. */
+.tg-topbar { display: none; }
+
+.tg-fullscreen .tg-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;            /* sahifa va pastki menyu ustida, savat/qidiruv ostida */
+  display: block;
+  height: var(--safe-top);
+  pointer-events: none;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+/* Pastga surilganda — xiralashgan fon, kontent nom ostidan o'tsin */
+.tg-fullscreen .tg-topbar.is-scrolled {
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  box-shadow: 0 1px 0 var(--line);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+}
+.tg-topbar__row {
+  position: absolute;
+  top: var(--tg-status, 0px);
+  left: 0;
+  right: 0;
+  display: flex;
+  height: var(--tg-controls, 0px);
+  align-items: center;
+  justify-content: center;
+}
+/* Kengligi — Telegram tugmalari orasidagi joy. Tugmalar har qanday
+   ekranda ~80px (chetdan 8px) — foizda emas, shu o'lchamdan hisoblanadi,
+   aks holda tor telefonda nom tugma ostiga kirib qoladi. */
+.tg-topbar__title,
+.tg-topbar__brand {
+  max-width: calc(100vw - 2 * 92px);
+  animation: tgTitleIn 0.28s ease both;
+}
+.tg-topbar__title {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tg-topbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink);
+  font-size: 1.4rem;
+}
+@keyframes tgTitleIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Sahifa ichidagi sarlavha qatori — to'liq ekranda ixchamlashadi */
+.page-head__search { display: none; }
+.tg-fullscreen .page-head { padding-top: 0.5rem; }
+.tg-fullscreen .page-title,
+.tg-fullscreen .page-head:not(.page-head--keep-back) .back-button,
+.tg-fullscreen .page-head--solo,
+.tg-fullscreen .page-head__search-icon,
+.tg-fullscreen .home-head__brand,
+.tg-fullscreen .home-search { display: none; }
+/* Nom o'rnini qidiruv maydoni egallaydi — sahifaning asosiy amali */
+.tg-fullscreen .page-head__search {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 2.9rem;
 }
 
 /* ====== Search Overlay ====== */

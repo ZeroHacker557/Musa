@@ -5,6 +5,7 @@ import { auth } from '../lib/auth'
 import { getTelegramUser, hapticSuccess } from '../utils/telegram'
 import { useT } from '../i18n'
 import type { UserProfile } from '../types/domain'
+import { PageTitle } from '../components/layout/PageTitle'
 
 type Props = {
   profile: UserProfile | null
@@ -53,11 +54,11 @@ export function ProfileEditPage({ profile, onBack, onNotify }: Props) {
 
   return (
     <>
-      <header className="flex items-center gap-3 px-5 pt-8 sm:px-10">
+      <header className="page-head page-head--solo flex items-center gap-3 px-5 pt-8 sm:px-10">
         <button onClick={onBack} className="back-button" aria-label={t('common.back')}>
           <ChevronLeft size={22} />
         </button>
-        <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>{t('profile.personal')}</h1>
+        <PageTitle className="text-2xl font-extrabold">{t('profile.personal')}</PageTitle>
       </header>
 
       <form onSubmit={handleSave} className="kb-safe px-5 pt-6 sm:px-10 page-animate">

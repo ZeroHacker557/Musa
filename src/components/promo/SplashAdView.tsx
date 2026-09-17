@@ -1,12 +1,10 @@
-import { ArrowRight, ChevronLeft, ChevronRight, Loader2, Volume2, VolumeX } from 'lucide-react'
+import { ArrowRight, Loader2, Volume2, VolumeX } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 import { AD_LIMITS, type AdLink, type SplashAd } from '../../utils/splash-ad'
 
 export type SplashAdLabels = {
   skip: string
   close: string
-  prev: string
-  next: string
   mute: string
   unmute: string
 }
@@ -41,8 +39,8 @@ const EXIT_MS = 220
  *
  *   • tepada har slayd uchun chiziq, to'lib boradi;
  *   • ekranning o'ng yarmini bosish yoki chapga surish — keyingi slayd,
- *     chap yarmini bosish yoki o'ngga surish — oldingisi; ikki chetda
- *     xuddi shu ishni qiladigan strelkalar ham bor — mijoz ko'rib bilsin;
+ *     chap yarmini bosish yoki o'ngga surish — oldingisi (alohida strelka
+ *     tugmalari ATAYLAB yo'q — ekranni bosishning o'zi yetarli);
  *   • bosib turish — pauza (qo'yib yuborilsa davom etadi);
  *   • pastda havola tugmasi (slaydda bo'lsa) va «O'tkazib yuborish».
  *
@@ -152,7 +150,7 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
     if (next?.type === 'image') new Image().src = next.url
   }, [slides, index])
 
-  /* ── Ilova fonga o'tsa — pauza; Escape — yopish; strelka tugmalari — slaydlar ── */
+  /* ── Ilova fonga o'tsa — pauza; Escape — yopish; klaviatura strelkalari — slaydlar ── */
   useEffect(() => {
     if (preview) return
     const onVisibility = () => setPaused(document.hidden)
@@ -175,7 +173,7 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
     setFit(width > 0 && height > 0 && width / height > 0.8 ? 'contain' : 'cover')
   }
 
-  /** Oldingi/keyingi slayd — strelka, bosish va surish shu yerdan o'tadi. */
+  /** Oldingi/keyingi slayd — bosish va surish shu yerdan o'tadi. */
   const step = (by: -1 | 1) => {
     onTap?.()
     goTo(index + by)
@@ -311,27 +309,6 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
           </span>
         ))}
       </div>
-
-      {/* Ikki chetdagi strelkalar — o'tkazish mumkinligini mijoz ko'rsin */}
-      {slides.length > 1 && (
-        <>
-          <button
-            className="splash-ad__nav splash-ad__nav--prev"
-            onClick={() => step(-1)}
-            disabled={index === 0}
-            aria-label={labels.prev}
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <button
-            className="splash-ad__nav splash-ad__nav--next"
-            onClick={() => step(1)}
-            aria-label={isLast ? labels.close : labels.next}
-          >
-            <ChevronRight size={24} />
-          </button>
-        </>
-      )}
 
       {slide.type === 'video' && (
         <button

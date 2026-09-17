@@ -3,6 +3,7 @@ import { LANGUAGES, useI18n, type Language } from '../i18n'
 import { updateUserProfile } from '../lib/firebase'
 import { hapticSelection, hapticSuccess } from '../utils/telegram'
 import { auth } from '../lib/auth'
+import { PageTitle } from '../components/layout/PageTitle'
 
 type Props = {
   onBack: () => void
@@ -32,11 +33,11 @@ export function LanguagePage({ onBack, onNotify }: Props) {
 
   return (
     <>
-      <header className="flex items-center gap-3 px-5 pt-8 sm:px-10">
+      <header className="page-head page-head--solo flex items-center gap-3 px-5 pt-8 sm:px-10">
         <button onClick={onBack} className="back-button" aria-label={t('common.back')}>
           <ChevronLeft size={22} />
         </button>
-        <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>{t('profile.language')}</h1>
+        <PageTitle className="text-2xl font-extrabold">{t('profile.language')}</PageTitle>
       </header>
 
       <div className="px-5 pb-32 pt-6 sm:px-10 page-animate">

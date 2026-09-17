@@ -86,8 +86,7 @@ export function SplashAd({ products, onOpenCategory, onOpenProduct, onVisibleCha
     <SplashAdView
       ad={ad}
       labels={{
-        skip: t('ad.skip'), close: t('ad.close'), prev: t('ad.prev'), next: t('ad.next'),
-        mute: t('ad.mute'), unmute: t('ad.unmute'),
+        skip: t('ad.skip'), close: t('ad.close'), mute: t('ad.mute'), unmute: t('ad.unmute'),
       }}
       onClose={() => setAd(null)}
       onAction={act}

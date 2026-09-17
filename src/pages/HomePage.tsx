@@ -63,9 +63,15 @@ export function HomePage({
   return (
     <>
       {/* Header */}
-      <header className="flex items-center justify-between px-5 pt-7 sm:px-10">
-        <BrandLogo size={44} />
-        <div className="flex items-center gap-1">
+      {/* To'liq ekranda brend tepa panelga chiqadi, qidiruv esa shu qatorga
+          ko'tariladi — bosh sahifada bitta qator tejaladi */}
+      <header className="page-head home-head flex items-center justify-between gap-2 px-5 pt-7 sm:px-10">
+        <BrandLogo size={44} className="home-head__brand" />
+        <button onClick={onSearch} className="search-trigger page-head__search" style={{ color: 'var(--faint)' }}>
+          <Search className="shrink-0" size={19} />
+          <span className="truncate text-sm">{t('home.searchPlaceholder')}</span>
+        </button>
+        <div className="flex shrink-0 items-center gap-1">
           <IconButton label={t('notifications.title')} onClick={() => onNavigate('notifications')}>
             <span className="relative">
               <Bell />
@@ -87,7 +93,7 @@ export function HomePage({
       </header>
 
       {/* Search */}
-      <section className="px-5 pt-6 sm:px-10">
+      <section className="home-search px-5 pt-6 sm:px-10">
         <button
           onClick={onSearch}
           className="search-trigger"

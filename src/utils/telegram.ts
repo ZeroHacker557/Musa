@@ -250,6 +250,10 @@ export function applySafeArea() {
   const bottom = (tg?.safeAreaInset?.bottom ?? 0) + (tg?.contentSafeAreaInset?.bottom ?? 0)
   const top = (tg?.safeAreaInset?.top ?? 0) + (tg?.contentSafeAreaInset?.top ?? 0)
 
+  // Tepa panel (TopBar) nomni aynan Telegram tugmalari qatoriga qo'yishi uchun
+  root.style.setProperty('--tg-status', `${tg?.safeAreaInset?.top ?? 0}px`)
+  root.style.setProperty('--tg-controls', `${tg?.contentSafeAreaInset?.top ?? 0}px`)
+
   // env() qiymati mavjud bo'lsa u ham hisobga olinsin
   root.style.setProperty('--safe-bottom', `max(${bottom}px, env(safe-area-inset-bottom, 0px))`)
   root.style.setProperty('--safe-top', `${top}px`)

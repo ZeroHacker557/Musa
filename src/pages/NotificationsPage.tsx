@@ -2,6 +2,7 @@ import { ArrowLeft, Bell, BellRing, Info, Package, Tag } from 'lucide-react'
 import { formatDateTime } from '../utils/date'
 import { useT } from '../i18n'
 import type { Notification } from '../types/domain'
+import { PageTitle } from '../components/layout/PageTitle'
 
 type Props = {
   notifications: Notification[]
@@ -19,13 +20,11 @@ export function NotificationsPage({ notifications, onBack }: Props) {
 
   return (
     <>
-      <header className="flex items-center gap-3 px-5 pt-8 sm:px-10">
+      <header className="page-head page-head--solo flex items-center gap-3 px-5 pt-8 sm:px-10">
         <button onClick={onBack} className="back-button" aria-label={t('common.back')}>
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>
-          {t('notifications.title')}
-        </h1>
+        <PageTitle className="text-2xl font-extrabold">{t('notifications.title')}</PageTitle>
       </header>
 
       <div className="px-5 pb-32 pt-6 sm:px-10 page-animate">

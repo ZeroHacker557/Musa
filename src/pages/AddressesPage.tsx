@@ -11,6 +11,7 @@ import { reverseGeocode } from '../utils/geocode'
 import { useI18n, useT } from '../i18n'
 import type { Address, UserProfile } from '../types/domain'
 import type { TranslationKey } from '../i18n'
+import { PageTitle } from '../components/layout/PageTitle'
 
 /**
  * Manzil nomi uchun tayyor variantlar.
@@ -325,7 +326,10 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
 
   return (
     <>
-      <header className="flex items-center gap-3 px-5 pt-8 sm:px-10">
+      {/* «Orqaga» to'liq ekranda ham qoladi: u sahifadan chiqmay, avval
+          qadamlar bo'yicha qaytaradi (forma → tanlov → ro'yxat). Telegram'ning
+          «Back» tugmasi esa sahifadan butunlay chiqib ketadi. */}
+      <header className="page-head page-head--keep-back flex items-center gap-3 px-5 pt-8 sm:px-10">
         <button
           onClick={() => {
             // Tahrirdan to'g'ri ro'yxatga, yangi manzildan tanlovga,
@@ -341,9 +345,9 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
         >
           <ChevronLeft size={22} />
         </button>
-        <h1 className="text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>
+        <PageTitle className="text-2xl font-extrabold">
           {step ? t(editingId ? 'address.edit' : 'address.new') : t('address.title')}
-        </h1>
+        </PageTitle>
       </header>
 
       {step === 'choose' ? (

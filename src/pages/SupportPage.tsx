@@ -17,6 +17,7 @@ import {
 import { useState } from 'react'
 import { BRAND, DEVELOPER } from '../config/brand'
 import { useT } from '../i18n'
+import { PageTitle } from '../components/layout/PageTitle'
 
 type Props = {
   onBack: () => void
@@ -192,7 +193,7 @@ export function SupportPage({ onBack }: Props) {
     <>
       {/* Header */}
       <header
-        className="flex items-center gap-3 px-5 pt-8 pb-5 sm:px-10"
+        className="page-head page-head--solo flex items-center gap-3 px-5 pt-8 pb-5 sm:px-10"
         style={{ animation: 'fadeInUp 0.3s ease' }}
       >
         <button
@@ -203,9 +204,9 @@ export function SupportPage({ onBack }: Props) {
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-2xl font-extrabold leading-tight" style={{ color: 'var(--ink)' }}>
+          <PageTitle className="text-2xl font-extrabold leading-tight" short={lang === 'ru' ? 'Поддержка' : 'Yordam'}>
             {lang === 'ru' ? 'Помощь и поддержка' : "Yordam va qo'llab-quvvatlash"}
-          </h1>
+          </PageTitle>
           <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
             {lang === 'ru' ? 'Мы всегда рядом' : "Biz doim siz bilan"}
           </p>

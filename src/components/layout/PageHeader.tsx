@@ -1,5 +1,6 @@
 import { ArrowLeft, Heart, Search } from 'lucide-react'
 import { IconButton } from '../ui/IconButton'
+import { PageTitle } from './PageTitle'
 import { useT } from '../../i18n'
 
 type Props = {
@@ -16,13 +17,19 @@ type Props = {
    * olib boradigan tugma keraksiz.
    */
   onFavorites?: () => void
+  /** Tepa panel uchun qisqa nom (to'liq ekranda). */
+  shortTitle?: string
 }
 
-export function PageHeader({ title, onBack, onSearch, onFavorites }: Props) {
+export function PageHeader({ title, shortTitle, onBack, onSearch, onFavorites }: Props) {
   const t = useT()
 
   return (
-    <header className="flex items-center gap-2 px-5 pt-8 sm:px-10">
+    // To'liq ekranda nom va «orqaga» tepa panelga o'tadi (Telegram'ning
+    // o'z «Back» tugmasi bor). Qatorda boshqa hech narsa qolmasa — butunlay yashiriladi.
+    <header
+      className={'page-head flex items-center gap-2 px-5 pt-8 sm:px-10' + (onSearch || onFavorites ? '' : ' page-head--solo')}
+    >
       {onBack && (
         <button
           onClick={onBack}
@@ -33,18 +40,23 @@ export function PageHeader({ title, onBack, onSearch, onFavorites }: Props) {
         </button>
       )}
 
-      <h1
-        /* Orqaga tugmasi, qidiruv va sevimlilar bilan birga uzun sarlavha
-           telefonda sig'maydi — shuning uchun kichikroq boshlanadi. */
-        className="min-w-0 flex-1 truncate text-xl font-extrabold tracking-tight sm:text-3xl"
-        style={{ color: 'var(--ink)' }}
-      >
+      {/* Orqaga tugmasi, qidiruv va sevimlilar bilan birga uzun sarlavha
+          telefonda sig'maydi — shuning uchun kichikroq boshlanadi. */}
+      <PageTitle short={shortTitle} className="min-w-0 flex-1 truncate text-xl font-extrabold tracking-tight sm:text-3xl">
         {title}
-      </h1>
+      </PageTitle>
+
+      {/* To'liq ekranda nom tepaga ketgach bo'shagan joyni qidiruv maydoni egallaydi */}
+      {onSearch && (
+        <button onClick={onSearch} className="search-trigger page-head__search" style={{ color: 'var(--faint)' }}>
+          <Search className="shrink-0" size={19} />
+          <span className="truncate text-sm">{t('home.searchPlaceholder')}</span>
+        </button>
+      )}
 
       <div className="flex shrink-0 items-center gap-1">
         {onSearch && (
-          <IconButton label={t('search.title')} onClick={onSearch}>
+          <IconButton label={t('search.title')} onClick={onSearch} className="page-head__search-icon">
             <Search />
           </IconButton>
         )}

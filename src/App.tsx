@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { BottomNav } from './components/layout/BottomNav'
+import { TopBar } from './components/layout/TopBar'
 import { SearchOverlay } from './components/layout/SearchOverlay'
 import { CartDrawer } from './components/cart/CartDrawer'
 import { CartPrompt } from './components/cart/CartPrompt'
@@ -98,6 +99,9 @@ function App() {
       <div className="app-container">
         {/* Tepadagi yumshoq yashil tus (faqat yorug' rejimda ko'rinadi) */}
         <div className="app-tint" aria-hidden="true" />
+
+        {/* To'liq ekranda Telegram tugmalari orasidagi sahifa nomi */}
+        <TopBar />
 
         {shop.isSearchOpen && (
           <SearchOverlay
