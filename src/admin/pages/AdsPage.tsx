@@ -426,7 +426,9 @@ export function AdsPage() {
                   {uploading ? <Loader2 size={22} className="animate-spin" /> : <ImagePlus size={22} />}
                   <span className="text-sm font-bold">{uploading ? 'Yuklanmoqda…' : 'Rasm yoki video qo‘shish'}</span>
                   <span className="text-xs" style={{ color: 'var(--faint)' }}>
-                    Tik format (9:16, masalan 1080×1920) ekranni to‘liq egallaydi · Video: MP4, 40 MB gacha
+                    Ekranni to‘liq egallashi uchun: 1080×2340 (telefon ekrani). 9:16 ham bo‘ladi — kesilmaydi,
+                    chetlari xira fon bilan to‘ldiriladi · Muhim yozuvni pastki qismga qo‘ymang, u yerda tugmalar
+                    turadi · Video: MP4, 40 MB gacha
                   </span>
                   <input
                     type="file"

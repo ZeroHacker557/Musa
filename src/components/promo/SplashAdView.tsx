@@ -33,6 +33,11 @@ const SWIPE_PX = 45
 /** Slayd shu vaqtda yuklanmasa, o'tkazib yuboriladi. */
 const STALL_MS = 8000
 const EXIT_MS = 220
+/**
+ * Media ekranni to'ldirganda (cover) ko'pi bilan shuncha qismi kesilishi
+ * mumkin. Undan ko'p kesilsa — media to'liq ko'rsatiladi (contain).
+ */
+const MAX_CROP = 0.08
 
 /**
  * Butun ekranli reklama slayderi — «stories» uslubida.
@@ -60,6 +65,9 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
   const [leaving, setLeaving] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
+  /** Joriy slayd mediasining asl o'lchami — ekran burilsa qayta hisoblash uchun. */
+  const mediaSize = useRef<{ width: number; height: number } | null>(null)
   const elapsed = useRef(0)
   const holdTimer = useRef<number | null>(null)
   const held = useRef(false)
@@ -167,11 +175,36 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
     }
   }, [preview, close, goTo, index])
 
+  /**
+   * Media ekranni to'ldirsinmi (cover) yoki to'liq ko'rinsinmi (contain)?
+   *
+   * «Tik rasm — to'ldiramiz» qoidasi yetmaydi: zamonaviy telefon ekrani
+   * 9:16 emas, ~9:19.5 (to'liq ekranda undan ham cho'ziq). 9:16 rasm shunday
+   * ekranni to'ldirsa, yonlaridan ~18% kesilib, kattalashib ketgandek
+   * ko'rinardi. Shuning uchun ekran va media nisbatidan kesiladigan qism
+   * hisoblanadi: arzimas bo'lsa — to'ldiramiz, sezilarli bo'lsa — to'liq
+   * ko'rsatib, bo'sh chetlarni xiralashtirilgan fon bilan yopamiz.
+   */
+  const applyFit = useCallback(() => {
+    const stage = stageRef.current
+    const size = mediaSize.current
+    if (!stage || !size || !size.width || !size.height || !stage.clientHeight) return
+    const screen = stage.clientWidth / stage.clientHeight
+    const media = size.width / size.height
+    const crop = media > screen ? 1 - screen / media : 1 - media / screen
+    setFit(crop <= MAX_CROP ? 'cover' : 'contain')
+  }, [])
+
   const onMediaSize = (width: number, height: number) => {
-    // Tik (telefon) formatidagi media ekranni to'ldiradi, keng formatdagisi
-    // kesilmay to'liq ko'rinadi — orqasida xiralashtirilgan nusxasi
-    setFit(width > 0 && height > 0 && width / height > 0.8 ? 'contain' : 'cover')
+    mediaSize.current = { width, height }
+    applyFit()
   }
+
+  // Telefon burilsa yoki oyna o'lchami o'zgarsa — qayta hisoblaymiz
+  useEffect(() => {
+    window.addEventListener('resize', applyFit)
+    return () => window.removeEventListener('resize', applyFit)
+  }, [applyFit])
 
   /** Oldingi/keyingi slayd — bosish va surish shu yerdan o'tadi. */
   const step = (by: -1 | 1) => {
@@ -239,6 +272,7 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
       data-no-swipe
     >
       <div
+        ref={stageRef}
         className="splash-ad__stage"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
