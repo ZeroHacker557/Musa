@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useT } from '../../i18n'
 import { fetchSplashAd } from '../../lib/firebase'
-import type { Product } from '../../types/domain'
-import { markAdSeen, shouldShowAd, type AdLink, type SplashAd as Ad } from '../../utils/splash-ad'
+import type { Product, Section } from '../../types/domain'
+import { ALL_CATEGORIES, markAdSeen, shouldShowAd, type AdLink, type SplashAd as Ad } from '../../utils/splash-ad'
 import { getTelegram, hapticFeedback, hapticSelection } from '../../utils/telegram'
 import { SplashAdView } from './SplashAdView'
 
 type Props = {
   products: Product[]
-  onOpenCategory: (category: string) => void
+  sections: Section[]
+  /** Bo'sh kategoriya — «Barchasi»; `sectionId` — o'sha bo'limga surish. */
+  onOpenCategory: (category: string, sectionId?: string | null) => void
   onOpenProduct: (product: Product) => void
   /** Reklama ko'rinib turganda boshqa takliflar (manzil) chiqmasin. */
   onVisibleChange?: (visible: boolean) => void
@@ -47,7 +49,7 @@ function preloadFirst(ad: Ad): Promise<boolean> {
  * Reklama do'konni hech qachon to'sib qolmaydi: o'qib bo'lmasa,
  * rasm yuklanmasa yoki o'chirilgan bo'lsa — shunchaki chiqmaydi.
  */
-export function SplashAd({ products, onOpenCategory, onOpenProduct, onVisibleChange }: Props) {
+export function SplashAd({ products, sections, onOpenCategory, onOpenProduct, onVisibleChange }: Props) {
   const t = useT()
   const [ad, setAd] = useState<Ad | null>(null)
 
@@ -69,7 +71,12 @@ export function SplashAd({ products, onOpenCategory, onOpenProduct, onVisibleCha
 
   const act = (link: AdLink) => {
     hapticFeedback('medium')
-    if (link.kind === 'category') return onOpenCategory(link.category)
+    if (link.kind === 'category') return onOpenCategory(link.category === ALL_CATEGORIES ? '' : link.category)
+    if (link.kind === 'section') {
+      const section = sections.find((s) => s.id === link.sectionId)
+      // Bo'lim o'chirilgan bo'lsa — butun katalog, tugma baribir ishlasin
+      return section ? onOpenCategory(section.category, section.id) : onOpenCategory('')
+    }
     if (link.kind === 'product') {
       const product = products.find((p) => String(p.id) === link.productId)
       if (product) onOpenProduct(product)

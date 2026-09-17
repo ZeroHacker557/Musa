@@ -80,6 +80,8 @@ export function useShopStore() {
   const [history, setHistory] = useState<AppPage[]>([])
   // Bosh sahifadan tanlangan kategoriya katalogga uzatiladi (F-16)
   const [catalogCategory, setCatalogCategory] = useState<string | null>(null)
+  /** Katalog ochilganda shu bo'limga surib boriladi (reklama tugmasidan). */
+  const [catalogSection, setCatalogSection] = useState<string | null>(null)
   /** Firestore'dagi xom mahsulotlar. Ekranda — pastdagi `products` (til va aksiya qo'llangan). */
   const [rawProducts, setProducts] = useState<Product[]>([])
   const [promotions, setPromotions] = useState<Promotion[]>([])
@@ -341,6 +343,9 @@ export function useShopStore() {
 
     setCartOpen(false)
     setSearchOpen(false)
+    // Menyudan kirilgan katalog reklamadagi bo'limga qayta surilmasin
+    // («orqaga» bilan qaytilganda esa bo'lim eslab qolinadi — goBack tegmaydi)
+    setCatalogSection(null)
     // Manzil sahifasiga odatdagicha kirilsa ro'yxat ochiladi; taklifdan
     // kelingan tanlov `openAddresses` ichida shundan keyin qo'yiladi
     setAddressIntent(null)
@@ -371,9 +376,13 @@ export function useShopStore() {
     hapticFeedback('light')
   }, [])
 
-  /** Bosh sahifadagi kategoriya bosilganda katalogni filtrlab ochamiz. */
-  const openCategory = useCallback((category: string) => {
+  /**
+   * Katalogni kategoriya bo'yicha ochadi. Bo'sh kategoriya — «Barchasi».
+   * `sectionId` berilsa, katalog o'sha bo'limga surib boriladi.
+   */
+  const openCategory = useCallback((category: string, sectionId: string | null = null) => {
     setCatalogCategory(category)
+    setCatalogSection(sectionId)
     setPage((current) => {
       setHistory(() => (current === 'catalog' ? [] : []))
       return 'catalog'
@@ -580,7 +589,7 @@ export function useShopStore() {
     isSearchOpen, isCartOpen, query, searchResults, toast, cartPrompt,
     myOrders, ordersReady, checkoutDone, isSubmitting, authReady, isAuthenticated, orderForm, userProfile,
     notifications, unreadNotificationsCount,
-    catalogCategory, openCategory,
+    catalogCategory, catalogSection, openCategory,
     theme, setTheme, toggleTheme,
     navigate, goBack, openProduct, toggleLike,
     askAddress, dismissAddressPrompt, openAddresses, addressIntent,

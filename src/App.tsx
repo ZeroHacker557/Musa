@@ -151,6 +151,7 @@ function App() {
         {/* Ochilish reklamasi — admin panel → «Reklama banneri» */}
         <SplashAd
           products={shop.products}
+          sections={shop.sections}
           onOpenCategory={shop.openCategory}
           onOpenProduct={shop.openProduct}
           onVisibleChange={setAdVisible}
@@ -177,12 +178,13 @@ function App() {
           {shop.page === 'catalog' && (
             <div className="page-animate">
               <CatalogPage
-                key={shop.catalogCategory ?? 'all'}
+                key={`${shop.catalogCategory ?? 'all'}:${shop.catalogSection ?? ''}`}
                 products={shop.products}
                 categories={shop.categories}
                 sections={shop.sections}
                 loading={shop.loading}
                 initialCategory={shop.catalogCategory}
+                initialSection={shop.catalogSection}
                 {...productActions}
                 onSearch={() => shop.setSearchOpen(true)}
                 onFavorites={() => shop.navigate('favorites')}

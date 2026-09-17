@@ -46,6 +46,11 @@ function readLink(raw: unknown, slideNo: number) {
     if (!category) throw new Error(`${slideNo}-slayd: kategoriyani tanlang`)
     return { kind, category: category.slice(0, 120) }
   }
+  if (kind === 'section') {
+    const sectionId = text(data.sectionId)
+    if (!sectionId) throw new Error(`${slideNo}-slayd: bo‘limni tanlang`)
+    return { kind, sectionId: sectionId.slice(0, 64) }
+  }
   if (kind === 'product') {
     const productId = text(data.productId)
     if (!productId) throw new Error(`${slideNo}-slayd: mahsulotni tanlang`)

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Grid2X2, Package } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { ProductCard } from '../components/product/ProductCard'
@@ -21,6 +21,8 @@ type Props = ProductActions & {
   loading: boolean
   /** Bosh sahifadan kelgan kategoriya filtri. */
   initialCategory?: string | null
+  /** Ochilganda shu bo'limga surib boriladi (reklama tugmasidan). */
+  initialSection?: string | null
   onSearch: () => void
   /** Tepadagi yurak — savat pastdagi menyuga ko'chgan. */
   onFavorites: () => void
@@ -28,7 +30,7 @@ type Props = ProductActions & {
 }
 
 export function CatalogPage({
-  products, categories, sections, loading, initialCategory,
+  products, categories, sections, loading, initialCategory, initialSection,
   onSearch, onFavorites, onBack, ...actions
 }: Props) {
   const t = useT()
@@ -67,6 +69,23 @@ export function CatalogPage({
     [shown, sections, active, ALL],
   )
   const hasSections = Boolean(groups?.some((group) => group.section))
+
+  /*
+   * Kerakli bo'limga surish — bir marta, mahsulotlar chizilgach.
+   * Kichik kechikish: sahifaning paydo bo'lish animatsiyasi va katalog
+   * ochilgandagi «tepaga» surilishi tugasin, aks holda ular bir-birini bosadi.
+   */
+  const scrolledToSection = useRef(false)
+  useEffect(() => {
+    if (!initialSection || scrolledToSection.current || loading || !hasSections) return
+    const timer = window.setTimeout(() => {
+      const target = document.getElementById(`catalog-section-${initialSection}`)
+      if (!target) return
+      scrolledToSection.current = true
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [initialSection, loading, hasSections, groups])
 
   return (
     <>
@@ -111,7 +130,11 @@ export function CatalogPage({
         ) : shown.length > 0 ? (
           hasSections && groups ? (
             groups.map((group) => (
-              <div key={group.section?.id ?? 'rest'} className="catalog-group">
+              <div
+                key={group.section?.id ?? 'rest'}
+                id={group.section ? `catalog-section-${group.section.id}` : undefined}
+                className="catalog-group"
+              >
                 <h2 className="catalog-group__title">
                   <span className="catalog-group__name">
                     {group.section ? group.section.name : t('catalog.otherProducts')}

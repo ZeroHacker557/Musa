@@ -1,14 +1,14 @@
 import {
-  ArrowDown, ArrowUp, Clapperboard, ImagePlus, Link2, Loader2, Package, Save, Tag, Trash2, Video,
+  ArrowDown, ArrowUp, Clapperboard, ImagePlus, Layers, Link2, Loader2, Package, Save, Tag, Trash2, Video,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { apiPost } from '../lib/api'
-import { useCategories, useProducts, useSplashAd } from '../lib/live'
+import { useCategories, useProducts, useSections, useSplashAd } from '../lib/live'
 import { uploadAdMedia } from '../lib/storage'
 import { useToast } from '../components/Toast'
 import { SplashAdView } from '../../components/promo/SplashAdView'
 import {
-  AD_LIMITS, isSafeUrl, type AdFrequency, type AdLink, type AdSlide, type SplashAd,
+  AD_LIMITS, ALL_CATEGORIES, isSafeUrl, type AdFrequency, type AdLink, type AdSlide, type SplashAd,
 } from '../../utils/splash-ad'
 
 type LinkKind = AdLink['kind']
@@ -23,6 +23,7 @@ type SlideDraft = {
   linkKind: LinkKind
   linkUrl: string
   category: string
+  sectionId: string
   productId: string
 }
 
@@ -36,6 +37,7 @@ const FREQUENCIES: { key: AdFrequency; label: string; hint: string }[] = [
 
 const LINK_KINDS: { key: LinkKind; label: string; icon: typeof Link2 }[] = [
   { key: 'category', label: 'Kategoriya', icon: Tag },
+  { key: 'section', label: 'Bo‘lim', icon: Layers },
   { key: 'product', label: 'Mahsulot', icon: Package },
   { key: 'url', label: 'Havola', icon: Link2 },
 ]
@@ -58,6 +60,7 @@ function toDraft(ad: SplashAd): Draft {
       linkKind: s.button?.link.kind ?? 'category',
       linkUrl: s.button?.link.kind === 'url' ? s.button.link.url : '',
       category: s.button?.link.kind === 'category' ? s.button.link.category : '',
+      sectionId: s.button?.link.kind === 'section' ? s.button.link.sectionId : '',
       productId: s.button?.link.kind === 'product' ? s.button.link.productId : '',
     })),
   }
@@ -66,6 +69,7 @@ function toDraft(ad: SplashAd): Draft {
 function linkOf(s: SlideDraft): AdLink {
   if (s.linkKind === 'url') return { kind: 'url', url: s.linkUrl.trim() }
   if (s.linkKind === 'product') return { kind: 'product', productId: s.productId }
+  if (s.linkKind === 'section') return { kind: 'section', sectionId: s.sectionId }
   return { kind: 'category', category: s.category }
 }
 
@@ -75,6 +79,7 @@ function problemOf(s: SlideDraft, no: number): string | null {
   if (s.linkKind === 'url' && !isSafeUrl(s.linkUrl.trim())) return `${no}-slayd: havola https:// bilan boshlansin`
   if (s.linkKind === 'category' && !s.category) return `${no}-slayd: tugma uchun kategoriyani tanlang`
   if (s.linkKind === 'product' && !s.productId) return `${no}-slayd: tugma uchun mahsulotni tanlang`
+  if (s.linkKind === 'section' && !s.sectionId) return `${no}-slayd: tugma uchun bo‘limni tanlang`
   return null
 }
 
@@ -88,6 +93,7 @@ function problemOf(s: SlideDraft, no: number): string | null {
 export function AdsPage() {
   const { ad, loading, error } = useSplashAd()
   const { categories } = useCategories()
+  const { sections } = useSections()
   const { products } = useProducts()
   const { show, node: toast } = useToast()
 
@@ -177,6 +183,7 @@ export function AdsPage() {
           linkKind: 'category',
           linkUrl: '',
           category: '',
+          sectionId: '',
           productId: '',
         }
         // Har fayl yuklanishi bilan qo'shiladi — keyingisi xato bersa ham
@@ -392,7 +399,22 @@ export function AdsPage() {
                         {slide.linkKind === 'category' && (
                           <select className="adm-input" value={slide.category} onChange={(e) => setSlide(i, { category: e.target.value })}>
                             <option value="">Kategoriyani tanlang…</option>
+                            <option value={ALL_CATEGORIES}>Barchasi — butun katalog</option>
                             {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          </select>
+                        )}
+                        {slide.linkKind === 'section' && (
+                          <select className="adm-input" value={slide.sectionId} onChange={(e) => setSlide(i, { sectionId: e.target.value })}>
+                            <option value="">Bo‘limni tanlang…</option>
+                            {/* Kategoriya bo'yicha guruhlangan — bir xil nomli bo'limlar adashmasin */}
+                            {categories.map((c) => {
+                              const list = sections.filter((s) => s.category === c.name)
+                              return list.length ? (
+                                <optgroup key={c.id} label={c.name}>
+                                  {list.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </optgroup>
+                              ) : null
+                            })}
                           </select>
                         )}
                         {slide.linkKind === 'product' && (
@@ -413,7 +435,9 @@ export function AdsPage() {
                         <p className="text-xs" style={{ color: 'var(--faint)' }}>
                           {slide.linkKind === 'url'
                             ? 'Telegram havolasi Telegram ichida, boshqasi brauzerda ochiladi.'
-                            : 'Tugma bosilganda reklama yopilib, ilovaning o‘zida ochiladi.'}
+                            : slide.linkKind === 'section'
+                              ? 'Tugma bosilganda katalog shu bo‘lim turgan kategoriyada ochilib, bo‘limga o‘tadi.'
+                              : 'Tugma bosilganda reklama yopilib, ilovaning o‘zida ochiladi.'}
                         </p>
                       </div>
                     )}

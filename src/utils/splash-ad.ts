@@ -11,8 +11,17 @@
 
 export type AdLink =
   | { kind: 'url'; url: string }
+  /** `category` = ALL_CATEGORIES — butun katalog («Barchasi»). */
   | { kind: 'category'; category: string }
+  /** Bo'lim — katalog o'sha bo'lim turgan kategoriyada ochilib, bo'limga suriladi. */
+  | { kind: 'section'; sectionId: string }
   | { kind: 'product'; productId: string }
+
+/**
+ * «Barchasi» — butun katalog. Tarjima («Barchasi»/«Все») emas, belgi
+ * saqlanadi: reklama qaysi tilda ochilsa ham bir xil ishlashi uchun.
+ */
+export const ALL_CATEGORIES = '*'
 
 export type AdSlide = {
   id: string
@@ -68,6 +77,7 @@ function readLink(raw: unknown): AdLink | null {
   const kind = str(data.kind)
   if (kind === 'url' && isSafeUrl(str(data.url))) return { kind, url: str(data.url) }
   if (kind === 'category' && str(data.category)) return { kind, category: str(data.category) }
+  if (kind === 'section' && str(data.sectionId)) return { kind, sectionId: str(data.sectionId) }
   if (kind === 'product' && str(data.productId)) return { kind, productId: str(data.productId) }
   return null
 }
