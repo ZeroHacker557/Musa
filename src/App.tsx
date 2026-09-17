@@ -128,8 +128,9 @@ function App() {
         <Toast message={shop.toast} onClose={shop.clearToast} />
 
         {/* Savatga qo'shilgach — «Rasmiylashtirasizmi?» so'rovi.
-            Savat ochiq bo'lsa ko'rsatilmaydi: u yerda tugma allaqachon bor. */}
-        {shop.cartPrompt && !shop.isCartOpen && (
+            Savat ochiq bo'lsa yoki mijoz allaqachon rasmiylashtirayotgan
+            bo'lsa ko'rsatilmaydi. */}
+        {shop.cartPrompt && !shop.isCartOpen && shop.page !== 'checkout' && (
           <CartPrompt
             key={shop.cartPrompt}
             productName={shop.cartPrompt}

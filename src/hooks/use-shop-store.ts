@@ -495,12 +495,27 @@ export function useShopStore() {
     hapticFeedback('light')
   }, [])
 
-  const openCart = useCallback(() => setCartOpen(true), [])
+  /**
+   * «Rasmiylashtirasizmi?» taklifini yopish.
+   *
+   * useCallback SHART: CartPrompt 5 soniyalik o'zi-yopilish taymerini shu
+   * funksiyaga bog'laydi. Har renderda yangi funksiya bo'lsa, taymer har
+   * safar boshidan boshlanib, taklif ekranda uzoq qolib ketardi.
+   */
+  const dismissCartPrompt = useCallback(() => setCartPrompt(null), [])
+
+  // Savat ochildi — unda o'z «Buyurtma berish» tugmasi bor, taklif endi ortiqcha
+  const openCart = useCallback(() => {
+    setCartOpen(true)
+    setCartPrompt(null)
+  }, [])
   const closeCart = useCallback(() => setCartOpen(false), [])
 
   const goToCheckout = useCallback(() => {
     track('checkout_start')
     setCartOpen(false)
+    // Rasmiylashtirishga o'tildi — taklif vazifasini bajardi, buyurtma sahifasida qolmasin
+    setCartPrompt(null)
     setPage((current) => {
       setHistory((h) => [...h.slice(-19), current])
       return 'checkout'
@@ -609,6 +624,6 @@ export function useShopStore() {
     openCart, closeCart, goToCheckout,
     updateOrderForm, submitOrder,
     notify, clearToast,
-    dismissCartPrompt: () => setCartPrompt(null),
+    dismissCartPrompt,
   }
 }
