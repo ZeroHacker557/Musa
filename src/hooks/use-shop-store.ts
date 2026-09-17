@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { withMainLines } from '../config/categories'
-import { subscribeToCategories, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead } from '../lib/firebase'
+import { subscribeToCategories, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead, markOrderNotificationsAsRead } from '../lib/firebase'
 import { ensureSignedIn, onAuthChanged, auth } from '../lib/auth'
 import { apiPost, ApiError } from '../lib/api'
 import { track } from '../lib/track'
 import { searchProducts } from '../utils/search'
+import { countUnseenOrders } from '../utils/notifications'
 import { bestPromotion, isRunning, promoPrice, type Promotion } from '../utils/promotions'
 import { useI18n } from '../i18n'
 import type { AppPage, Category, Order, OrderForm, Product, Section, UserProfile, Notification } from '../types/domain'
@@ -181,6 +182,9 @@ export function useShopStore() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
 
+  // «Buyurtmalar» nishoni — holati o'zgargan, hali ko'rilmagan buyurtmalar
+  const unseenOrdersCount = useMemo(() => countUnseenOrders(notifications), [notifications])
+
   // Ochiq ma'lumot: katalog. Auth kutilmaydi — Rules'da o'qish ochiq.
   useEffect(() => {
     initTelegram()
@@ -271,6 +275,13 @@ export function useShopStore() {
       stopAll()
     }
   }, [])
+
+  // «Buyurtmalar» ochiq — yangilanishlar ko'rildi. Mijoz shu bo'limda turganda
+  // kelgan yangi holat ham darhol ko'rilgan hisoblanadi: nishon chiqib o'tirmaydi.
+  useEffect(() => {
+    const uid = auth.currentUser?.uid
+    if (page === 'orders' && unseenOrdersCount > 0 && uid) void markOrderNotificationsAsRead(Number(uid))
+  }, [page, unseenOrdersCount])
 
   // Savat har o'zgarganda saqlanadi (F-14)
   useEffect(() => {
@@ -588,7 +599,7 @@ export function useShopStore() {
     likedIds, selectedProduct,
     isSearchOpen, isCartOpen, query, searchResults, toast, cartPrompt,
     myOrders, ordersReady, checkoutDone, isSubmitting, authReady, isAuthenticated, orderForm, userProfile,
-    notifications, unreadNotificationsCount,
+    notifications, unreadNotificationsCount, unseenOrdersCount,
     catalogCategory, catalogSection, openCategory,
     theme, setTheme, toggleTheme,
     navigate, goBack, openProduct, toggleLike,

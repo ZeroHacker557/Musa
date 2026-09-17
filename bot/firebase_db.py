@@ -574,17 +574,20 @@ def complete_order_by_courier(order_id: str, uid: str, name: str):
 
 # ─── Notifications ────────────────────────────────────────────
 
-def send_notification(user_id: int, title: str, body: str, type: str = 'system'):
-    doc_ref = db.collection("notifications").document()
-    doc_ref.set({
+def send_notification(user_id: int, title: str, body: str, type: str = 'system', order_id: str | None = None):
+    data = {
         "userId": user_id,
         "title": title,
         "body": body,
         # ISO 8601 — mini app shu bo'yicha saralaydi (F-10)
         "date": datetime.now(timezone.utc).isoformat(),
         "read": False,
-        "type": type
-    })
+        "type": type,
+    }
+    if order_id:
+        # Mini app «Buyurtmalar» nishonida bitta buyurtmani bir marta sanaydi
+        data["orderId"] = str(order_id)
+    db.collection("notifications").document().set(data)
 
 
 # ─── Payment settings ─────────────────────────────────────────

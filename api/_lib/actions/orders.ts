@@ -218,6 +218,9 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
       date: now,
       read: false,
       type: 'order',
+      // Ilova «Buyurtmalar» nishonida bitta buyurtmaning bir necha holatini
+      // bir marta sanaydi (src/hooks/use-shop-store.ts)
+      orderId,
     })
     const result = await sendMessage(order.userId, CUSTOMER_TEXT[status](escapeHtml(label)))
     notified = result.ok

@@ -185,6 +185,8 @@ export type Notification = {
   date: string
   read: boolean
   type: 'order' | 'system' | 'promo'
+  /** Buyurtma bildirishnomasida — qaysi buyurtma (eski yozuvlarda yo'q). */
+  orderId?: string
 }
 
 export type PromoCode = {

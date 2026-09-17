@@ -313,6 +313,7 @@ function App() {
             onOpenCart={shop.openCart}
             cartOpen={shop.isCartOpen}
             cartCount={shop.cartCount}
+            ordersBadge={shop.unseenOrdersCount}
           />
         )}
       </div>

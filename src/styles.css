@@ -2042,6 +2042,13 @@ a { color: inherit; text-decoration: none; }
   height: 2.9rem;
 }
 
+/* Yangi buyurtma yangilanishi — nishon bir marta «sakraydi», ko'zga tashlansin */
+.nav-badge--pop { animation: navBadgePop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@keyframes navBadgePop {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
 /* ====== Search Overlay ====== */
 .search-overlay {
   position: fixed;

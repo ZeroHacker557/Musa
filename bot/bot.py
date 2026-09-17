@@ -486,7 +486,7 @@ async def cb_courier(callback: CallbackQuery):
             return
 
         await callback.answer("Qabul qilindi — yo'lga chiqing 🛵")
-        await notify_customer_status(order, "Yetkazilmoqda")
+        await notify_customer_status(order, "Yetkazilmoqda", order_id)
         await refresh_dispatch(order_id, order, "taken", taker_chat=callback.message.chat.id,
                                courier_name=name)
         return
@@ -506,7 +506,7 @@ async def cb_courier(callback: CallbackQuery):
             return
 
         await callback.answer("Yetkazildi ✅ Rahmat!")
-        await notify_customer_status(order, "Yetkazildi")
+        await notify_customer_status(order, "Yetkazildi", order_id)
         await ask_rating(order_id, order)
         await refresh_dispatch(order_id, order, "done", courier_name=name)
         return
@@ -599,7 +599,7 @@ async def refresh_dispatch(order_id: str, order: dict, stage: str,
             logger.debug(f"[COURIER] {chat_id}/{message_id} yangilanmadi: {e}")
 
 
-async def notify_customer_status(order: dict, status: str):
+async def notify_customer_status(order: dict, status: str, order_id: str | None = None):
     """Mijozga holat o'zgargani haqida xabar va bildirishnoma."""
     user_id = order.get("userId")
     if not user_id:
@@ -611,7 +611,7 @@ async def notify_customer_status(order: dict, status: str):
         "Yetkazildi": f"🎉 <b>{label}</b> buyurtmangiz yetkazildi. Xaridingiz uchun rahmat!",
     }
     try:
-        db.send_notification(user_id, "Buyurtma holati", f"{label} — {status}", "order")
+        db.send_notification(user_id, "Buyurtma holati", f"{label} — {status}", "order", order_id)
         await bot.send_message(user_id, texts.get(status, f"{label} — {status}"))
     except Exception as e:
         logger.warning(f"[COURIER] Mijozga xabar bormadi: {e}")

@@ -314,6 +314,27 @@ export function subscribeToUserNotifications(userId: number, callback: (notifica
   })
 }
 
+/**
+ * Faqat BUYURTMA bildirishnomalarini o'qilgan qiladi — mijoz «Buyurtmalar»
+ * bo'limini ochganda. Aksiya va tizim xabarlari qo'ng'iroqchada qoladi.
+ */
+export async function markOrderNotificationsAsRead(userId: number) {
+  try {
+    const snapshot = await getDocs(query(
+      collection(db, 'notifications'),
+      where('userId', '==', userId),
+      where('read', '==', false),
+    ))
+    const orderDocs = snapshot.docs.filter((d) => d.data().type === 'order')
+    if (!orderDocs.length) return
+    const batch = writeBatch(db)
+    orderDocs.forEach((docSnap) => batch.update(docSnap.ref, { read: true }))
+    await batch.commit()
+  } catch (e) {
+    console.error('Error marking order notifications as read', e)
+  }
+}
+
 export async function markNotificationsAsRead(userId: number) {
   try {
     const q = query(

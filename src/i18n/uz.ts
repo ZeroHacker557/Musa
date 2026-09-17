@@ -196,6 +196,7 @@ export const uz = {
 
   // ── Buyurtmalar ──
   'orders.title': 'Buyurtmalarim',
+  'orders.updated': '{count} ta buyurtma holati o‘zgardi',
   'orders.details': 'Tafsilotlar',
   'orders.hide': 'Yashirish',
   'orders.itemCount': '{count} dona',
