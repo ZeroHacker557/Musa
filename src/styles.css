@@ -1822,6 +1822,13 @@ a { color: inherit; text-decoration: none; }
   background-size: cover;
   filter: blur(28px) brightness(0.5) saturate(1.2);
 }
+/* Video foni — kichik kanvas, sahnadan 80px kattaroq cho'zilib xiralashadi.
+   Kanvas «almashtiriladigan» element: inset uni cho'zmaydi, o'lcham aniq beriladi. */
+.splash-ad__backdrop--video {
+  width: calc(100% + 80px);
+  height: calc(100% + 80px);
+  filter: blur(22px) brightness(0.55) saturate(1.25);
+}
 .splash-ad__media {
   position: absolute;
   inset: 0;

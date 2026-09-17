@@ -76,6 +76,7 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
   const stageRef = useRef<HTMLDivElement>(null)
   /** Joriy slayd mediasining asl o'lchami — ekran burilsa qayta hisoblash uchun. */
   const mediaSize = useRef<{ width: number; height: number } | null>(null)
+  const videoBackdropRef = useRef<HTMLCanvasElement>(null)
   const elapsed = useRef(0)
   const holdTimer = useRef<number | null>(null)
   const held = useRef(false)
@@ -191,6 +192,52 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
     const timer = window.setTimeout(() => goTo(index + 1), STALL_MS)
     return () => window.clearTimeout(timer)
   }, [ready, slide, index, goTo])
+
+  /*
+   * ── Video uchun xira fon ──
+   * Rasmda bo'sh chetlarni o'sha rasmning xiralashtirilgan nusxasi yopadi.
+   * Videoda buni CSS fon bilan qilib bo'lmaydi, ikkinchi video esa telefonni
+   * ikki baravar yuklaydi. Shuning uchun joriy kadr kichkina kanvasga
+   * (~48px) soniyasiga ~12 marta chiziladi va CSS bilan kattalashtirib
+   * xiralashtiriladi — fon video bilan birga «jonli» o'zgaradi.
+   * Begona manzildagi video kanvasni «bulg'aydi», lekin biz undan piksel
+   * o'qimaymiz, faqat ko'rsatamiz — bunga brauzer ruxsat beradi.
+   */
+  useEffect(() => {
+    if (slide?.type !== 'video' || fit !== 'contain') return
+    const canvas = videoBackdropRef.current
+    const stage = stageRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !stage || !ctx) return
+
+    // Kanvas nisbati sahna nisbatiga teng — cho'zilib ketmasin
+    canvas.width = 48
+    canvas.height = Math.max(1, Math.round(48 * (stage.clientHeight + 80) / Math.max(1, stage.clientWidth + 80)))
+
+    let frame = 0
+    let last = 0
+    let drawn = false
+    const draw = (now: number) => {
+      frame = requestAnimationFrame(draw)
+      if (now - last < 80) return
+      last = now
+      const video = videoRef.current
+      if (!video || video.readyState < 2 || !video.videoWidth) return
+      // Pauzada kadr o'zgarmaydi — qayta chizish shart emas
+      if (video.paused && drawn) return
+      const scale = Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight)
+      const sw = canvas.width / scale
+      const sh = canvas.height / scale
+      try {
+        ctx.drawImage(video, (video.videoWidth - sw) / 2, (video.videoHeight - sh) / 2, sw, sh, 0, 0, canvas.width, canvas.height)
+        drawn = true
+      } catch {
+        // Ba'zi eski WebView'lar videoni kanvasga chiza olmaydi — fon qora qoladi, video ishlayveradi
+      }
+    }
+    frame = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(frame)
+  }, [slide, fit])
 
   /* ── Keyingi rasmni oldindan yuklab qo'yamiz — o'tishda kutish bo'lmasin ── */
   useEffect(() => {
@@ -340,27 +387,32 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
             />
           </>
         ) : (
-          <video
-            key={slide.id}
-            ref={(el) => {
-              videoRef.current = el
-              // iOS ovozsiz ijroni `muted` ATRIBUTI bo'yicha ham tekshiradi, React
-              // esa faqat xususiyatni qo'yadi (facebook/react#10389) — atributni
-              // joriy holatga moslab qo'yamiz.
-              // Faqat o'zgarganda: bu funksiya har kadrda chaqiriladi
-              if (el && el.defaultMuted !== muted) el.defaultMuted = muted
-            }}
-            className={'splash-ad__media is-' + fit + (ready ? ' is-ready' : '')}
-            src={slide.url}
-            muted={muted}
-            playsInline
-            preload="auto"
-            disablePictureInPicture
-            onLoadedMetadata={(e) => onMediaSize(e.currentTarget.videoWidth, e.currentTarget.videoHeight)}
-            onCanPlay={() => setReady(true)}
-            onEnded={() => goTo(index + 1)}
-            onError={() => goTo(index + 1)}
-          />
+          <>
+            {fit === 'contain' && (
+              <canvas key={`bg-${slide.id}`} ref={videoBackdropRef} className="splash-ad__backdrop splash-ad__backdrop--video" aria-hidden="true" />
+            )}
+            <video
+              key={slide.id}
+              ref={(el) => {
+                videoRef.current = el
+                // iOS ovozsiz ijroni `muted` ATRIBUTI bo'yicha ham tekshiradi, React
+                // esa faqat xususiyatni qo'yadi (facebook/react#10389) — atributni
+                // joriy holatga moslab qo'yamiz.
+                // Faqat o'zgarganda: bu funksiya har kadrda chaqiriladi
+                if (el && el.defaultMuted !== muted) el.defaultMuted = muted
+              }}
+              className={'splash-ad__media is-' + fit + (ready ? ' is-ready' : '')}
+              src={slide.url}
+              muted={muted}
+              playsInline
+              preload="auto"
+              disablePictureInPicture
+              onLoadedMetadata={(e) => onMediaSize(e.currentTarget.videoWidth, e.currentTarget.videoHeight)}
+              onCanPlay={() => setReady(true)}
+              onEnded={() => goTo(index + 1)}
+              onError={() => goTo(index + 1)}
+            />
+          </>
         )}
 
         <div className="splash-ad__shade" aria-hidden="true" />
