@@ -50,16 +50,24 @@ const MAX_CROP = 0.08
  *   • pastda havola tugmasi (slaydda bo'lsa) va «O'tkazib yuborish».
  *
  * Rasm belgilangan soniya turadi, video o'z uzunligicha (eng ko'pi
- * 30 soniya) va ovozsiz boshlanadi — brauzerlar ovozli avto-ijroni
- * bloklaydi. Yuklanmagan slayd jim o'tkazib yuboriladi: reklama
- * hech qachon mijozni do'kondan to'sib qolmasligi kerak.
+ * 30 soniya) va OVOZ BILAN boshlanadi. Telegram/brauzer mijoz ekranga
+ * tegmaguncha ovozli avto-ijroga ruxsat bermasa — video ovozsiz o'ynaydi
+ * va «Ovozni yoqish» tugmasi ko'zga tashlanadigan ko'rinishda chiqadi.
+ * Yuklanmagan slayd jim o'tkazib yuboriladi: reklama hech qachon mijozni
+ * do'kondan to'sib qolmasligi kerak.
  */
 export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onClose, onAction, onTap }: Props) {
   const slides = ad.slides
   const [index, setIndex] = useState(() => Math.min(startIndex, Math.max(0, slides.length - 1)))
   const [ready, setReady] = useState(false)
   const [paused, setPaused] = useState(false)
-  const [muted, setMuted] = useState(true)
+  // Mijozga — ovoz bilan. Admin paneldagi ko'rinishda ovozsiz: tahrirlash
+  // paytida video qayta-qayta baqirib turmasin (tugma bilan yoqsa bo'ladi).
+  const [muted, setMuted] = useState(preview)
+  /** Ovozni brauzer o'chirdi (mijoz emas) — tugma matn bilan ko'rsatiladi. */
+  const [autoMuted, setAutoMuted] = useState(false)
+  /** Mijoz o'zi ovozni o'chirgan — keyingi videolar ham ovozsiz boshlansin. */
+  const userMuted = useRef(false)
   const [progress, setProgress] = useState(0)
   const [fit, setFit] = useState<'cover' | 'contain'>('cover')
   const [leaving, setLeaving] = useState(false)
@@ -99,6 +107,10 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
       return
     }
     setReady(false)
+    // Har yangi videoda ovoz bilan qayta urinamiz: mijoz ekranga bir marta
+    // tekkan bo'lsa, brauzer endi ovozli ijroga ruxsat beradi
+    setMuted(preview || userMuted.current)
+    setAutoMuted(false)
     setIndex(next)
   }, [slides.length, preview, close, index])
 
@@ -132,18 +144,46 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
     return () => cancelAnimationFrame(frame)
   }, [slide, ready, paused, leaving, index, goTo])
 
-  /* ── Video pauza/davom ── */
+  /* ── Video: ijro va pauza ──
+     play() `ready` ni KUTMAY chaqiriladi: iOS ijro so'ralmaguncha videoni
+     yuklamaydi, ovozli videoda esa `autoPlay` atributi ishlamaydi.
+     Video tayyor bo'lganda (`ready`) yana bir marta chaqiriladi: yuklanish
+     paytida uzilib qolgan so'rov (AbortError) shu bilan tiklanadi, allaqachon
+     o'ynayotgan videoga esa hech narsa qilmaydi. */
   useEffect(() => {
     const video = videoRef.current
     if (!video || slide?.type !== 'video') return
-    if (paused || !ready || leaving) video.pause()
-    else void video.play().catch((error: unknown) => {
-      // Faqat avto-ijro RAD ETILSA keyingi slaydga o'tamiz (kam uchraydi —
-      // ovozsiz video odatda o'ynaydi). AbortError — shunchaki pauza
-      // play() ni to'xtatgani (bosib turish), bu xato emas.
-      if ((error as { name?: string } | null)?.name === 'NotAllowedError') goTo(index + 1)
+    if (paused || leaving) {
+      video.pause()
+      return
+    }
+    const notAllowed = (error: unknown) => (error as { name?: string } | null)?.name === 'NotAllowedError'
+    void video.play().catch((error: unknown) => {
+      // AbortError — shunchaki pauza play() ni to'xtatgani (bosib turish), xato emas
+      if (!notAllowed(error)) return
+      if (video.muted) return goTo(index + 1)
+      // Ovozli avto-ijroga ruxsat yo'q (mijoz hali ekranga tegmagan) —
+      // ovozsiz o'ynaymiz, ovozni yoqish tugmasini ko'rsatamiz
+      video.muted = true
+      setMuted(true)
+      setAutoMuted(true)
+      void video.play().catch((again: unknown) => {
+        if (notAllowed(again)) goTo(index + 1)
+      })
     })
-  }, [paused, ready, leaving, slide, index, goTo])
+  }, [paused, leaving, ready, slide, index, goTo])
+
+  const toggleSound = () => {
+    const next = !muted
+    userMuted.current = next
+    setMuted(next)
+    setAutoMuted(false)
+    const video = videoRef.current
+    if (!video) return
+    // Bosish — foydalanuvchi harakati: endi brauzer ovozga ruxsat beradi
+    video.muted = next
+    if (!next && video.paused && !paused) void video.play().catch(() => {})
+  }
 
   /* ── Yuklanmay qolgan slayd ── */
   useEffect(() => {
@@ -304,18 +344,15 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
             key={slide.id}
             ref={(el) => {
               videoRef.current = el
-              // iOS ovozsiz avto-ijroga `muted` ATRIBUTI bo'lsagina ruxsat beradi,
-              // React esa faqat xususiyatni qo'yadi (facebook/react#10389).
-              // Atribut faqat boshlang'ich holat — ovoz tugmasiga xalaqit bermaydi.
-              if (el) el.defaultMuted = true
+              // iOS ovozsiz ijroni `muted` ATRIBUTI bo'yicha ham tekshiradi, React
+              // esa faqat xususiyatni qo'yadi (facebook/react#10389) — atributni
+              // joriy holatga moslab qo'yamiz.
+              // Faqat o'zgarganda: bu funksiya har kadrda chaqiriladi
+              if (el && el.defaultMuted !== muted) el.defaultMuted = muted
             }}
             className={'splash-ad__media is-' + fit + (ready ? ' is-ready' : '')}
             src={slide.url}
             muted={muted}
-            // autoPlay ATAYLAB: iOS `preload` ni e'tiborsiz qoldiradi va
-            // ijro so'ralmaguncha videoni yuklamaydi — slayd «yuklanmadi»
-            // deb o'tib ketardi. Ovozsiz + inline bo'lgani uchun ruxsat bor.
-            autoPlay
             playsInline
             preload="auto"
             disablePictureInPicture
@@ -346,11 +383,14 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
 
       {slide.type === 'video' && (
         <button
-          className="splash-ad__round"
-          onClick={() => setMuted((m) => !m)}
+          // Ovozni brauzer o'chirgan bo'lsa — matnli, yaqqol tugma: mijoz video
+          // ovozsiz ekanini va bir bosishda yoqish mumkinligini ko'rsin
+          className={'splash-ad__round' + (autoMuted ? ' splash-ad__round--hint' : '')}
+          onClick={toggleSound}
           aria-label={muted ? labels.unmute : labels.mute}
         >
           {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          {autoMuted && <span>{labels.unmute}</span>}
         </button>
       )}
 
