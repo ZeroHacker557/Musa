@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { withMainLines } from '../config/categories'
 import { subscribeToCategories, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead, markOrderNotificationsAsRead } from '../lib/firebase'
 import { ensureSignedIn, onAuthChanged, auth } from '../lib/auth'
@@ -179,6 +179,8 @@ export function useShopStore() {
    * «boshqa joy» tanlovi shu yerda saqlanadi.
    */
   const [addressIntent, setAddressIntent] = useState<'here' | 'other' | null>(null)
+  /** Manzillar sahifasi shu manzilni darhol tahrirga ochadi (rasmiylashtirishdan). */
+  const [editAddressId, setEditAddressId] = useState<string | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
 
@@ -336,6 +338,36 @@ export function useShopStore() {
     try { localStorage.setItem(ADDRESS_ASK_KEY, '1') } catch { /* xotira yopiq */ }
   }, [])
 
+  /*
+   * ── Sahifa qayerdan boshlanadi ──
+   *
+   * Brauzer sahifa almashganda surilish joyini SAQLAB qoladi. Shuning uchun
+   * katalogni pastga surib mahsulot ochilganda, mahsulot sahifasi ham o'sha
+   * balandlikdan ochilardi: rasm tepada qolib, mijoz uni ko'rish uchun
+   * yuqoriga surishga majbur bo'lardi.
+   *
+   * Endi yangi sahifa doim tepadan boshlanadi, «orqaga» bilan qaytilganda
+   * esa ro'yxat mijoz qolgan joyidan ochiladi. `behavior: 'instant'` —
+   * silliq surilish yarim yo'lda uzilib qolardi (sahifa allaqachon
+   * almashgan bo'lardi), bu yerda esa sakrash ko'rinmaydi.
+   */
+  const scrollMemory = useRef<Record<string, number>>({})
+  const restoreScroll = useRef<number | null>(null)
+
+  const rememberScroll = useCallback((from: AppPage) => {
+    scrollMemory.current[from] = window.scrollY
+  }, [])
+
+  useLayoutEffect(() => {
+    const target = restoreScroll.current ?? 0
+    restoreScroll.current = null
+    // Yangi sahifa chizilib bo'lgach — aks holda sahifa hali past bo'ladi
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo({ top: target, behavior: 'instant' as ScrollBehavior })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [page, selectedProduct?.id])
+
   const navigate = useCallback((nextPage: AppPage) => {
     const uid = auth.currentUser?.uid
     if (nextPage === 'notifications' && uid) {
@@ -360,15 +392,25 @@ export function useShopStore() {
     // Manzil sahifasiga odatdagicha kirilsa ro'yxat ochiladi; taklifdan
     // kelingan tanlov `openAddresses` ichida shundan keyin qo'yiladi
     setAddressIntent(null)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
+    setEditAddressId(null)
+    rememberScroll(page)
+  }, [page, rememberScroll])
 
-  /** Manzil sahifasini kerakli ko'rinishda ochadi (taklifdan). */
-  const openAddresses = useCallback((intent: 'here' | 'other' | null = null) => {
-    navigate('addresses')
-    // navigate tanlovni tozalaydi — shuning uchun keyin qo'yiladi
-    setAddressIntent(intent)
-  }, [navigate])
+  /**
+   * Manzil sahifasini kerakli ko'rinishda ochadi.
+   *
+   * `intent` — bosh sahifadagi takliftan; `addressId` berilsa o'sha manzil
+   * darhol TAHRIR holatida ochiladi (rasmiylashtirishdagi manzil bosilganda).
+   */
+  const openAddresses = useCallback(
+    (intent: 'here' | 'other' | null = null, addressId: string | null = null) => {
+      navigate('addresses')
+      // navigate tanlovni tozalaydi — shuning uchun keyin qo'yiladi
+      setAddressIntent(intent)
+      setEditAddressId(addressId)
+    },
+    [navigate],
+  )
 
   const setTheme = useCallback((mode: ThemeMode) => {
     setThemeState(mode)
@@ -400,9 +442,9 @@ export function useShopStore() {
     })
     setCartOpen(false)
     setSearchOpen(false)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    rememberScroll(page)
     hapticFeedback('light')
-  }, [])
+  }, [page, rememberScroll])
 
   /**
    * Orqaga: avval ochiq oyna yopiladi, keyin sahifa tarixi.
@@ -421,17 +463,19 @@ export function useShopStore() {
       setCartOpen(false)
       return
     }
+    scrollMemory.current[page] = window.scrollY
     setHistory((h) => {
+      // Qaytilgan sahifa mijoz qolgan joyidan ochiladi
+      const target = h.length === 0 ? 'home' : h[h.length - 1]
+      restoreScroll.current = scrollMemory.current[target] ?? 0
       if (h.length === 0) {
         setPage((current) => (current === 'home' ? current : 'home'))
-        window.scrollTo({ top: 0 })
         return h
       }
-      setPage(h[h.length - 1])
-      window.scrollTo({ top: 0 })
+      setPage(target)
       return h.slice(0, -1)
     })
-  }, [isSearchOpen, isCartOpen])
+  }, [isSearchOpen, isCartOpen, page])
 
   const openProduct = useCallback((product: Product) => {
     setSelectedProduct(product)
@@ -440,9 +484,10 @@ export function useShopStore() {
       setHistory((h) => [...h.slice(-19), current])
       return 'detail'
     })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    // Katalogdagi joy eslab qolinadi, mahsulot esa rasmdan — tepadan — ochiladi
+    rememberScroll(page)
     hapticFeedback('light')
-  }, [])
+  }, [page, rememberScroll])
 
   const toggleLike = useCallback((id: number) => {
     setLikedIds((current) => {
@@ -485,6 +530,34 @@ export function useShopStore() {
     track('cart_add', product.id)
   }, [])
 
+  /**
+   * Kartochkadagi «−/+» ishlaydigan savat kaliti.
+   *
+   * Kartochkada o'lcham tanlanmaydi, shuning uchun `addToCart` bilan
+   * BIR XIL kalit: birinchi o'lcham va asosiy tur. Aks holda «+» boshqa
+   * qatorga tushib, kartochkada son o'zgarmay qolardi.
+   */
+  const defaultCartKey = (product: Product) =>
+    `${product.id}_${product.sizes?.[0] || 'nosize'}_${product.color || 'nocolor'}`
+
+  const cartQtyOf = useCallback(
+    (product: Product) => cartItems[defaultCartKey(product)]?.quantity ?? 0,
+    [cartItems],
+  )
+
+  /** Kartochkadan sonni o'zgartirish. 0 ga tushsa mahsulot savatdan chiqadi. */
+  const changeCartQty = useCallback((product: Product, delta: number) => {
+    const key = defaultCartKey(product)
+    setCartItems((current) => {
+      const quantity = (current[key]?.quantity ?? 0) + delta
+      const next = { ...current }
+      if (quantity <= 0) delete next[key]
+      else next[key] = { quantity, size: product.sizes?.[0], color: product.color }
+      return next
+    })
+    hapticFeedback('light')
+  }, [])
+
   const updateCartQuantity = useCallback((cartKey: string, nextQuantity: number) => {
     setCartItems((current) => {
       const next = { ...current }
@@ -514,14 +587,14 @@ export function useShopStore() {
   const goToCheckout = useCallback(() => {
     track('checkout_start')
     setCartOpen(false)
+    rememberScroll(page)
     // Rasmiylashtirishga o'tildi — taklif vazifasini bajardi, buyurtma sahifasida qolmasin
     setCartPrompt(null)
     setPage((current) => {
       setHistory((h) => [...h.slice(-19), current])
       return 'checkout'
     })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
+  }, [page, rememberScroll])
 
   const updateOrderForm = useCallback((field: keyof OrderForm, value: unknown) => {
     setOrderForm((prev) => ({ ...prev, [field]: value }))
@@ -618,9 +691,9 @@ export function useShopStore() {
     catalogCategory, catalogSection, openCategory,
     theme, setTheme, toggleTheme,
     navigate, goBack, openProduct, toggleLike,
-    askAddress, dismissAddressPrompt, openAddresses, addressIntent,
+    askAddress, dismissAddressPrompt, openAddresses, addressIntent, editAddressId,
     setSearchOpen, setQuery,
-    addToCart, updateCartQuantity,
+    addToCart, updateCartQuantity, cartQtyOf, changeCartQty,
     openCart, closeCart, goToCheckout,
     updateOrderForm, submitOrder,
     notify, clearToast,

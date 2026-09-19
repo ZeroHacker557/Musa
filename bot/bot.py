@@ -150,8 +150,13 @@ def catalog_kb() -> InlineKeyboardMarkup:
     topolmay qaytib ketardi.
     """
     return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-        text="🥟 Katalog",
+        text="🥟 Katalogni ochish",
         web_app=WebAppInfo(url=MINI_APP_URL),
+        # Tugma foni yashil (Bot API 9.4, `style`: danger/success/primary).
+        # aiogram 3.13 bu maydonni bilmaydi, lekin qo'shimcha maydonlarni
+        # o'tkazib yuboradi — Telegram'ga shundayligicha boradi. Eski
+        # mijozlar uni e'tiborsiz qoldiradi: tugma odatdagi rangda chiqadi.
+        style="success",
     )]])
 
 
@@ -1000,7 +1005,7 @@ async def handle_open_catalog(message: Message):
     text = "🥟 <b>MUSA KATALOGI</b>\n"
     text += "━" * 22 + "\n\n"
     text += "Yarim tayyor mahsulotlar, muzqaymoq va siroklar — hammasi bir joyda.\n\n"
-    text += "👇 <b>Katalog</b> tugmasini bosing, do'kon shu yerning o'zida ochiladi."
+    text += "👇 <b>Katalogni ochish</b> tugmasini bosing — do'kon shu yerning o'zida ochiladi."
 
     await message.answer(text, reply_markup=catalog_kb())
 

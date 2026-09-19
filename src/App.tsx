@@ -55,6 +55,8 @@ function App() {
   const productActions = {
     onOpen: shop.openProduct,
     onAddToCart: shop.addToCart,
+    cartQtyOf: shop.cartQtyOf,
+    onChangeQty: shop.changeCartQty,
     likedIds: shop.likedIds,
     onToggleLike: shop.toggleLike,
   }
@@ -260,6 +262,8 @@ function App() {
               isSubmitting={shop.isSubmitting}
               onBack={shop.goBack}
               onNavigate={shop.navigate}
+              lastUsedAddress={shop.myOrders[0]?.customer?.address}
+              onEditAddress={(addressId) => shop.openAddresses(null, addressId)}
             />
           )}
 
@@ -271,6 +275,7 @@ function App() {
                   onBack={shop.goBack}
                   onNotify={shop.notify}
                   intent={shop.addressIntent}
+                  editId={shop.editAddressId}
                 />
               </Suspense>
             </div>

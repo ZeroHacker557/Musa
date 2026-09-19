@@ -12,6 +12,7 @@ export const ru: Record<TranslationKey, string> = {
   'common.loading': 'Загрузка...',
   'common.retry': 'Повторить',
   'common.close': 'Закрыть',
+  'common.edit': 'Изменить',
   'common.yes': 'Да',
   'common.no': 'Нет',
   'common.next': 'Далее',
@@ -109,6 +110,8 @@ export const ru: Record<TranslationKey, string> = {
 
   // ── Корзина ──
   'cart.title': 'Корзина',
+  'cart.increase': 'Добавить ещё один',
+  'cart.decrease': 'Убрать один',
   'cart.kinds': 'видов товара: {count}',
   'cart.addedShort': 'добавлен в корзину',
   'cart.checkoutAsk': 'Оформить заказ?',
@@ -279,6 +282,8 @@ export const ru: Record<TranslationKey, string> = {
   'address.fullPlaceholder': 'Улица, дом, ориентир',
   'address.pickOnMap': 'Выберите на карте',
   'address.mapHint': 'Нажмите на карту, чтобы отметить адрес',
+  'address.mapFullHint': 'Двигайте карту — выбирается точка под меткой',
+  'address.confirmPoint': 'Выбрать это место',
   'address.empty': 'Адресов нет',
   'address.emptyText': 'Вы ещё не добавили адрес доставки',
   'address.add': 'Добавить адрес',

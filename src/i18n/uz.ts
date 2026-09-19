@@ -17,6 +17,7 @@ export const uz = {
   'common.loading': 'Yuklanmoqda...',
   'common.retry': 'Qayta urinish',
   'common.close': 'Yopish',
+  'common.edit': 'Tahrirlash',
   'common.yes': 'Ha',
   'common.no': 'Yo‘q',
   'common.next': 'Keyingi',
@@ -114,6 +115,8 @@ export const uz = {
 
   // ── Savat ──
   'cart.title': 'Savatcha',
+  'cart.increase': 'Yana bitta qo‘shish',
+  'cart.decrease': 'Bittaga kamaytirish',
   'cart.kinds': '{count} xil mahsulot',
   'cart.addedShort': 'savatga qo‘shildi',
   'cart.checkoutAsk': 'Buyurtmani rasmiylashtirasizmi?',
@@ -286,6 +289,8 @@ export const uz = {
   'address.fullPlaceholder': "Ko'cha, uy raqami, mo'ljal",
   'address.pickOnMap': 'Xaritadan tanlang',
   'address.mapHint': 'Xarita ustiga bosib manzilni belgilang',
+  'address.mapFullHint': 'Xaritani suring — nishon turgan joy tanlanadi',
+  'address.confirmPoint': 'Shu yerni tanlash',
   'address.empty': "Manzillar yo'q",
   'address.emptyText': "Siz hali yetkazib berish manzilini qo'shmagansiz",
   'address.add': "Yangi manzil qo'shish",

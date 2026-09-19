@@ -1,4 +1,4 @@
-import { Heart, ShoppingCart, Star } from 'lucide-react'
+import { Heart, Minus, Plus, ShoppingCart, Star } from 'lucide-react'
 import { useState } from 'react'
 import { formatPrice } from '../../data'
 import { productThumb } from '../../utils/product-image'
@@ -8,13 +8,14 @@ import type { Product, ProductActions } from '../../types/domain'
 
 type Props = ProductActions & { product: Product; compact?: boolean }
 
-export function ProductCard({ product, onOpen, onAddToCart, likedIds, onToggleLike, compact = false }: Props) {
+export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQty, likedIds, onToggleLike, compact = false }: Props) {
   const t = useT()
   const favourite = likedIds.includes(product.id)
   // Kartochkada kichik nusxa: ekranda ~170px, katta faylga hojat yo'q
   const imgSrc = productThumb(product)
   const [imgError, setImgError] = useState(false)
   const soldOut = product.stock === 0
+  const qty = cartQtyOf(product)
 
   return (
     <article className={'product-card group ' + (compact ? 'compact' : '')}>
@@ -62,14 +63,37 @@ export function ProductCard({ product, onOpen, onAddToCart, likedIds, onToggleLi
             <p className="product-card-old-price">{formatPrice(product.oldPrice)}</p>
           )}
         </div>
-        <button
-          className="add-button"
-          disabled={soldOut}
-          onClick={(e) => { e.stopPropagation(); onAddToCart(product) }}
-          aria-label={soldOut ? t('product.soldOut') : t('product.addToCart')}
-        >
-          <ShoppingCart size={18} />
-        </button>
+        {/* Savatga qo'shilgan bo'lsa — shu yerning o'zida «− soni +».
+            Mijoz savatni ochmay turib sonini o'zgartira oladi. */}
+        {qty > 0 ? (
+          <div className="qty-stepper" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onChangeQty(product, -1) }}
+              aria-label={t('cart.decrease')}
+            >
+              <Minus size={16} />
+            </button>
+            <span aria-live="polite">{qty}</span>
+            <button
+              type="button"
+              disabled={soldOut}
+              onClick={(e) => { e.stopPropagation(); onChangeQty(product, 1) }}
+              aria-label={t('cart.increase')}
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+        ) : (
+          <button
+            className="add-button"
+            disabled={soldOut}
+            onClick={(e) => { e.stopPropagation(); onAddToCart(product) }}
+            aria-label={soldOut ? t('product.soldOut') : t('product.addToCart')}
+          >
+            <ShoppingCart size={18} />
+          </button>
+        )}
       </div>
     </article>
   )

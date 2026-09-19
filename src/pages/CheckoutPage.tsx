@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FreeDeliveryBar } from '../components/cart/FreeDeliveryBar'
 import { useFreeDelivery } from '../hooks/use-free-delivery'
 import { productThumb } from '../utils/product-image'
 import {
-  ArrowLeft, Banknote, Check, Copy, CreditCard, Loader2, MapPin,
+  ArrowLeft, Banknote, Check, Copy, CreditCard, Loader2, MapPin, Pencil,
   MessageSquare, Phone, Send, ShoppingBag, Tag, User, UserRound,
 } from 'lucide-react'
 import { formatPrice } from '../data'
@@ -31,10 +31,15 @@ type Props = {
   isSubmitting: boolean
   onBack: () => void
   onNavigate: (page: AppPage) => void
+  /** Oxirgi buyurtmadagi manzil — shu manzil o'zi tanlanadi. */
+  lastUsedAddress?: string
+  /** Manzilni tahrirlash sahifasini ochadi. */
+  onEditAddress: (addressId: string) => void
 }
 
 export function CheckoutPage({
   profile, cartProducts, cartTotal, orderForm, onUpdateForm, onSubmit, isSubmitting, onBack, onNavigate,
+  lastUsedAddress, onEditAddress,
 }: Props) {
   const t = useT()
   const [copied, setCopied] = useState(false)
@@ -50,7 +55,8 @@ export function CheckoutPage({
   const [delivery, setDelivery] = useState<DeliverySettings | null>(null)
   const { text: freeText } = useFreeDelivery()
 
-  const addresses = profile?.addresses || []
+  // useMemo: har renderdagi yangi bo'sh massiv effektlarni qayta ishga tushirmasin
+  const addresses = useMemo(() => profile?.addresses || [], [profile?.addresses])
 
   useEffect(() => {
     let alive = true
@@ -111,6 +117,18 @@ export function CheckoutPage({
     setPromoError('')
     onUpdateForm('promoCode', undefined)
   }
+
+  /*
+   * Manzil O'ZI tanlanadi: oxirgi buyurtmada ishlatilgani, u topilmasa —
+   * birinchi qo'shilgani. Mijozning ko'pchiligida bitta manzil bor va
+   * uni har safar qo'lda belgilash ortiqcha ish edi.
+   */
+  useEffect(() => {
+    if (orderForm.address || addresses.length === 0) return
+    const pick = addresses.find((a) => a.address === lastUsedAddress) ?? addresses[0]
+    onUpdateForm('address', pick.address)
+    onUpdateForm('location', pick.location)
+  }, [addresses, lastUsedAddress, orderForm.address, onUpdateForm])
 
   const isValid = Boolean(orderForm.name.trim() && orderForm.phone.trim() && orderForm.address.trim())
   const canSubmit = isValid && !isSubmitting
@@ -307,9 +325,12 @@ export function CheckoutPage({
                         key={addr.id}
                         type="button"
                         onClick={() => {
+                          hapticFeedback('light')
+                          // Tanlangan manzil qayta bosilsa — uni tahrirlashga o'tamiz:
+                          // mijoz ko'pincha aynan shu manzilni to'g'rilamoqchi bo'ladi
+                          if (isSelected) return onEditAddress(addr.id)
                           onUpdateForm('address', addr.address)
                           onUpdateForm('location', addr.location)
-                          hapticFeedback('light')
                         }}
                         /* 2px chegara va yon chiziq — 1px juda nozik edi,
                            mijoz qaysi manzil tanlanganini ilg'amasdi. */
@@ -330,17 +351,21 @@ export function CheckoutPage({
                           </p>
                           <p className="truncate text-xs" style={{ color: 'var(--muted)' }}>{addr.address}</p>
                         </div>
-                        <span
-                          className="grid size-6 shrink-0 place-items-center self-center rounded-full border-2 transition"
-                          style={{
-                            borderColor: isSelected ? 'var(--brand)' : 'var(--line)',
-                            background: isSelected ? 'var(--brand)' : 'transparent',
-                            color: 'var(--brand-ink)',
-                          }}
-                          aria-hidden="true"
-                        >
-                          {isSelected && <Check size={14} strokeWidth={3} />}
-                        </span>
+                        {isSelected ? (
+                          <span
+                            className="flex shrink-0 items-center gap-1 self-center rounded-full px-2 py-1 text-[11px] font-bold"
+                            style={{ background: 'var(--brand)', color: 'var(--brand-ink)' }}
+                          >
+                            <Pencil size={12} />
+                            {t('common.edit')}
+                          </span>
+                        ) : (
+                          <span
+                            className="grid size-6 shrink-0 place-items-center self-center rounded-full border-2 transition"
+                            style={{ borderColor: 'var(--line)' }}
+                            aria-hidden="true"
+                          />
+                        )}
                       </button>
                     )
                   })}

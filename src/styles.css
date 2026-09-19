@@ -440,7 +440,17 @@ a { color: inherit; text-decoration: none; }
 }
 
 .page-animate {
-  animation: fadeInUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /*
+   * `backwards`, `both` EMAS.
+   *
+   * `both` bilan animatsiya tugagach ham element ustida transform qolib
+   * ketadi (brauzer uni birlik matritsa deb saqlaydi) va u ichidagi
+   * `position: fixed` elementni O'ZIGA bog'lab qo'yadi: xarita «butun
+   * ekran» rejimida ekranni to'liq qoplamay, pastga surilib qolardi.
+   * Ko'rinish o'zgarmaydi — animatsiyaning oxirgi holati elementning
+   * odatdagi holati bilan bir xil.
+   */
+  animation: fadeInUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* ====== Skeleton ====== */
@@ -1236,6 +1246,7 @@ a { color: inherit; text-decoration: none; }
 
 .product-card-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
@@ -1284,6 +1295,44 @@ a { color: inherit; text-decoration: none; }
   background: var(--surface-3);
   color: var(--faint);
   cursor: not-allowed;
+}
+
+/* Kartochkadagi «− soni +».
+   Butun qatorni egallaydi: tor kartochkada narx bilan yonma-yon
+   sig'masdi, bu holda esa tugmalar barmoq uchun keng va qulay. */
+.qty-stepper {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  background: var(--brand);
+  color: var(--brand-ink);
+  user-select: none;
+}
+.qty-stepper button {
+  display: grid;
+  width: 40px;
+  height: 100%;
+  flex-shrink: 0;
+  place-items: center;
+  color: inherit;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+.qty-stepper button:hover:not(:disabled) { background: rgb(255 255 255 / 0.16); }
+.qty-stepper button:active:not(:disabled) { transform: scale(0.88); }
+.qty-stepper button:disabled { opacity: 0.45; cursor: not-allowed; }
+.qty-stepper span {
+  min-width: 1.5em;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+@media (min-width: 640px) {
+  .qty-stepper { height: 40px; }
 }
 
 .btn-primary {
@@ -2211,6 +2260,95 @@ a { color: inherit; text-decoration: none; }
   border: none;
   border-radius: 0;
 }
+
+/*
+ * To'liq ekrandagi boshqaruv.
+ *
+ * Telegram to'liq ekran rejimida tepaga o'z tugmalarini (orqaga, «⋯»)
+ * chizadi va ular sahifaning ustida turadi. Shuning uchun bizning
+ * tugmalar `--safe-top` dan pastda boshlanadi — ilgari ular o'sha
+ * tugmalar ostida qolib, ko'rinmasdi.
+ */
+.map-full__top {
+  position: absolute;
+  top: calc(var(--safe-top) + 10px);
+  left: 12px;
+  right: 12px;
+  z-index: 401;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.map-full__hint {
+  flex: 1;
+  padding: 0.6rem 0.9rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: var(--shadow-md);
+}
+.map-full__close {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.15s ease;
+}
+.map-full__close:active { transform: scale(0.9); }
+
+.map-full__bottom {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--safe-bottom) + 14px);
+  z-index: 401;
+  display: grid;
+  gap: 8px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.map-full__bottom .btn-ghost { background: var(--surface); box-shadow: var(--shadow-md); }
+
+/* Markazdagi nishon: uchi aynan xarita markaziga tegib turadi */
+.map-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 400;
+  color: var(--brand);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.35));
+  animation: mapPinDrop 0.35s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+.map-pin::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.85);
+}
+@keyframes mapPinDrop {
+  from { transform: translate(-50%, -140%); opacity: 0; }
+  to { transform: translate(-50%, -100%); opacity: 1; }
+}
+
+/* Leaflet boshqaruvlari ham Telegram tugmalari va panellar ostida qolmasin */
+.map-box--full .leaflet-top { top: calc(var(--safe-top) + 58px); }
+.map-box--full .leaflet-bottom { bottom: calc(var(--safe-bottom) + 118px); }
 
 /* ====== Tanlangan manzil ====== */
 .address-option {

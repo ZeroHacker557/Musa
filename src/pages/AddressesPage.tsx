@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronLeft, Loader2, LocateFixed, MapPin, Maximize2, Minimize2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
@@ -34,19 +34,41 @@ L.Marker.prototype.options.icon = L.icon({
 
 const TASHKENT = { lat: 41.2995, lng: 69.2401 }
 
-function MapUpdater({ center }: { center: { lat: number; lng: number } }) {
+/** Ko'cha darajasi — joylashuv aniq belgilanadigan masshtab. */
+const STREET_ZOOM = 17
+
+function MapUpdater({ center, zoom }: { center: { lat: number; lng: number }; zoom?: number }) {
   const map = useMap()
   useEffect(() => {
-    map.flyTo([center.lat, center.lng], map.getZoom())
-  }, [center, map])
+    map.flyTo([center.lat, center.lng], zoom ?? map.getZoom())
+  }, [center, zoom, map])
   return null
 }
 
-function MapEvents({ onPick }: { onPick: (p: { lat: number; lng: number }) => void }) {
+/**
+ * Xarita bilan bog'lanish.
+ *
+ * `onReady` — xarita obyektini tashqariga beradi: to'liq ekranga o'tganda
+ * o'lchamni yangilash va markazdagi nuqtani o'qish uchun kerak.
+ *
+ * Bosish: kichik oynada darhol nuqta belgilanadi, to'liq ekranda esa
+ * xarita o'sha joyga suriladi — nuqtani markazdagi nishon ko'rsatadi,
+ * chunki barmoq bosgan joyini o'zi to'sib qo'yadi.
+ */
+function MapController({
+  onReady, onPick, centered,
+}: {
+  onReady: (map: L.Map) => void
+  onPick: (p: { lat: number; lng: number }) => void
+  centered: boolean
+}) {
+  const map = useMap()
+  useEffect(() => { onReady(map) }, [map, onReady])
   useMapEvents({
     click(e) {
-      onPick({ lat: e.latlng.lat, lng: e.latlng.lng })
       hapticFeedback('light')
+      if (centered) map.panTo(e.latlng)
+      else onPick({ lat: e.latlng.lat, lng: e.latlng.lng })
     },
   })
   return null
@@ -61,9 +83,11 @@ type Props = {
    * 'here' — joylashuv darhol so'raladi, 'other' — xaritadan tanlanadi.
    */
   intent?: 'here' | 'other' | null
+  /** Shu manzil darhol tahrir holatida ochiladi (rasmiylashtirishdan kelinganda). */
+  editId?: string | null
 }
 
-export function AddressesPage({ profile, onBack, onNotify, intent = null }: Props) {
+export function AddressesPage({ profile, onBack, onNotify, intent = null, editId = null }: Props) {
   const t = useT()
   const { lang } = useI18n()
   // useMemo: har renderdagi yangi bo'sh massiv quyidagi memolarni qayta hisoblatmasin
@@ -79,7 +103,21 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
    * Tanlov alohida bosqich qilingan: ko'pchilik hozir turgan joyiga
    * buyurtma beradi va ularga xaritani titkilash shart emas.
    */
-  const [step, setStep] = useState<null | 'choose' | 'form'>(intent ? 'form' : null)
+  /**
+   * Rasmiylashtirish sahifasidan «tahrirlash» bilan kelingan manzil.
+   *
+   * Effekt bilan emas, BOSHLANG'ICH holatdan olinadi: sahifa darhol
+   * to'ldirilgan forma bilan ochiladi, mijoz ro'yxatning chaqnashini
+   * ko'rmaydi.
+   */
+  const editTarget = useMemo(
+    () => (editId ? addresses.find((a) => a.id === editId) ?? null : null),
+    // Faqat birinchi chizishda: keyin mijoz formani o'zi boshqaradi
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+
+  const [step, setStep] = useState<null | 'choose' | 'form'>(intent || editTarget ? 'form' : null)
   /**
    * Tahrirlanayotgan manzil identifikatori; `null` — yangi manzil.
    *
@@ -87,22 +125,25 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
    * bossa maydonlar to'ldirilgan holda ochiladi va xarita o'sha
    * nuqtaga uchadi — belgini surib qo'yish kifoya.
    */
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(editTarget?.id ?? null)
   const [mapFull, setMapFull] = useState(false)
+  /** Leaflet xaritasi — o'lchamni yangilash va markazni o'qish uchun. */
+  const mapRef = useRef<L.Map | null>(null)
+  const handleMapReady = useCallback((map: L.Map) => { mapRef.current = map }, [])
   const [loading, setLoading] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newFullAddress, setNewFullAddress] = useState('')
-  const [mapCenter, setMapCenter] = useState(TASHKENT)
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [newName, setNewName] = useState(editTarget?.name ?? '')
+  const [newFullAddress, setNewFullAddress] = useState(editTarget?.address ?? '')
+  const [mapCenter, setMapCenter] = useState(editTarget?.location ?? TASHKENT)
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(editTarget?.location ?? null)
   const [locating, setLocating] = useState(false)
   /** Xaritadan manzil matni olinmoqda. */
   const [geocoding, setGeocoding] = useState(false)
   /** Manzil matni xaritadan to'ldirildi (mijoz tekshirib chiqsin). */
   const [autoFilled, setAutoFilled] = useState(false)
   /** Mijoz manzil matnini o'zi yozdimi — unda ustiga yozmaymiz. */
-  const typedAddress = useRef(false)
+  const typedAddress = useRef(Boolean(editTarget))
   /** Maydondagi joriy matn (effekt ichida o'qish uchun). */
-  const fullRef = useRef('')
+  const fullRef = useRef(editTarget?.address ?? '')
   /**
    * Joylashuv MIJOZ tomonidan belgilandimi.
    *
@@ -172,6 +213,37 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
     setLocation(point)
   }
 
+  /**
+   * To'liq ekranga o'tganda xarita o'lchamini yangilaymiz.
+   *
+   * Leaflet konteyner o'lchami o'zgarganini o'zi bilmaydi: `invalidateSize`
+   * chaqirilmasa, to'liq ekranda kartaning yarmi kulrang bo'lib qolardi va
+   * bosilgan nuqta ham joyiga tushmasdi. Kechikish — CSS o'tishi tugashi uchun.
+   */
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const timer = window.setTimeout(() => {
+      map.invalidateSize()
+      const target = location ?? mapCenter
+      // To'liq ekranda ko'cha darajasiga yaqinlashamiz — nuqtani aniq qo'yish oson
+      if (mapFull) map.flyTo([target.lat, target.lng], Math.max(map.getZoom(), STREET_ZOOM))
+    }, 260)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapFull])
+
+  /** To'liq ekranda: markazdagi nishon turgan nuqtani tanlaydi. */
+  const confirmCenter = () => {
+    const map = mapRef.current
+    if (!map) return
+    const center = map.getCenter()
+    userPicked.current = true
+    setLocation({ lat: center.lat, lng: center.lng })
+    setMapFull(false)
+    hapticSuccess()
+  }
+
   /** Taklif qilingan manzilni maydonga qo'yish. */
   const applySuggestion = () => {
     if (!suggestion) return
@@ -219,6 +291,7 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
     void startForm(intent)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intent])
+
 
   /*
    * Joy belgilangach manzil matnini xaritadan olamiz.
@@ -488,53 +561,109 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null }: Prop
                 className={'map-box ' + (mapFull ? 'map-box--full' : '')}
                 style={{ borderColor: location ? 'var(--brand)' : 'var(--line)' }}
               >
-                <MapContainer center={[mapCenter.lat, mapCenter.lng]} zoom={12} style={{ height: '100%', width: '100%', zIndex: 1 }}>
+                <MapContainer
+                  center={[mapCenter.lat, mapCenter.lng]}
+                  zoom={location ? STREET_ZOOM : 12}
+                  style={{ height: '100%', width: '100%', zIndex: 1 }}
+                >
                   <MapUpdater center={mapCenter} />
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                  {location && <Marker position={location} />}
-                  <MapEvents onPick={handlePickOnMap} />
+                  {/* To'liq ekranda nuqtani markazdagi nishon ko'rsatadi */}
+                  {location && !mapFull && <Marker position={location} />}
+                  <MapController onReady={handleMapReady} onPick={handlePickOnMap} centered={mapFull} />
                 </MapContainer>
 
-                <button
-                  type="button"
-                  onClick={handleCurrentLocation}
-                  disabled={locating}
-                  className="absolute bottom-4 right-4 z-[400] grid size-12 place-items-center rounded-xl transition active:scale-95 disabled:opacity-70"
-                  style={{ background: 'var(--surface)', color: 'var(--brand)', boxShadow: 'var(--shadow-md)' }}
-                  aria-label={t('address.myLocation')}
-                  aria-busy={locating}
-                >
-                  {locating ? (
-                    <Loader2 size={22} className="animate-spin" />
-                  ) : (
-                    <LocateFixed size={22} />
-                  )}
-                </button>
+                {mapFull ? (
+                  <>
+                    {/* Telegram to'liq ekranda tepaga o'z tugmalarini chizadi —
+                        bizning tugmalar ularning OSTIDAN boshlanadi (--safe-top) */}
+                    <div className="map-full__top">
+                      <span className="map-full__hint">{t('address.mapFullHint')}</span>
+                      <button
+                        type="button"
+                        onClick={() => setMapFull(false)}
+                        className="map-full__close"
+                        aria-label={t('common.close')}
+                      >
+                        <Minimize2 size={18} />
+                      </button>
+                    </div>
 
-                {/* Kichik oynada aniq nuqta tanlash qiyin — to'liq ekran kerak */}
-                <button
-                  type="button"
-                  onClick={() => setMapFull((v) => !v)}
-                  className="absolute right-4 top-4 z-[400] grid size-10 place-items-center rounded-xl transition active:scale-95"
-                  style={{ background: 'var(--surface)', color: 'var(--ink)', boxShadow: 'var(--shadow-md)' }}
-                  aria-label={mapFull ? t('common.close') : t('address.expandMap')}
-                >
-                  {mapFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-                </button>
+                    {/* Markazdagi nishon — barmoq to'sib qo'ymaydi */}
+                    <span className="map-pin" aria-hidden="true">
+                      <MapPin size={38} />
+                    </span>
+
+                    <div className="map-full__bottom">
+                      <button
+                        type="button"
+                        onClick={handleCurrentLocation}
+                        disabled={locating}
+                        className="btn-ghost w-full justify-center py-3 text-sm"
+                      >
+                        {locating ? <Loader2 size={17} className="animate-spin" /> : <LocateFixed size={17} />}
+                        {t('address.useCurrent')}
+                      </button>
+                      <button type="button" onClick={confirmCenter} className="btn-primary w-full py-4">
+                        <Check size={18} />
+                        {t('address.confirmPoint')}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleCurrentLocation}
+                      disabled={locating}
+                      className="absolute bottom-4 right-4 z-[400] grid size-12 place-items-center rounded-xl transition active:scale-95 disabled:opacity-70"
+                      style={{ background: 'var(--surface)', color: 'var(--brand)', boxShadow: 'var(--shadow-md)' }}
+                      aria-label={t('address.myLocation')}
+                      aria-busy={locating}
+                    >
+                      {locating ? (
+                        <Loader2 size={22} className="animate-spin" />
+                      ) : (
+                        <LocateFixed size={22} />
+                      )}
+                    </button>
+
+                    {/* Kichik oynada aniq nuqta tanlash qiyin — to'liq ekran kerak */}
+                    <button
+                      type="button"
+                      onClick={() => setMapFull(true)}
+                      className="absolute right-4 top-4 z-[400] grid size-10 place-items-center rounded-xl transition active:scale-95"
+                      style={{ background: 'var(--surface)', color: 'var(--ink)', boxShadow: 'var(--shadow-md)' }}
+                      aria-label={t('address.expandMap')}
+                    >
+                      <Maximize2 size={18} />
+                    </button>
+                  </>
+                )}
               </div>
               {/*
                 Xaritadagi kichik ikonka ko'pchilikka ko'rinmay qolardi —
                 shuning uchun pastda to'liq yozuvli tugma turadi.
               */}
-              <button
-                type="button"
-                onClick={handleCurrentLocation}
-                disabled={locating}
-                className="btn-ghost mt-3 w-full justify-center py-3 text-sm"
-              >
-                {locating ? <Loader2 size={17} className="animate-spin" /> : <LocateFixed size={17} />}
-                {t('address.useCurrent')}
-              </button>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={handleCurrentLocation}
+                  disabled={locating}
+                  className="btn-ghost w-full justify-center py-3 text-sm"
+                >
+                  {locating ? <Loader2 size={17} className="animate-spin" /> : <LocateFixed size={17} />}
+                  {t('address.useCurrent')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMapFull(true)}
+                  className="btn-ghost w-full justify-center py-3 text-sm"
+                >
+                  <Maximize2 size={17} />
+                  {t('address.expandMap')}
+                </button>
+              </div>
 
               <p
                 className="mt-2 text-center text-xs font-bold"

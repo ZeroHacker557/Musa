@@ -139,6 +139,10 @@ export type OrderForm = {
 export type ProductActions = {
   onOpen: (product: Product) => void
   onAddToCart: (product: Product, size?: string, color?: string) => void
+  /** Savatdagi soni — kartochkadagi «−/+» shu bo'yicha chiziladi. */
+  cartQtyOf: (product: Product) => number
+  /** Kartochkadan sonni o'zgartirish (+1 / −1). */
+  onChangeQty: (product: Product, delta: number) => void
   likedIds: number[]
   onToggleLike: (id: number) => void
 }
