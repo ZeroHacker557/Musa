@@ -182,6 +182,8 @@ export function useShopStore() {
   /** Manzillar sahifasi shu manzilni darhol tahrirga ochadi (rasmiylashtirishdan). */
   const [editAddressId, setEditAddressId] = useState<string | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
+  /** Cheki ochilgan buyurtma. */
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
 
   // «Buyurtmalar» nishoni — holati o'zgargan, hali ko'rilmagan buyurtmalar
@@ -477,6 +479,17 @@ export function useShopStore() {
     })
   }, [isSearchOpen, isCartOpen, page])
 
+  /** Buyurtma cheki — «Buyurtmalarim» dagi kartochka bosilganda. */
+  const openReceipt = useCallback((order: Order) => {
+    setSelectedOrder(order)
+    setPage((current) => {
+      setHistory((h) => [...h.slice(-19), current])
+      return 'receipt'
+    })
+    rememberScroll(page)
+    hapticFeedback('light')
+  }, [page, rememberScroll])
+
   const openProduct = useCallback((product: Product) => {
     setSelectedProduct(product)
     setCartOpen(false)
@@ -690,7 +703,7 @@ export function useShopStore() {
     notifications, unreadNotificationsCount, unseenOrdersCount,
     catalogCategory, catalogSection, openCategory,
     theme, setTheme, toggleTheme,
-    navigate, goBack, openProduct, toggleLike,
+    navigate, goBack, openProduct, toggleLike, openReceipt, selectedOrder,
     askAddress, dismissAddressPrompt, openAddresses, addressIntent, editAddressId,
     setSearchOpen, setQuery,
     addToCart, updateCartQuantity, cartQtyOf, changeCartQty,

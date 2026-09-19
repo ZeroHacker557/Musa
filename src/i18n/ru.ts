@@ -210,10 +210,6 @@ export const ru: Record<TranslationKey, string> = {
   'orders.tabNew': 'Новые',
   'orders.tabAccepted': 'Принятые',
   'orders.tabCancelled': 'Отменённые',
-  'orders.cancel': 'Отменить заказ',
-  'orders.cancelling': 'Отмена...',
-  'orders.cancelConfirm': 'Отменить заказ? Это действие нельзя отменить.',
-  'orders.cancelled': 'Заказ отменён',
 
   'status.Yangi': 'Новый',
   'status.Qabul qilindi': 'Принят',
@@ -307,7 +303,6 @@ export const ru: Record<TranslationKey, string> = {
   'address.nameDacha': 'Дача',
   'address.autoFilling': 'Определяем адрес...',
   'address.autoFilled': 'Адрес взят с карты — проверьте',
-  'address.useSuggestion': 'вставить',
 
   // ── Предложение добавить адрес ──
   'addressAsk.title': 'Вы сейчас здесь?',
@@ -325,6 +320,27 @@ export const ru: Record<TranslationKey, string> = {
   'ad.close': 'Закрыть',
   'ad.mute': 'Выключить звук',
   'ad.unmute': 'Включить звук',
+
+  'receipt.title': 'Чек заказа',
+  'receipt.product': 'Товар',
+  'receipt.sum': 'Сумма',
+  'receipt.subtotal': 'Товары',
+  'receipt.delivery': 'Доставка',
+  'receipt.discount': 'Скидка',
+  'receipt.total': 'Итого',
+  'receipt.payMethod': 'Способ оплаты',
+  'receipt.payStatus': 'Статус оплаты',
+  'receipt.orderId': 'ID заказа',
+  'receipt.note': 'Чек сформирован в электронном виде',
+  'receipt.thanks': 'Спасибо за покупку!',
+  'receipt.home': 'На главную',
+  'receipt.stateDone': 'Заказ успешно завершён',
+  'receipt.stateActive': 'Заказ принят',
+  'receipt.stateCancelled': 'Заказ отменён',
+  'payStatus.Tolangan': 'Оплачено',
+  'payStatus.Kutilmoqda': 'Ожидает',
+  'payStatus.Rad etildi': 'Отклонено',
+  'payStatus.Naqd': 'При получении',
 
   // ── Уведомления ──
   'notifications.title': 'Уведомления',

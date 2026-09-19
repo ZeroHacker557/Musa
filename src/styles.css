@@ -1313,23 +1313,57 @@ a { color: inherit; text-decoration: none; }
   user-select: none;
 }
 .qty-stepper button {
+  position: relative;
   display: grid;
   width: 40px;
   height: 100%;
   flex-shrink: 0;
   place-items: center;
+  overflow: hidden;
   color: inherit;
-  transition: background-color 0.15s ease, transform 0.15s ease;
+  transition: background-color 0.2s ease, transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .qty-stepper button:hover:not(:disabled) { background: rgb(255 255 255 / 0.16); }
-.qty-stepper button:active:not(:disabled) { transform: scale(0.88); }
-.qty-stepper button:disabled { opacity: 0.45; cursor: not-allowed; }
+/*
+ * Bosilganda yumshoq javob: tugma sal kichrayadi va ostidan oqish to'lqin
+ * tarqaladi. Ilgari faqat keskin kichrayish bor edi va bosish «qo'pol»
+ * tuyulardi.
+ */
+.qty-stepper button:active:not(:disabled) { transform: scale(0.9); }
+.qty-stepper button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.32);
+  opacity: 0;
+  transform: scale(0.3);
+  pointer-events: none;
+}
+.qty-stepper button:active:not(:disabled)::after { animation: qtyRipple 0.42s ease-out; }
+@keyframes qtyRipple {
+  0% { opacity: 0.55; transform: scale(0.3); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
 .qty-stepper span {
   min-width: 1.5em;
   text-align: center;
   font-size: 0.9rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  /* Son o'zgarganda yengil «sakrash» — React key bilan qayta chiziladi */
+  animation: qtyCount 0.28s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+@keyframes qtyCount {
+  0% { transform: scale(0.65); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qty-stepper span { animation: none; }
+  .qty-stepper button:active:not(:disabled)::after { animation: none; }
 }
 @media (min-width: 640px) {
   .qty-stepper { height: 40px; }
@@ -2098,6 +2132,243 @@ a { color: inherit; text-decoration: none; }
   100% { transform: scale(1); }
 }
 
+/* ====== Buyurtma cheki (ReceiptPage) ======
+   Mijoz «Buyurtmalarim» dagi kartochkani bossa ochiladi. Qog'oz chekka
+   o'xshatilgan: tepasi brend rangida, ichi oq varaq. Uzun nomlar tor
+   ekranda ham buzilmasligi uchun mahsulot qatori ikki sathli — nom va
+   ostida «2 dona × 25 000 so'm», o'ngda esa jami summa. */
+.rcpt {
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.rcpt__brand {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 1.4rem 1rem 1.6rem;
+  background:
+    radial-gradient(120% 120% at 80% 0%, rgb(255 255 255 / 0.12) 0%, transparent 55%),
+    linear-gradient(135deg, #0a7a3d 0%, #04331c 100%);
+}
+.rcpt__tagline {
+  margin: 0;
+  color: rgb(255 255 255 / 0.85);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Varaq brend chizig'i ustiga chiqib turadi */
+.rcpt__body {
+  margin-top: -0.9rem;
+  padding: 1.1rem 1rem 1.3rem;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--surface);
+}
+
+.rcpt__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.rcpt__name {
+  margin: 0;
+  color: var(--ink);
+  /* Tor telefonda ham BITTA qatorda tursin */
+  font-size: clamp(0.95rem, 4.4vw, 1.25rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+.rcpt__no { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.8rem; font-weight: 700; }
+.rcpt__date { margin: 0.1rem 0 0; color: var(--faint); font-size: 0.75rem; }
+
+.rcpt__state { flex-shrink: 0; max-width: 42%; text-align: right; }
+.rcpt__state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.rcpt__state.is-off .rcpt__state-badge { background: var(--danger-soft); color: var(--danger); }
+.rcpt__state-note { margin: 0.35rem 0 0; color: var(--faint); font-size: 0.68rem; line-height: 1.3; }
+
+.rcpt__items { margin-top: 1.1rem; }
+.rcpt__items-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.rcpt__item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.2rem;
+  border-bottom: 1px solid var(--line-soft, var(--line));
+}
+.rcpt__item:last-child { border-bottom: 0; }
+.rcpt__thumb {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  object-fit: contain;
+}
+.rcpt__item-name {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.rcpt__item-meta {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+.rcpt__item-sum {
+  flex-shrink: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rcpt__totals { margin-top: 0.9rem; display: grid; gap: 0.35rem; }
+.rcpt__totals > div { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.85rem; }
+.rcpt__totals span { color: var(--muted); }
+.rcpt__totals b { color: var(--ink); font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rcpt__totals .is-discount b { color: var(--brand); }
+
+.rcpt__grand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--r-md);
+  background: var(--brand-soft);
+}
+.rcpt__grand span { color: var(--ink); font-size: 1.05rem; font-weight: 800; }
+.rcpt__grand b {
+  color: var(--brand-strong);
+  font-size: 1.25rem;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rcpt__pay {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.7rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.rcpt__pay-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--brand);
+  box-shadow: var(--shadow-sm);
+}
+.rcpt__pay-label { margin: 0; color: var(--faint); font-size: 0.68rem; font-weight: 700; }
+.rcpt__pay-value { margin: 0.1rem 0 0; color: var(--ink); font-size: 0.88rem; font-weight: 800; }
+.rcpt__pay-value.is-paid { color: var(--brand-strong); }
+.rcpt__pay-value.is-waiting { color: var(--warning); }
+.rcpt__pay-divider { width: 1px; align-self: stretch; background: var(--line); }
+
+.rcpt__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed var(--line);
+}
+.rcpt__foot-left { display: flex; flex: 1; align-items: center; gap: 0.7rem; min-width: 0; }
+.rcpt__qr {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  padding: 4px;
+  border-radius: 8px;
+  background: #fff;
+}
+.rcpt__id {
+  margin: 0.1rem 0 0;
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.rcpt__note { margin: 0.3rem 0 0; color: var(--faint); font-size: 0.65rem; line-height: 1.3; }
+
+.rcpt__thanks { flex-shrink: 0; max-width: 38%; text-align: right; }
+.rcpt__thanks-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.rcpt__thanks-line {
+  display: block;
+  height: 3px;
+  margin: 0.25rem 0 0 auto;
+  width: 70%;
+  border-radius: 3px;
+  background: var(--gold-bright);
+}
+.rcpt__thanks-brand {
+  margin: 0.35rem 0 0;
+  color: var(--faint);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Uyga qaytish tugmasi — chek ostida, doim ko'rinadigan joyda */
+.rcpt__home { box-shadow: var(--shadow-brand); }
+
+@media (max-width: 380px) {
+  .rcpt__name { font-size: 1.1rem; }
+  .rcpt__foot { flex-direction: column; align-items: flex-start; }
+  .rcpt__thanks { max-width: 100%; text-align: left; }
+  .rcpt__thanks-line { margin-left: 0; }
+}
+
 /* ====== Search Overlay ====== */
 .search-overlay {
   position: fixed;
@@ -2589,21 +2860,3 @@ a { color: inherit; text-decoration: none; }
 .address-row__delete:hover { background: var(--danger-soft, var(--surface-2)); color: var(--danger); }
 .address-row__delete:active { transform: scale(0.94); }
 
-/* Xaritadan topilgan manzil taklifi (mijozning o'z matni turganda) */
-.addr-suggest {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: 100%;
-  margin-top: 0.45rem;
-  border: 1px dashed var(--brand-line);
-  border-radius: var(--r-sm);
-  background: var(--brand-soft);
-  color: var(--brand);
-  padding: 0.5rem 0.7rem;
-  font-size: 0.74rem;
-  font-weight: 600;
-  transition: background 0.2s ease, transform 0.12s ease;
-}
-.addr-suggest:active { transform: scale(0.99); }
-.addr-suggest b { text-decoration: underline; }

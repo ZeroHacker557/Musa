@@ -20,6 +20,7 @@ import { OrdersPage } from './pages/OrdersPage'
 import { ProductDetailPage } from './pages/ProductDetailPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ProfileEditPage } from './pages/ProfileEditPage'
+import { ReceiptPage } from './pages/ReceiptPage'
 import { ReviewsPage } from './pages/ReviewsPage'
 import { NotificationsPage } from './pages/NotificationsPage'
 import { LanguagePage } from './pages/LanguagePage'
@@ -34,7 +35,7 @@ const AddressesPage = lazy(() =>
 
 /** Pastki menyu ko'rinmaydigan sahifalar. */
 const FULLSCREEN_PAGES = [
-  'detail', 'checkout', 'addresses', 'profile_edit', 'reviews', 'notifications', 'language', 'support',
+  'detail', 'checkout', 'addresses', 'profile_edit', 'reviews', 'notifications', 'language', 'support', 'receipt',
 ]
 
 function PageFallback() {
@@ -218,7 +219,7 @@ function App() {
                 onSearch={() => shop.setSearchOpen(true)}
                 onFavorites={() => shop.navigate('favorites')}
                 onGoToCatalog={goToCatalog}
-                onNotify={shop.notify}
+                onOpenReceipt={shop.openReceipt}
                 onBack={shop.goBack}
               />
             </div>
@@ -302,6 +303,16 @@ function App() {
           {shop.page === 'notifications' && (
             <div className="page-animate">
               <NotificationsPage notifications={shop.notifications} onBack={shop.goBack} />
+            </div>
+          )}
+
+          {shop.page === 'receipt' && shop.selectedOrder && (
+            <div className="page-animate">
+              <ReceiptPage
+                order={shop.selectedOrder}
+                onBack={shop.goBack}
+                onHome={() => shop.navigate('home')}
+              />
             </div>
           )}
 

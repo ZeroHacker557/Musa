@@ -140,8 +140,6 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null, editId
   const [geocoding, setGeocoding] = useState(false)
   /** Manzil matni xaritadan to'ldirildi (mijoz tekshirib chiqsin). */
   const [autoFilled, setAutoFilled] = useState(false)
-  /** Mijoz manzil matnini o'zi yozdimi — unda ustiga yozmaymiz. */
-  const typedAddress = useRef(Boolean(editTarget))
   /** Maydondagi joriy matn (effekt ichida o'qish uchun). */
   const fullRef = useRef(editTarget?.address ?? '')
   /**
@@ -151,13 +149,6 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null, editId
    * u allaqachon ma'lum — bekorga so'rov yubormaymiz.
    */
   const userPicked = useRef(false)
-  /**
-   * Xaritadan olingan, lekin AVTOMATIK qo'yilmagan manzil.
-   *
-   * Mijozning o'z matni bor bo'lsa uni bosib o'tmaymiz: yangi joyning
-   * manzili shunchaki taklif qilinadi, qo'yish-qo'ymaslik mijozning ishi.
-   */
-  const [suggestion, setSuggestion] = useState<string | null>(null)
 
   /** Bo'sh maydonga qo'yiladigan nom: ishlatilmagan birinchi variant. */
   const suggestedName = useMemo(() => {
@@ -201,8 +192,6 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null, editId
     setAutoFilled(false)
     setGeocoding(false)
     setEditingId(null)
-    setSuggestion(null)
-    typedAddress.current = false
     userPicked.current = false
     fullRef.current = ''
   }
@@ -244,16 +233,6 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null, editId
     hapticSuccess()
   }
 
-  /** Taklif qilingan manzilni maydonga qo'yish. */
-  const applySuggestion = () => {
-    if (!suggestion) return
-    fullRef.current = suggestion
-    setNewFullAddress(suggestion)
-    setAutoFilled(true)
-    setSuggestion(null)
-    hapticFeedback('light')
-  }
-
   /** Saqlangan manzilni tahrirlash — maydonlar to'ldirilgan holda ochiladi. */
   const startEdit = (addr: Address) => {
     setEditingId(addr.id)
@@ -261,12 +240,8 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null, editId
     setNewFullAddress(addr.address)
     fullRef.current = addr.address
     userPicked.current = false
-    setSuggestion(null)
     setLocation(addr.location)
     setMapCenter(addr.location)
-    // Mijozning o'z matni saqlanadi: xaritadan kelgan matn uni bosib
-    // ketmasin. Maydon bo'shatilsa — yana avtomatik to'ldiriladi.
-    typedAddress.current = true
     setAutoFilled(false)
     setStep('form')
     hapticFeedback('light')
@@ -296,9 +271,16 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null, editId
   /*
    * Joy belgilangach manzil matnini xaritadan olamiz.
    *
-   * Mijozlar bu maydonni turlicha to'ldirishardi va kuryer topa
-   * olmasdi. Endi ko'cha va uy raqami tayyor keladi, mijoz faqat
-   * mo'ljalni qo'shadi. O'zi yozgan bo'lsa — tegilmaydi.
+   * Mijozlar bu maydonni turlicha to'ldirishardi va kuryer topa olmasdi.
+   * Endi ko'cha va uy raqami tayyor keladi, mijoz faqat mo'ljalni qo'shadi.
+   *
+   * Yangi nuqta tanlansa, maydon DARHOL yangi manzil bilan almashadi.
+   * Ilgari eski matn qolib, yangisi pastda «qo'yish» tugmasi bo'lib
+   * turardi — mijoz uni bosishi kerakligini tushunmasdi va manzil
+   * xaritadagi joyga to'g'ri kelmay qolardi.
+   *
+   * Saqlangan manzil ochilganda so'rov umuman yuborilmaydi (`userPicked`),
+   * shuning uchun mijozning o'z matni shunchaki turaveradi.
    */
   useEffect(() => {
     // Saqlangan manzil ochilganda so'rov yubormaymiz — manzil tayyor
@@ -312,11 +294,6 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null, editId
       if (ctrl.signal.aborted) return
       setGeocoding(false)
       if (!text) return
-      // Mijoz o'zi yozgan bo'lsa ustiga yozmaymiz — taklif qilamiz
-      if (typedAddress.current && fullRef.current.trim()) {
-        setSuggestion(text.trim() === fullRef.current.trim() ? null : text)
-        return
-      }
       fullRef.current = text
       setNewFullAddress(text)
       setAutoFilled(true)
@@ -520,8 +497,6 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null, editId
                 <input
                   value={newFullAddress}
                   onChange={(e) => {
-                    // Bo'shatib yuborsa yana xaritadan to'ldirsa bo'ladi
-                    typedAddress.current = e.target.value.trim().length > 0
                     fullRef.current = e.target.value
                     setAutoFilled(false)
                     setNewFullAddress(e.target.value)
@@ -543,14 +518,6 @@ export function AddressesPage({ profile, onBack, onNotify, intent = null, editId
                 </p>
               ) : null}
 
-              {/* Yangi joyning manzili — mijozning o'z matnini bosib o'tmaymiz */}
-              {suggestion && (
-                <button type="button" className="addr-suggest" onClick={applySuggestion}>
-                  <MapPin size={13} className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate text-left">{suggestion}</span>
-                  <b className="shrink-0">{t('address.useSuggestion')}</b>
-                </button>
-              )}
             </div>
 
             <div>

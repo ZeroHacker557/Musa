@@ -217,10 +217,6 @@ export const uz = {
   'orders.tabNew': 'Yangi',
   'orders.tabAccepted': 'Qabul qilindi',
   'orders.tabCancelled': 'Bekor qilingan',
-  'orders.cancel': 'Buyurtmani bekor qilish',
-  'orders.cancelling': 'Bekor qilinmoqda...',
-  'orders.cancelConfirm': "Buyurtmani bekor qilasizmi? Bu amalni ortga qaytarib bo'lmaydi.",
-  'orders.cancelled': 'Buyurtma bekor qilindi',
 
   'status.Yangi': 'Yangi',
   'status.Qabul qilindi': 'Qabul qilindi',
@@ -314,7 +310,6 @@ export const uz = {
   'address.nameDacha': 'Dala hovli',
   'address.autoFilling': 'Manzil aniqlanmoqda...',
   'address.autoFilled': 'Manzil xaritadan olindi — tekshirib oling',
-  'address.useSuggestion': 'qo‘yish',
 
   // ── Manzil taklifi (yangi mijozga) ──
   'addressAsk.title': 'Manzilingiz shu yermi?',
@@ -332,6 +327,27 @@ export const uz = {
   'ad.close': 'Yopish',
   'ad.mute': 'Ovozni o‘chirish',
   'ad.unmute': 'Ovozni yoqish',
+
+  'receipt.title': 'Buyurtma cheki',
+  'receipt.product': 'Mahsulot',
+  'receipt.sum': 'Jami',
+  'receipt.subtotal': 'Mahsulotlar jami',
+  'receipt.delivery': 'Yetkazib berish',
+  'receipt.discount': 'Chegirma',
+  'receipt.total': 'Jami',
+  'receipt.payMethod': 'To‘lov usuli',
+  'receipt.payStatus': 'To‘lov statusi',
+  'receipt.orderId': 'Buyurtma ID',
+  'receipt.note': 'Ushbu chek elektron shaklda yaratilgan',
+  'receipt.thanks': 'Xaridingiz uchun rahmat!',
+  'receipt.home': 'Bosh sahifaga qaytish',
+  'receipt.stateDone': 'Buyurtma muvaffaqiyatli yakunlandi',
+  'receipt.stateActive': 'Buyurtma qabul qilindi',
+  'receipt.stateCancelled': 'Buyurtma bekor qilindi',
+  'payStatus.Tolangan': 'To‘landi',
+  'payStatus.Kutilmoqda': 'Kutilmoqda',
+  'payStatus.Rad etildi': 'Rad etildi',
+  'payStatus.Naqd': 'Yetkazilganda',
 
   // ── Bildirishnomalar ──
   'notifications.title': 'Bildirishnomalar',

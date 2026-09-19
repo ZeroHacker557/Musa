@@ -74,7 +74,8 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
             >
               <Minus size={16} />
             </button>
-            <span aria-live="polite">{qty}</span>
+            {/* key: son o'zgarganda element qayta chiziladi va animatsiya takrorlanadi */}
+            <span key={qty} aria-live="polite">{qty}</span>
             <button
               type="button"
               disabled={soldOut}

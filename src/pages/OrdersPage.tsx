@@ -1,12 +1,9 @@
 import { useMemo, useState } from 'react'
-import { productThumb } from '../utils/product-image'
-import { ChevronDown, ExternalLink, Loader2, ShoppingBag, X } from 'lucide-react'
+import { ChevronRight, ExternalLink, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '../data'
 import { openBotDeepLink } from '../utils/telegram'
 import { formatOrderDate } from '../utils/date'
-import { apiPost, ApiError } from '../lib/api'
 import { BRAND } from '../config/brand'
-import { hapticSuccess, hapticError } from '../utils/telegram'
 import { PageHeader } from '../components/layout/PageHeader'
 import { OrderListSkeleton } from '../components/ui/LoadingSkeletons'
 import { useT, type TranslationKey } from '../i18n'
@@ -38,38 +35,18 @@ type Props = {
   /** Tepadagi yurak — savat pastdagi menyuga ko'chgan. */
   onFavorites: () => void
   onGoToCatalog: () => void
-  onNotify: (message: string) => void
+  /** Kartochka bosilganda chek sahifasi ochiladi. */
+  onOpenReceipt: (order: Order) => void
   onBack: () => void
 }
 
 /** Mijoz faqat shu statuslardagi buyurtmani bekor qila oladi. */
-const CANCELLABLE: OrderStatus[] = ['Yangi', 'Qabul qilindi']
-
 export function OrdersPage({
   orders, ordersReady, authReady, isAuthenticated, onSearch, onFavorites,
-  onGoToCatalog, onNotify, onBack,
+  onGoToCatalog, onOpenReceipt, onBack,
 }: Props) {
   const t = useT()
   const [active, setActive] = useState('all')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [cancellingId, setCancellingId] = useState<string | null>(null)
-
-  const handleCancel = async (orderId: string) => {
-    if (cancellingId) return
-    if (!window.confirm(t('orders.cancelConfirm'))) return
-
-    setCancellingId(orderId)
-    try {
-      await apiPost('/api/order-cancel', { orderId })
-      hapticSuccess()
-      onNotify(t('orders.cancelled'))
-    } catch (error) {
-      hapticError()
-      onNotify(error instanceof ApiError ? error.message : t('reviews.error'))
-    } finally {
-      setCancellingId(null)
-    }
-  }
 
   const filtered = useMemo(() => {
     if (active === 'all') return orders
@@ -128,11 +105,10 @@ export function OrdersPage({
       <section className="space-y-4 px-5 pb-32 pt-5 sm:px-10">
         {shown.map((order, i) => {
           const payInfo = getPayInfo(order)
-          const isExpanded = expandedId === order.id
 
           return (
             <div key={order.id} className="order-card flex-col gap-3" style={{ animationDelay: `${Math.min(i, 6) * 0.06}s` }}>
-              <div className="flex cursor-pointer flex-col gap-3" onClick={() => setExpandedId(isExpanded ? null : order.id)}>
+              <div className="flex cursor-pointer flex-col gap-3" onClick={() => onOpenReceipt(order)}>
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--faint)' }}>
                     {formatOrderDate(order.createdAt) || order.date}
@@ -175,57 +151,11 @@ export function OrdersPage({
                 >
                   <p className="text-[11px] font-bold" style={{ color: 'var(--faint)' }}>{order.orderNumber}</p>
                   <div className="flex items-center text-xs font-bold" style={{ color: 'var(--brand)' }}>
-                    {isExpanded ? t('orders.hide') : t('orders.details')}
-                    <ChevronDown size={14} className={`ml-1 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    {t('orders.details')}
+                    <ChevronRight size={14} className="ml-1" />
                   </div>
                 </div>
               </div>
-
-              {isExpanded && (
-                <div
-                  className="space-y-2 border-t pt-3"
-                  style={{ borderColor: 'var(--line)', animation: 'fadeIn 0.25s ease' }}
-                >
-                  {order.products.map((item, idx) => (
-                    <div key={item.cartKey ?? idx} className="flex items-center gap-3">
-                      <img
-                        src={productThumb(item.product)}
-                        alt={item.product.name}
-                        loading="lazy"
-                        className="size-12 rounded-lg border object-contain p-1"
-                        style={{ borderColor: 'var(--line)', background: 'var(--surface-2)' }}
-                      />
-                      <div className="min-w-0 text-sm">
-                        <p className="truncate font-bold" style={{ color: 'var(--ink)' }}>{item.product.name}</p>
-                        <p className="text-[11px] font-medium" style={{ color: 'var(--muted)' }}>
-                          {item.quantity} {t('common.pcs')}
-                          {item.size && ` · ${t('cart.size')}: ${item.size}`}
-                          {item.color && ` · ${t('cart.color')}: ${item.color}`}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {CANCELLABLE.includes(order.status) && (
-                <button
-                  onClick={() => handleCancel(order.id)}
-                  disabled={cancellingId === order.id}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold transition active:scale-95 disabled:opacity-60"
-                  style={{
-                    background: 'var(--surface-2)',
-                    color: 'var(--danger)',
-                    border: '1px solid var(--line)',
-                  }}
-                >
-                  {cancellingId === order.id ? (
-                    <><Loader2 size={15} className="animate-spin" />{t('orders.cancelling')}</>
-                  ) : (
-                    <><X size={15} />{t('orders.cancel')}</>
-                  )}
-                </button>
-              )}
 
               {payInfo?.needsAction && (
                 <button
