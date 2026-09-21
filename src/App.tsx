@@ -26,7 +26,7 @@ import { NotificationsPage } from './pages/NotificationsPage'
 import { LanguagePage } from './pages/LanguagePage'
 import { SupportPage } from './pages/SupportPage'
 import { setupBackButton, toggleBackButton, watchSafeArea } from './utils/telegram'
-import { useI18n } from './i18n'
+import { SERVER_LANG_KEY, useI18n } from './i18n'
 
 // Xarita kutubxonasi (~150 KB) faqat manzil sahifasi ochilganda yuklanadi (P-01)
 const AddressesPage = lazy(() =>
@@ -82,12 +82,25 @@ function App() {
   useSwipeNav(shop.page, shop.navigate, !shop.isCartOpen && !shop.isSearchOpen)
   useEffect(() => toggleBackButton(shop.canGoBack), [shop.canGoBack])
 
-  // Profilda saqlangan til — boshqa qurilmada ham o'sha tilda ochiladi
+  // Profilda saqlangan til — botda yoki boshqa qurilmada tanlangani.
+  // Serverdagi qiymat o'zgarsa ilova ham o'sha tilga o'tadi, lekin bir
+  // qiymat ikki marta qo'llanmaydi.
   useEffect(() => {
     const saved = shop.userProfile?.language
-    if (saved && saved !== lang && !localStorage.getItem('musaShopLang')) {
-      setLang(saved)
+    if (!saved) return
+    let applied: string | null = null
+    try {
+      applied = localStorage.getItem(SERVER_LANG_KEY)
+    } catch {
+      // localStorage yopiq bo'lsa — har ochilishda profildagi til qo'llanadi
     }
+    if (applied === saved) return
+    try {
+      localStorage.setItem(SERVER_LANG_KEY, saved)
+    } catch {
+      // belgini saqlab bo'lmasa ham til almashadi
+    }
+    if (saved !== lang) setLang(saved)
   }, [shop.userProfile?.language, lang, setLang])
 
   // Ochilish reklamasi ko'rinib turganda manzil taklifi kutib turadi

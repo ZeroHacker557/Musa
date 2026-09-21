@@ -1,5 +1,6 @@
 import { adminDb } from '../firebase-admin.js'
 import { escapeHtml, replaceButtons, sendMessage, sendRows, setKeyboard } from '../telegram.js'
+import { userLang, type Lang } from '../i18n.js'
 import type { Staff } from '../admin-auth.js'
 
 const STATUSES = [
@@ -15,13 +16,76 @@ export type Status = (typeof STATUSES)[number]
 /** Kuryer faqat yetkazish bosqichlarini qo'ya oladi. */
 const COURIER_ALLOWED: Status[] = ['Yetkazilmoqda', 'Yetkazildi']
 
-const CUSTOMER_TEXT: Record<Status, (n: string) => string> = {
-  'Yangi': (n) => `🆕 <b>${n}</b> buyurtmangiz qabul qilindi.`,
-  'Qabul qilindi': (n) => `✅ <b>${n}</b> buyurtmangiz tasdiqlandi va tayyorlanmoqda.`,
-  'Yetkazilmoqda': (n) => `🚚 <b>${n}</b> buyurtmangiz yo‘lga chiqdi. Kuryer tez orada bog‘lanadi.`,
-  'Yetkazildi': (n) => `🎉 <b>${n}</b> buyurtmangiz yetkazildi. Xaridingiz uchun rahmat!`,
-  'Bekor qilingan': (n) => `❌ <b>${n}</b> buyurtmangiz bekor qilindi.`,
-  'Rad etildi': (n) => `⛔️ <b>${n}</b> buyurtmangiz rad etildi. Batafsil ma’lumot uchun bog‘laning.`,
+/*
+ * Mijozga boradigan matnlar — ikki tilda. Qaysi til kerakligini
+ * `users/<id>.language` aytadi (botda tanlangan til ilovada ham ishlaydi).
+ * Bot tomonidagi matnlar bilan bir xil: bot/i18n.py.
+ */
+const CUSTOMER_TEXT: Record<Lang, Record<Status, (n: string) => string>> = {
+  uz: {
+    'Yangi': (n) => `🆕 <b>${n}</b> buyurtmangiz qabul qilindi.`,
+    'Qabul qilindi': (n) => `✅ <b>${n}</b> buyurtmangiz tasdiqlandi va tayyorlanmoqda.`,
+    'Yetkazilmoqda': (n) => `🚚 <b>${n}</b> buyurtmangiz yo‘lga chiqdi. Kuryer tez orada bog‘lanadi.`,
+    'Yetkazildi': (n) => `🎉 <b>${n}</b> buyurtmangiz yetkazildi. Xaridingiz uchun rahmat!`,
+    'Bekor qilingan': (n) => `❌ <b>${n}</b> buyurtmangiz bekor qilindi.`,
+    'Rad etildi': (n) => `⛔️ <b>${n}</b> buyurtmangiz rad etildi. Batafsil ma’lumot uchun bog‘laning.`,
+  },
+  ru: {
+    'Yangi': (n) => `🆕 Ваш заказ <b>${n}</b> принят.`,
+    'Qabul qilindi': (n) => `✅ Ваш заказ <b>${n}</b> подтверждён и готовится.`,
+    'Yetkazilmoqda': (n) => `🚚 Ваш заказ <b>${n}</b> в пути. Курьер скоро свяжется с вами.`,
+    'Yetkazildi': (n) => `🎉 Ваш заказ <b>${n}</b> доставлен. Спасибо за покупку!`,
+    'Bekor qilingan': (n) => `❌ Ваш заказ <b>${n}</b> отменён.`,
+    'Rad etildi': (n) => `⛔️ Ваш заказ <b>${n}</b> отклонён. Свяжитесь с нами для подробностей.`,
+  },
+}
+
+/** Ilova ichidagi bildirishnoma — `src/i18n/ru.ts` dagi «status.*» bilan bir xil. */
+const STATUS_NAME: Record<Lang, Record<Status, string>> = {
+  uz: {
+    'Yangi': 'Yangi',
+    'Qabul qilindi': 'Qabul qilindi',
+    'Yetkazilmoqda': 'Yetkazilmoqda',
+    'Yetkazildi': 'Yetkazildi',
+    'Bekor qilingan': 'Bekor qilingan',
+    'Rad etildi': 'Rad etildi',
+  },
+  ru: {
+    'Yangi': 'Новый',
+    'Qabul qilindi': 'Принят',
+    'Yetkazilmoqda': 'Доставляется',
+    'Yetkazildi': 'Доставлен',
+    'Bekor qilingan': 'Отменён',
+    'Rad etildi': 'Отклонён',
+  },
+}
+
+const NOTIF_STATUS_TITLE: Record<Lang, string> = {
+  uz: 'Buyurtma holati',
+  ru: 'Статус заказа',
+}
+
+const RATING_TEXT: Record<Lang, {
+  ask: (label: string, scope: string) => string
+  scope: (count: number) => string
+  skip: string
+}> = {
+  uz: {
+    ask: (label, scope) =>
+      `⭐ <b>${label} buyurtmangiz qanday bo‘ldi?</b>\n\n` +
+      scope +
+      '<i>Bahoingiz ilovada boshqa xaridorlarga yordam beradi.</i>',
+    scope: (count) => `Bitta baho — buyurtmadagi ${count} ta mahsulotning hammasiga qo‘yiladi.\n\n`,
+    skip: 'O‘tkazib yuborish',
+  },
+  ru: {
+    ask: (label, scope) =>
+      `⭐ <b>Как вам заказ ${label}?</b>\n\n` +
+      scope +
+      '<i>Ваша оценка поможет другим покупателям в приложении.</i>',
+    scope: (count) => `Одна оценка — сразу для всех ${count} товаров заказа.\n\n`,
+    skip: 'Пропустить',
+  },
 }
 
 type ChatMessage = { chatId: string; messageId: number }
@@ -211,10 +275,11 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
   let notified = false
 
   if (order.userId) {
+    const lang = await userLang(order.userId)
     await db.collection('notifications').add({
       userId: order.userId,
-      title: 'Buyurtma holati',
-      body: `${label} — ${status}`,
+      title: NOTIF_STATUS_TITLE[lang],
+      body: `${label} — ${STATUS_NAME[lang][status]}`,
       date: now,
       read: false,
       type: 'order',
@@ -222,7 +287,7 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
       // bir marta sanaydi (src/hooks/use-shop-store.ts)
       orderId,
     })
-    const result = await sendMessage(order.userId, CUSTOMER_TEXT[status](escapeHtml(label)))
+    const result = await sendMessage(order.userId, CUSTOMER_TEXT[lang][status](escapeHtml(label)))
     notified = result.ok
 
     // Yetkazildi — mahsulotlarni baholashni so'raymiz (javobni bot qabul qiladi)
@@ -522,17 +587,14 @@ export async function sendRatingPrompt(orderId: string, order: OrderDoc): Promis
     const label = escapeHtml(order.orderNumber || `#${orderId.slice(0, 6)}`)
     // Bitta baho — hamma mahsulotga. Har mahsulotni alohida so'rash mijozni
     // charchatardi va ko'pchilik yarim yo'lda tashlab ketardi.
-    const scope = items.length > 1
-      ? `Bitta baho — buyurtmadagi ${items.length} ta mahsulotning hammasiga qo‘yiladi.\n\n`
-      : ''
+    const text = RATING_TEXT[await userLang(order.userId)]
+    const scope = items.length > 1 ? text.scope(items.length) : ''
     await sendRows(
       order.userId,
-      `⭐ <b>${label} buyurtmangiz qanday bo‘ldi?</b>\n\n` +
-        scope +
-        '<i>Bahoingiz ilovada boshqa xaridorlarga yordam beradi.</i>',
+      text.ask(label, scope),
       [
         [1, 2, 3, 4, 5].map((n) => ({ text: `${n}⭐`, callback_data: `rv:${orderId}:all:${n}` })),
-        [{ text: 'O‘tkazib yuborish', callback_data: `rv:${orderId}:all:0` }],
+        [{ text: text.skip, callback_data: `rv:${orderId}:all:0` }],
       ],
     )
   } catch (error) {

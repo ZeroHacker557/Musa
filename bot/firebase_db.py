@@ -412,6 +412,36 @@ def get_user(user_id: int) -> dict | None:
         return None
 
 
+def get_user_language(user_id: int) -> str | None:
+    """
+    Mijoz tanlagan til ("uz" yoki "ru"). Hali tanlamagan bo'lsa — None.
+
+    Xuddi shu maydonni mini app ham o'qiydi (src/App.tsx), shuning uchun
+    botda tanlangan til ilovada ham ishlaydi.
+    """
+    try:
+        snap = db.collection("users").document(str(user_id)).get()
+        value = (snap.to_dict() or {}).get("language") if snap.exists else None
+        return value if value in ("uz", "ru") else None
+    except Exception as e:
+        print(f"[ERR] get_user_language: {e}")
+        return None
+
+
+def set_user_language(user_id: int, lang: str) -> bool:
+    """Tilni saqlaydi. Hujjat hali yo'q bo'lsa — yaratiladi."""
+    if lang not in ("uz", "ru"):
+        return False
+    try:
+        db.collection("users").document(str(user_id)).set(
+            {"id": user_id, "language": lang}, merge=True
+        )
+        return True
+    except Exception as e:
+        print(f"[ERR] set_user_language: {e}")
+        return False
+
+
 def set_user_phone(user_id: int, phone: str):
     """Telefon raqamini saqlaydi — mini app uni avtomatik to'ldiradi (F-26)."""
     try:

@@ -14,6 +14,16 @@ export const DICTIONARIES: Record<Language, Record<TranslationKey, string>> = { 
 
 export const STORAGE_KEY = 'musaShopLang'
 
+/**
+ * Profildan (serverdan) oxirgi marta qo'llangan til.
+ *
+ * Mijoz tilni botda ham tanlashi mumkin - o'sha qiymat `users/<id>.language`
+ * ga yoziladi. Bu kalit "shu qiymatni allaqachon qo'lladik" degan belgi:
+ * botdagi yangi tanlov ilovaga ham o'tadi, ilovaning o'zida qilingan tanlov
+ * esa har ochilishda qayta yozilib ketmaydi.
+ */
+export const SERVER_LANG_KEY = 'musaShopLangSynced'
+
 /** Telegram tilidan boshlang'ich tanlov: ruscha bo'lsa ru, aks holda uz. */
 export function detectLanguage(): Language {
   try {

@@ -31,6 +31,7 @@ from config import (
 # Adminlar ro'yxati dinamik — panel orqali qo'shiladi/o'chiriladi
 from admins import all_admins, is_admin, can_open_panel
 import firebase_db as db
+import i18n as tr
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -57,13 +58,13 @@ class PaymentUpload(StatesGroup):
 
 # ─── Klaviaturalar ────────────────────────────────────────────
 
-def main_kb(admin: bool = False):
+def main_kb(admin: bool = False, lang: str = tr.DEFAULT):
     rows = [
         # Oddiy tugma — bosilganda pastdagi menyu tugmasiga yo'naltiradi.
         # Mini app faqat yozuv maydoni yonidagi "🥟 Katalog" orqali ochiladi.
-        [KeyboardButton(text="🥟 Katalogni ochish")],
-        [KeyboardButton(text="📦 Buyurtmalarim")],
-        [KeyboardButton(text="📞 Biz bilan aloqa"), KeyboardButton(text="ℹ️ Yordam")]
+        [KeyboardButton(text=tr.button("catalog", lang))],
+        [KeyboardButton(text=tr.button("orders", lang))],
+        [KeyboardButton(text=tr.button("contact", lang)), KeyboardButton(text=tr.button("help", lang))]
     ]
     # Admin panel tugmasi FAQAT adminlarda: oddiy mijoz uni umuman
     # ko'rmaydi. Bosilganda panel shu yerning o'zida ochiladi.
@@ -73,6 +74,14 @@ def main_kb(admin: bool = False):
 
 
 PANEL_BUTTON = "🛠 Admin panel"
+
+
+def language_kb() -> InlineKeyboardMarkup:
+    """Til tanlash — yangi mijozga /start da chiqadi."""
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=tr.t("lang_uz"), callback_data="lang:uz"),
+        InlineKeyboardButton(text=tr.t("lang_ru"), callback_data="lang:ru"),
+    ]])
 
 
 def panel_kb() -> InlineKeyboardMarkup:
@@ -103,10 +112,10 @@ PANEL_TEXT = (
 )
 
 
-def contact_kb() -> ReplyKeyboardMarkup:
+def contact_kb(lang: str = tr.DEFAULT) -> ReplyKeyboardMarkup:
     """Telefon raqamini bir bosishda olish uchun (F-26)."""
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="📱 Raqamni yuborish", request_contact=True)]],
+        keyboard=[[KeyboardButton(text=tr.button("phone", lang), request_contact=True)]],
         resize_keyboard=True,
         one_time_keyboard=True,
     )
@@ -140,7 +149,7 @@ def order_action_kb(order_id: str, has_location: bool = False) -> InlineKeyboard
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def catalog_kb() -> InlineKeyboardMarkup:
+def catalog_kb(lang: str = tr.DEFAULT) -> InlineKeyboardMarkup:
     """
     Katalogni ochadigan inline tugma.
 
@@ -150,7 +159,7 @@ def catalog_kb() -> InlineKeyboardMarkup:
     topolmay qaytib ketardi.
     """
     return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-        text="🥟 Katalogni ochish",
+        text=tr.t("catalog_button", lang),
         web_app=WebAppInfo(url=MINI_APP_URL),
         # Tugma foni yashil (Bot API 9.4, `style`: danger/success/primary).
         # aiogram 3.13 bu maydonni bilmaydi, lekin qo'shimcha maydonlarni
@@ -171,9 +180,9 @@ def receipt_kb(order_id: str) -> InlineKeyboardMarkup:
     ])
 
 
-def resend_receipt_kb(order_id: str) -> InlineKeyboardMarkup:
+def resend_receipt_kb(order_id: str, lang: str = tr.DEFAULT) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Qayta chek yuborish", callback_data=f"receipt:{order_id}")]
+        [InlineKeyboardButton(text=tr.t("receipt_retry_button", lang), callback_data=f"receipt:{order_id}")]
     ])
 
 
@@ -189,12 +198,12 @@ def payment_confirm_kb(order_id: str, user_id: int, has_location: bool = False) 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def mini_app_kb() -> InlineKeyboardMarkup:
+def mini_app_kb(lang: str = tr.DEFAULT) -> InlineKeyboardMarkup:
     # Yorliq «Buyurtmalarimni ko'rish» bo'lgani uchun havola ham
     # ilovaning aynan shu bo'limini ochadi.
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="🛍 Buyurtmalarimni ko'rish",
+            text=tr.t("orders_webapp_button", lang),
             web_app=WebAppInfo(url=f"{MINI_APP_URL}?page=orders"),
         )]
     ])
@@ -611,13 +620,17 @@ async def notify_customer_status(order: dict, status: str, order_id: str | None 
         return
 
     label = db.order_display_id(order)
-    texts = {
-        "Yetkazilmoqda": f"🚚 <b>{label}</b> buyurtmangiz yo'lga chiqdi. Kuryer tez orada bog'lanadi.",
-        "Yetkazildi": f"🎉 <b>{label}</b> buyurtmangiz yetkazildi. Xaridingiz uchun rahmat!",
-    }
+    lang = tr.normalize(db.get_user_language(user_id))
+    status_text = tr.status_name(status, lang)
+    keys = {"Yetkazilmoqda": "status_delivering", "Yetkazildi": "status_delivered"}
+    key = keys.get(status)
+    text = tr.t(key, lang, order=label) if key else f"{label} — {status_text}"
     try:
-        db.send_notification(user_id, "Buyurtma holati", f"{label} — {status}", "order", order_id)
-        await bot.send_message(user_id, texts.get(status, f"{label} — {status}"))
+        db.send_notification(
+            user_id, tr.t("notif_status_title", lang),
+            f"{label} — {status_text}", "order", order_id,
+        )
+        await bot.send_message(user_id, text)
     except Exception as e:
         logger.warning(f"[COURIER] Mijozga xabar bormadi: {e}")
 
@@ -644,10 +657,8 @@ async def cb_start_receipt(callback: CallbackQuery, state: FSMContext):
     order_id = callback.data.split("receipt:", 1)[-1]
     await state.update_data(receipt_order_id=order_id)
     await state.set_state(PaymentUpload.waiting_photo)
-    await callback.message.answer(
-        "📸 <b>To'lov chekini yuboring</b>\n\n"
-        "Pul o'tkazilganini tasdiqlovchi <b>screenshot yoki rasmni</b> yuboring:"
-    )
+    lang = tr.normalize(db.get_user_language(callback.from_user.id))
+    await callback.message.answer(tr.t("receipt_ask", lang))
     await callback.answer()
 
 
@@ -676,15 +687,14 @@ async def handle_receipt_photo(message: Message, state: FSMContext):
         logger.error(f"[RECEIPT] Adminga yuborib bo'lmadi: {e}")
 
     await state.clear()
-    await message.answer(
-        "✅ <b>Chekingiz yuborildi!</b>\n\n"
-        "Admin tekshirib, tez orada xabar beramiz 📬"
-    )
+    lang = tr.normalize(db.get_user_language(user_id))
+    await message.answer(tr.t("receipt_sent", lang))
 
 
 @dp.message(PaymentUpload.waiting_photo)
 async def handle_receipt_wrong(message: Message):
-    await message.answer("❌ Iltimos, to'lov chekini <b>rasm (foto)</b> sifatida yuboring.")
+    lang = tr.normalize(db.get_user_language(message.from_user.id))
+    await message.answer(tr.t("receipt_photo_only", lang))
 
 
 # ─── Admin: To'lovni tasdiqlash / rad etish ──────────────────
@@ -720,19 +730,18 @@ async def cb_payment_confirm(callback: CallbackQuery):
     logger.info(f"[PAY] {'Tasdiqlandi' if approved else 'Rad etildi'}: {order_id}")
 
     # ── Mijozga xabar (bitta, faqat bir marta) ──
+    lang = tr.normalize(db.get_user_language(user_id))
     try:
         if approved:
-            u_text  = "✅ <b>To'lovingiz tasdiqlandi!</b>\n"
-            u_text += "━" * 22 + "\n\n"
-            u_text += f"🧾 Buyurtma: <b>{display_id}</b>\n"
-            u_text += "💰 To'lov qabul qilindi! Tez orada yetkaziladi 🚀"
-            await bot.send_message(user_id, u_text, reply_markup=mini_app_kb())
+            await bot.send_message(
+                user_id, tr.t("pay_approved", lang, order=display_id),
+                reply_markup=mini_app_kb(lang),
+            )
         else:
-            u_text  = "❌ <b>To'lov cheki rad etildi</b>\n"
-            u_text += "━" * 22 + "\n\n"
-            u_text += f"🧾 Buyurtma: <b>{display_id}</b>\n"
-            u_text += "Iltimos, to'g'ri chekni qayta yuboring."
-            await bot.send_message(user_id, u_text, reply_markup=resend_receipt_kb(order_id))
+            await bot.send_message(
+                user_id, tr.t("pay_rejected", lang, order=display_id),
+                reply_markup=resend_receipt_kb(order_id, lang),
+            )
     except Exception as e:
         logger.warning(f"[PAY] Mijozga xabar yuborilmadi: {e}")
 
@@ -812,46 +821,31 @@ async def cb_send_location(callback: CallbackQuery):
 # holida qolib ketardi. Ilovada holat real vaqtda yangilanadi.
 
 
-def my_orders_kb() -> InlineKeyboardMarkup:
+def my_orders_kb(lang: str = tr.DEFAULT) -> InlineKeyboardMarkup:
     """Ilovaning «Buyurtmalarim» bo'limini bevosita ochadi."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="📦 Buyurtmalarimni ochish",
+            text=tr.t("orders_button", lang),
             web_app=WebAppInfo(url=f"{MINI_APP_URL}?page=orders"),
         )]
     ])
 
 
-@dp.message(F.text == "📦 Buyurtmalarim")
+@dp.message(F.text.in_(tr.labels("orders")))
 async def handle_my_orders(message: Message):
+    lang = tr.normalize(db.get_user_language(message.from_user.id))
     orders = db.get_user_orders(message.from_user.id)
 
     if not orders:
-        await message.answer(
-            "📦 <b>Buyurtmalarim</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "Sizda hozircha buyurtma yo'q.\n\n"
-            "🥟 Yarim tayyor mahsulotlar, 🍦 muzqaymoq va 🍫 siroklar.\n"
-            "Katalogdan tanlab, birinchi buyurtmangizni bering!",
-            reply_markup=my_orders_kb(),
-        )
+        await message.answer(tr.t("orders_empty", lang), reply_markup=my_orders_kb(lang))
         return
 
     CLOSED = ("Yetkazildi", "Bekor qilingan", "Rad etildi")
     active = [o for o in orders if o.get("status") not in CLOSED]
 
-    text = (
-        "📦 <b>Buyurtmalarim</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🧾 Jami buyurtma: <b>{len(orders)} ta</b>\n"
-        f"🔄 Jarayonda: <b>{len(active)} ta</b>\n\n"
-        "Har bir buyurtmaning holati, tarkibi va yetkazish manzili —\n"
-        "hammasi ilovada. Holat <b>real vaqtda</b> yangilanadi:\n\n"
-        "✅ Qabul qilindi → 🚚 Yetkazilmoqda → 🎉 Yetkazildi\n\n"
-        "👇 <i>Ko'rish uchun tugmani bosing:</i>"
-    )
+    text = tr.t("orders_list", lang, total=len(orders), active=len(active))
 
-    rows = list(my_orders_kb().inline_keyboard)
+    rows = list(my_orders_kb(lang).inline_keyboard)
 
     # Chek yuborish ilovada EMAS, botda bo'lishi kerak: mijoz rasm
     # jo'natadi. Shuning uchun karta to'lovi kutilayotgan
@@ -865,7 +859,7 @@ async def handle_my_orders(message: Message):
         doc_id = o.get("_doc_id", "")
         if not doc_id:
             continue
-        label = "qayta chek" if pay == "Rad etildi" else "chek yuborish"
+        label = tr.t("receipt_again", lang) if pay == "Rad etildi" else tr.t("receipt_send", lang)
         rows.append([InlineKeyboardButton(
             text=f"💳 {db.order_display_id(o)} — {label}",
             callback_data=f"receipt:{doc_id}",
@@ -881,6 +875,14 @@ async def cmd_start(message: Message, state: FSMContext):
     user     = message.from_user
     # Panelga kira oladiganlar: adminlar va paneldagi owner/admin xodimlar
     admin = can_open_panel(user.id)
+    lang = db.get_user_language(user.id)
+
+    # Yangi mijoz — avval til. Chek havolasi bilan kelgan bo'lsa
+    # («/start receipt_...») to'xtatmaymiz: unga to'lov ma'lumoti kerak.
+    if lang is None and " " not in (message.text or ""):
+        await message.answer(tr.t("lang_ask"), reply_markup=language_kb())
+        return
+    lang = tr.normalize(lang)
 
     # ── Deep link: /start receipt_<hujjat_id> ──
     # Yangi havolalar Firestore hujjat id'sini yuboradi. Eski havolalarda
@@ -900,48 +902,38 @@ async def cmd_start(message: Message, state: FSMContext):
             await state.update_data(receipt_order_id=order_id)
             await state.set_state(PaymentUpload.waiting_photo)
 
-            u_text  = "💳 <b>To'lov ma'lumotlari</b>\n"
-            u_text += "━" * 22 + "\n\n"
-            u_text += f"🆔 Buyurtma ID: <b>{display_id}</b>\n"
-            u_text += "📦 <b>Mahsulotlar:</b>\n"
+            items_text = ""
             for p in products:
                 qty   = p.get("quantity", 1)
                 size  = p.get("size")
                 color = p.get("color")
                 prod  = p.get("product") or p
                 name  = prod.get("name", "—")
-                
+
                 variant_info = []
                 if size: variant_info.append(f"Vazn: {size}")
                 if color: variant_info.append(f"Turi: {color}")
                 var_text = f" ({', '.join(variant_info)})" if variant_info else ""
-                
-                u_text += f"  • {name}{var_text} × {qty}\n"
-            u_text += f"\n💰 Jami: <b>{total_str}</b>\n"
-            u_text += "━" * 22 + "\n\n"
+
+                items_text += f"  • {name}{var_text} × {qty}\n"
+
             pay_cfg = db.get_payment_settings()
-            u_text += "💳 <b>Karta raqami:</b>\n"
-            u_text += f"<code>{pay_cfg['cardNumber']}</code>\n"
-            u_text += f"👤 Egasi: <b>{pay_cfg['cardOwner']}</b>\n\n"
-            u_text += "📸 Pul o'tkazgandan so'ng <b>to'lov chekini (screenshot)</b> yuboring:"
-            await message.answer(u_text, reply_markup=main_kb(admin))
-        else:
             await message.answer(
-                "❌ Buyurtma topilmadi.\n"
-                "Iltimos, mini appdagi «To'lov chekini yuborish» tugmasini qayta bosing.",
-                reply_markup=main_kb(admin)
+                tr.t("pay_info", lang, order=display_id, items=items_text,
+                     total=total_str, card=pay_cfg["cardNumber"], owner=pay_cfg["cardOwner"]),
+                reply_markup=main_kb(admin, lang),
             )
+        else:
+            await message.answer(tr.t("order_not_found", lang), reply_markup=main_kb(admin, lang))
         return
 
     # ── Oddiy /start ──
-    text = (
-        f"Assalomu alaykum, <b>{user.first_name}</b>! 👋\n\n"
-        "🥟 <b>MUSA rasmiy do'koniga xush kelibsiz!</b>\n"
-        "<i>Muzlatilgan mahsulotlar — yangi xomashyo, shok muzlatish.</i>\n\n"
-        "🍽 <b>Yarim tayyor mahsulotlar, muzqaymoq va siroklar.</b>\n\n"
-        "👇 <i>Buyurtmani boshlash uchun quyidagi tugmani bosing:</i>"
-    )
-    await message.answer(text, reply_markup=main_kb(admin))
+    await send_welcome(message, user, admin, lang)
+
+
+async def send_welcome(message: Message, user, admin: bool, lang: str):
+    """Salomlashish xabari — /start da ham, til tanlangandan keyin ham."""
+    await message.answer(tr.t("welcome", lang, name=user.first_name), reply_markup=main_kb(admin, lang))
 
     # Adminlarga panelga kirish tugmasi — mijozlarda bu xabar bo'lmaydi
     if admin:
@@ -951,14 +943,32 @@ async def cmd_start(message: Message, state: FSMContext):
     # Mini app buni buyurtma formasiga avtomatik qo'yadi (F-26).
     saved = db.get_user(user.id) or {}
     if not saved.get("phone"):
-        await message.answer(
-            "📱 <b>Telefon raqamingizni qoldiring</b>\n\n"
-            "Buyurtma berganingizda uni qayta yozib o'tirmaysiz, "
-            "kuryer esa siz bilan tez bog'lana oladi.\n\n"
-            "<i>Ixtiyoriy — keyinroq ilovaning «Shaxsiy ma'lumotlar» "
-            "bo'limidan ham kiritish mumkin.</i>",
-            reply_markup=contact_kb(),
-        )
+        await message.answer(tr.t("ask_phone", lang), reply_markup=contact_kb(lang))
+
+
+# ─── Til tanlash ──────────────────────────────────────────────
+
+@dp.message(F.text.in_({"/til", "/lang", "/language"}))
+async def cmd_language(message: Message):
+    """Tilni keyinroq ham almashtirish mumkin."""
+    await message.answer(tr.t("lang_ask"), reply_markup=language_kb())
+
+
+@dp.callback_query(F.data.startswith("lang:"))
+async def cb_language(callback: CallbackQuery):
+    lang = tr.normalize(callback.data.split(":", 1)[1])
+    user = callback.from_user
+    db.set_user_language(user.id, lang)
+    await callback.answer()
+
+    # Tanlov xabari o'z vazifasini bajardi — tasdiqqa aylanadi
+    try:
+        await callback.message.edit_text(tr.t("lang_saved", lang))
+    except Exception as e:
+        logger.debug(f"[LANG] xabar yangilanmadi: {e}")
+
+    # Salomlashish, admin paneli va telefon so'rovi — /start dagidek
+    await send_welcome(callback.message, user, can_open_panel(user.id), lang)
 
 
 @dp.message(F.contact)
@@ -967,11 +977,9 @@ async def handle_contact(message: Message):
     contact = message.contact
 
     # Faqat o'z raqamini qabul qilamiz — boshqa odamning kontaktini emas
+    lang = tr.normalize(db.get_user_language(message.from_user.id))
     if contact.user_id != message.from_user.id:
-        await message.answer(
-            "❌ Iltimos, <b>o'zingizning</b> raqamingizni yuboring.",
-            reply_markup=contact_kb(),
-        )
+        await message.answer(tr.t("phone_foreign", lang), reply_markup=contact_kb(lang))
         return
 
     admin = can_open_panel(message.from_user.id)
@@ -980,19 +988,12 @@ async def handle_contact(message: Message):
         phone = f"+{phone}"
 
     if db.set_user_phone(message.from_user.id, phone):
-        await message.answer(
-            f"✅ Raqamingiz saqlandi: <code>{phone}</code>\n\n"
-            "Endi buyurtma berishda u avtomatik to'ldiriladi.",
-            reply_markup=main_kb(admin),
-        )
+        await message.answer(tr.t("phone_saved", lang, phone=phone), reply_markup=main_kb(admin, lang))
     else:
-        await message.answer(
-            "❌ Raqamni saqlab bo'lmadi. Keyinroq qayta urinib ko'ring.",
-            reply_markup=main_kb(admin),
-        )
+        await message.answer(tr.t("phone_failed", lang), reply_markup=main_kb(admin, lang))
 
 
-@dp.message(F.text == "🥟 Katalogni ochish")
+@dp.message(F.text.in_(tr.labels("catalog")))
 async def handle_open_catalog(message: Message):
     """
     Katalog tugmasi bosilganda do'konni ochadigan tugmani yuboradi.
@@ -1002,25 +1003,18 @@ async def handle_open_catalog(message: Message):
     va matn sifatida ham ishlashi kerak. Shuning uchun javob
     sifatida inline tugma beriladi — bir bosishda do'kon ochiladi.
     """
-    text = "🥟 <b>MUSA KATALOGI</b>\n"
-    text += "━" * 22 + "\n\n"
-    text += "Yarim tayyor mahsulotlar, muzqaymoq va siroklar — hammasi bir joyda.\n\n"
-    text += "👇 <b>Katalogni ochish</b> tugmasini bosing — do'kon shu yerning o'zida ochiladi."
-
-    await message.answer(text, reply_markup=catalog_kb())
+    lang = tr.normalize(db.get_user_language(message.from_user.id))
+    await message.answer(tr.t("catalog_title", lang), reply_markup=catalog_kb(lang))
 
 
-@dp.message(F.text == "📞 Biz bilan aloqa")
+@dp.message(F.text.in_(tr.labels("contact")))
 async def cmd_contact(message: Message):
-    await message.answer(
-        "📞 <b>MUSA bilan bog'lanish:</b>\n\n"
-        f"💬 <b>Mijozlar xizmati:</b> {SUPPORT_TELEGRAM}\n"
-        f"📞 <b>Telefon raqam:</b> {SUPPORT_PHONE}\n"
-        f"✉️ <b>Email:</b> {SUPPORT_EMAIL}\n"
-        f"📍 <b>Manzil:</b> {COMPANY_CITY}\n"
-        f"⏰ <b>Ish vaqti:</b> {WORK_HOURS}\n\n"
-        "<i>Ulgurji xarid va hamkorlik bo'yicha ham shu raqamga murojaat qiling.</i>"
-    )
+    lang = tr.normalize(db.get_user_language(message.from_user.id))
+    await message.answer(tr.t(
+        "contact", lang,
+        telegram=SUPPORT_TELEGRAM, phone=SUPPORT_PHONE,
+        email=SUPPORT_EMAIL, city=COMPANY_CITY, hours=WORK_HOURS,
+    ))
 
 
 # ─── Baho: yetkazilgandan keyin ──────────────────────────────
@@ -1033,23 +1027,16 @@ async def cmd_contact(message: Message):
 # mijoz besh marta bosishi kerak edi va ko'pchilik yarim yo'lda tashlab
 # ketardi. Matn api/_lib/actions/orders.ts dagi sendRatingPrompt bilan bir xil.
 
-def rating_prompt(order_id: str, order: dict):
+def rating_prompt(order_id: str, order: dict, lang: str = tr.DEFAULT):
     items = db.order_review_items(order)
     if not items:
         return None, None
     label = db.order_display_id(order)
-    scope = (
-        f"Bitta baho — buyurtmadagi {len(items)} ta mahsulotning hammasiga qo'yiladi.\n\n"
-        if len(items) > 1 else ""
-    )
-    text = (
-        f"⭐ <b>{label} buyurtmangiz qanday bo'ldi?</b>\n\n"
-        f"{scope}"
-        "<i>Bahoingiz ilovada boshqa xaridorlarga yordam beradi.</i>"
-    )
+    scope = tr.t("rate_scope", lang, count=len(items)) if len(items) > 1 else ""
+    text = tr.t("rate_ask", lang, order=label, scope=scope)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=f"{n}⭐", callback_data=f"rv:{order_id}:all:{n}") for n in range(1, 6)],
-        [InlineKeyboardButton(text="O'tkazib yuborish", callback_data=f"rv:{order_id}:all:0")],
+        [InlineKeyboardButton(text=tr.t("rate_skip", lang), callback_data=f"rv:{order_id}:all:0")],
     ])
     return text, kb
 
@@ -1059,7 +1046,8 @@ async def ask_rating(order_id: str, order: dict):
     user_id = (order or {}).get("userId")
     if not user_id:
         return
-    text, kb = rating_prompt(order_id, order)
+    lang = tr.normalize(db.get_user_language(user_id))
+    text, kb = rating_prompt(order_id, order, lang)
     if not text:
         return
     try:
@@ -1082,31 +1070,27 @@ async def cb_review(callback: CallbackQuery):
         await callback.answer()
         return
 
+    lang = tr.normalize(db.get_user_language(callback.from_user.id))
+
     if stars == 0:
-        await callback.answer("O'tkazib yuborildi")
-        done = (
-            "Baho qoldirmadingiz — zarari yo'q.\n"
-            "Xohlasangiz, keyinroq ilovadagi mahsulot sahifasidan baholashingiz mumkin."
-        )
+        await callback.answer(tr.t("rate_skipped", lang))
+        done = tr.t("rate_none", lang)
     else:
         outcome, saved = db.save_bot_review_all(order_id, callback.from_user.id, stars)
         if outcome == "not_yours":
-            await callback.answer("Bu buyurtma sizniki emas", show_alert=True)
+            await callback.answer(tr.t("rate_not_yours", lang), show_alert=True)
             return
         if outcome != "saved":
-            await callback.answer("Baho saqlanmadi — ilovada qoldirishingiz mumkin", show_alert=True)
+            await callback.answer(tr.t("rate_failed", lang), show_alert=True)
             return
-        await callback.answer(f"Rahmat! {'⭐' * stars}")
-        count = f"{saved} ta mahsulotga" if saved > 1 else "Mahsulotga"
-        done = (
-            f"{count} <b>{'⭐' * stars}</b> qo'yildi.\n"
-            "Baholaringiz mahsulot sahifasida ko'rinadi va boshqa xaridorlarga yordam beradi."
-        )
+        await callback.answer(f"{tr.t('rate_thanks', lang)} {'⭐' * stars}")
+        key = "rate_done_some" if saved > 1 else "rate_done_one"
+        done = tr.t(key, lang, count=saved, stars="⭐" * stars)
 
     try:
         await callback.message.edit_text(
-            f"💚 <b>Rahmat!</b>\n\n{done}",
-            reply_markup=my_orders_kb(),
+            f"{tr.t('thanks_title', lang)}\n\n{done}",
+            reply_markup=my_orders_kb(lang),
         )
     except Exception as e:
         logger.debug(f"[REVIEW] xabar yangilanmadi: {e}")
@@ -1214,18 +1198,10 @@ async def cmd_group(message: Message):
     )
 
 
-@dp.message(F.text.in_({"ℹ️ Yordam", "/help"}))
+@dp.message(F.text.in_(tr.labels("help") | {"/help"}))
 async def cmd_help(message: Message):
-    await message.answer(
-        "ℹ️ <b>Botdan qanday foydalanish mumkin?</b>\n\n"
-        "1️⃣ Yozuv maydoni yonidagi <b>«🥟 Katalog»</b> tugmasini bosib, "
-        "MUSA mahsulotlari bilan tanishing.\n"
-        "2️⃣ O'zingizga yoqqan mahsulotlarni <b>Savatga</b> qo'shing.\n"
-        "3️⃣ Buyurtmani rasmiylashtirishda <b>Naqd</b> yoki <b>Karta</b> orqali to'lov usulini tanlang.\n"
-        "4️⃣ Agar karta orqali to'lov qilsangiz, to'lov chekini botga yuboring.\n"
-        "5️⃣ Buyurtmangiz holatini <b>Buyurtmalarim</b> bo'limidan kuzatib boring.\n\n"
-        "<i>Qo'shimcha savollar uchun <b>'📞 Biz bilan aloqa'</b> bo'limiga murojaat qiling.</i>"
-    )
+    lang = tr.normalize(db.get_user_language(message.from_user.id))
+    await message.answer(tr.t("help", lang))
 
 
 # ─── WebApp sendData (fallback) ───────────────────────────────
@@ -1238,15 +1214,12 @@ async def handle_webapp_data(message: Message):
         order_id   = data.get("id", "")
         # Xabarnomani /api/orders yuborgan — bu yerda takrorlamaymiz
         if pay_method == "Naqd":
-            await message.answer(
-                f"🎉 <b>Buyurtmangiz qabul qilindi!</b>\n"
-                f"🆔 Buyurtma: <b>{order_id}</b>\n"
-                "💵 To'lov: Naqd (yetkazganda)\n\n"
-                "Operatorimiz tez orada bog'lanadi 📞"
-            )
+            lang = tr.normalize(db.get_user_language(message.from_user.id))
+            await message.answer(tr.t("order_cash_ok", lang, order=order_id))
     except Exception as e:
         logger.error(f"WebApp data: {e}")
-        await message.answer("❌ Xatolik. Qayta urinib ko'ring.")
+        lang = tr.normalize(db.get_user_language(message.from_user.id))
+        await message.answer(tr.t("error_retry", lang))
 
 
 # ─── Main ─────────────────────────────────────────────────────
