@@ -1022,6 +1022,31 @@ def get_order(order_id: str):
         return None
 
 
+def save_bot_review_all(order_id: str, telegram_id: int, stars: int):
+    """
+    BITTA baho — buyurtmadagi hamma mahsulotga.
+
+    Mijoz har mahsulotni alohida baholashga majbur bo'lmasin: bir marta
+    ⭐ bosadi, shu baho barcha mahsulotlarga qo'yiladi. Har mahsulot
+    uchun `save_bot_review` ishlatiladi — tekshiruvlar (buyurtma
+    kimniki, yetkazilganmi) va reyting hisobi o'sha yerda, bir joyda.
+
+    Qaytaradi: (natija, nechta mahsulotga qo'yildi)
+    """
+    items = order_review_items(get_order(order_id) or {})
+    if not items:
+        return "not_found", 0
+
+    saved = 0
+    for index in range(len(items)):
+        outcome, _ = save_bot_review(order_id, telegram_id, index, stars)
+        if outcome != "saved":
+            # Birinchi to'siq (masalan «sizniki emas») — sababni qaytaramiz
+            return outcome, saved
+        saved += 1
+    return "saved", saved
+
+
 def save_bot_review(order_id: str, telegram_id: int, index: int, stars: int):
     """
     Mijoz botda ⭐ bosganda — sharhni uning nomidan saqlaydi.

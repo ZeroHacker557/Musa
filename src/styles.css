@@ -2315,14 +2315,6 @@ a { color: inherit; text-decoration: none; }
   border-top: 1px dashed var(--line);
 }
 .rcpt__foot-left { display: flex; flex: 1; align-items: center; gap: 0.7rem; min-width: 0; }
-.rcpt__qr {
-  width: 72px;
-  height: 72px;
-  flex-shrink: 0;
-  padding: 4px;
-  border-radius: 8px;
-  background: #fff;
-}
 .rcpt__id {
   margin: 0.1rem 0 0;
   color: var(--ink);

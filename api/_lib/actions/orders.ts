@@ -520,16 +520,19 @@ export async function sendRatingPrompt(orderId: string, order: OrderDoc): Promis
     if (!items.length) return
 
     const label = escapeHtml(order.orderNumber || `#${orderId.slice(0, 6)}`)
-    const name = escapeHtml(items[0].product?.name)
-    const counter = items.length > 1 ? ` (1/${items.length})` : ''
+    // Bitta baho — hamma mahsulotga. Har mahsulotni alohida so'rash mijozni
+    // charchatardi va ko'pchilik yarim yo'lda tashlab ketardi.
+    const scope = items.length > 1
+      ? `Bitta baho — buyurtmadagi ${items.length} ta mahsulotning hammasiga qo‘yiladi.\n\n`
+      : ''
     await sendRows(
       order.userId,
       `⭐ <b>${label} buyurtmangiz qanday bo‘ldi?</b>\n\n` +
-        `Mahsulotni baholang${counter}:\n<b>${name}</b>\n\n` +
+        scope +
         '<i>Bahoingiz ilovada boshqa xaridorlarga yordam beradi.</i>',
       [
-        [1, 2, 3, 4, 5].map((n) => ({ text: `${n}⭐`, callback_data: `rv:${orderId}:0:${n}` })),
-        [{ text: 'O‘tkazib yuborish', callback_data: `rv:${orderId}:0:0` }],
+        [1, 2, 3, 4, 5].map((n) => ({ text: `${n}⭐`, callback_data: `rv:${orderId}:all:${n}` })),
+        [{ text: 'O‘tkazib yuborish', callback_data: `rv:${orderId}:all:0` }],
       ],
     )
   } catch (error) {

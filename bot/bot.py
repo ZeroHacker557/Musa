@@ -1025,26 +1025,31 @@ async def cmd_contact(message: Message):
 
 # ─── Baho: yetkazilgandan keyin ──────────────────────────────
 #
-# Buyurtma «Yetkazildi» bo'lganda mijozga birinchi mahsulot uchun ⭐
-# tugmalari keladi (admin panel yoki kuryer — qaysi yo'l bilan bo'lmasin).
-# Bosilgan baho mini appdagi mahsulotga mijoz nomidan saqlanadi, xabar
-# esa keyingi mahsulotga almashadi. Matn api/_lib/actions/orders.ts
-# dagi sendRatingPrompt bilan bir xil.
+# Buyurtma «Yetkazildi» bo'lganda mijozga BITTA baho so'rovi keladi
+# (admin panel yoki kuryer — qaysi yo'l bilan bo'lmasin). Bosilgan baho
+# buyurtmadagi HAMMA mahsulotga qo'yiladi.
+#
+# Ilgari har mahsulot alohida so'ralardi: besh mahsulotli buyurtmada
+# mijoz besh marta bosishi kerak edi va ko'pchilik yarim yo'lda tashlab
+# ketardi. Matn api/_lib/actions/orders.ts dagi sendRatingPrompt bilan bir xil.
 
-def rating_prompt(order_id: str, order: dict, index: int):
+def rating_prompt(order_id: str, order: dict):
     items = db.order_review_items(order)
-    if index >= len(items):
+    if not items:
         return None, None
     label = db.order_display_id(order)
-    counter = f" ({index + 1}/{len(items)})" if len(items) > 1 else ""
+    scope = (
+        f"Bitta baho — buyurtmadagi {len(items)} ta mahsulotning hammasiga qo'yiladi.\n\n"
+        if len(items) > 1 else ""
+    )
     text = (
         f"⭐ <b>{label} buyurtmangiz qanday bo'ldi?</b>\n\n"
-        f"Mahsulotni baholang{counter}:\n<b>{items[index]['name']}</b>\n\n"
+        f"{scope}"
         "<i>Bahoingiz ilovada boshqa xaridorlarga yordam beradi.</i>"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"{n}⭐", callback_data=f"rv:{order_id}:{index}:{n}") for n in range(1, 6)],
-        [InlineKeyboardButton(text="O'tkazib yuborish", callback_data=f"rv:{order_id}:{index}:0")],
+        [InlineKeyboardButton(text=f"{n}⭐", callback_data=f"rv:{order_id}:all:{n}") for n in range(1, 6)],
+        [InlineKeyboardButton(text="O'tkazib yuborish", callback_data=f"rv:{order_id}:all:0")],
     ])
     return text, kb
 
@@ -1054,7 +1059,7 @@ async def ask_rating(order_id: str, order: dict):
     user_id = (order or {}).get("userId")
     if not user_id:
         return
-    text, kb = rating_prompt(order_id, order, 0)
+    text, kb = rating_prompt(order_id, order)
     if not text:
         return
     try:
@@ -1065,9 +1070,11 @@ async def ask_rating(order_id: str, order: dict):
 
 @dp.callback_query(F.data.startswith("rv:"))
 async def cb_review(callback: CallbackQuery):
+    # Uchinchi bo'lak — eski xabarlarda mahsulot tartibi, endi «all».
+    # E'tiborga olinmaydi: baho baribir hamma mahsulotga qo'yiladi.
     try:
-        _, order_id, index, stars = callback.data.split(":", 3)
-        index, stars = int(index), int(stars)
+        _, order_id, _slot, stars = callback.data.split(":", 3)
+        stars = int(stars)
     except ValueError:
         await callback.answer()
         return
@@ -1075,8 +1082,14 @@ async def cb_review(callback: CallbackQuery):
         await callback.answer()
         return
 
-    if stars > 0:
-        outcome, items = db.save_bot_review(order_id, callback.from_user.id, index, stars)
+    if stars == 0:
+        await callback.answer("O'tkazib yuborildi")
+        done = (
+            "Baho qoldirmadingiz — zarari yo'q.\n"
+            "Xohlasangiz, keyinroq ilovadagi mahsulot sahifasidan baholashingiz mumkin."
+        )
+    else:
+        outcome, saved = db.save_bot_review_all(order_id, callback.from_user.id, stars)
         if outcome == "not_yours":
             await callback.answer("Bu buyurtma sizniki emas", show_alert=True)
             return
@@ -1084,24 +1097,17 @@ async def cb_review(callback: CallbackQuery):
             await callback.answer("Baho saqlanmadi — ilovada qoldirishingiz mumkin", show_alert=True)
             return
         await callback.answer(f"Rahmat! {'⭐' * stars}")
-        order = db.get_order(order_id) or {}
-    else:
-        await callback.answer("O'tkazib yuborildi")
-        order = db.get_order(order_id) or {}
-        items = db.order_review_items(order)
+        count = f"{saved} ta mahsulotga" if saved > 1 else "Mahsulotga"
+        done = (
+            f"{count} <b>{'⭐' * stars}</b> qo'yildi.\n"
+            "Baholaringiz mahsulot sahifasida ko'rinadi va boshqa xaridorlarga yordam beradi."
+        )
 
-    next_index = index + 1
-    text, kb = rating_prompt(order_id, order, next_index) if next_index < len(items) else (None, None)
     try:
-        if text:
-            await callback.message.edit_text(text, reply_markup=kb)
-        else:
-            await callback.message.edit_text(
-                "💚 <b>Rahmat!</b>\n\n"
-                "Baholaringiz mahsulot sahifasida ko'rinadi va boshqa xaridorlarga yordam beradi.\n"
-                "Yana buyurtma bermoqchi bo'lsangiz — ilova doim ochiq.",
-                reply_markup=my_orders_kb(),
-            )
+        await callback.message.edit_text(
+            f"💚 <b>Rahmat!</b>\n\n{done}",
+            reply_markup=my_orders_kb(),
+        )
     except Exception as e:
         logger.debug(f"[REVIEW] xabar yangilanmadi: {e}")
 

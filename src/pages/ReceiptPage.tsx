@@ -1,10 +1,8 @@
-import { useMemo } from 'react'
 import { Check, ChevronLeft, CreditCard, Home, Wallet } from 'lucide-react'
 import { formatPrice } from '../data'
 import { BRAND } from '../config/brand'
 import { productThumb } from '../utils/product-image'
 import { formatDateTime } from '../utils/date'
-import { qrMatrix } from '../utils/qr'
 import { BrandLogo } from '../components/brand/BrandLogo'
 import { PageTitle } from '../components/layout/PageTitle'
 import { useT, type TranslationKey } from '../i18n'
@@ -16,34 +14,13 @@ type Props = {
   onHome: () => void
 }
 
-/** QR — buyurtmani botdan ochadigan havola. Skanerlagan odam shu buyurtmaga tushadi. */
-function QrCode({ text }: { text: string }) {
-  const matrix = useMemo(() => qrMatrix(text), [text])
-  if (!matrix) return null
-  const size = matrix.length
-  return (
-    <svg
-      className="rcpt__qr"
-      viewBox={`0 0 ${size} ${size}`}
-      role="img"
-      aria-label={text}
-      shapeRendering="crispEdges"
-    >
-      <rect width={size} height={size} fill="#fff" />
-      {matrix.map((row, r) =>
-        row.map((on, c) => (on ? <rect key={`${r}-${c}`} x={c} y={r} width={1} height={1} fill="#111" /> : null)),
-      )}
-    </svg>
-  )
-}
-
 /**
  * Mijozning cheki.
  *
  * «Buyurtmalarim» dagi kartochka bosilganda ochiladi: buyurtmadagi hamma
- * narsa bitta sahifada — mahsulotlar, hisob-kitob, to'lov va QR.
+ * narsa bitta sahifada — mahsulotlar, hisob-kitob va to'lov.
  * Chop etish uchun emas, telefonda ko'rish uchun: kerak bo'lsa mijoz
- * skrinshot oladi yoki QR ni ko'rsatadi.
+ * skrinshot olib yuboradi.
  */
 export function ReceiptPage({ order, onBack, onHome }: Props) {
   const t = useT()
@@ -166,10 +143,9 @@ export function ReceiptPage({ order, onBack, onHome }: Props) {
               </div>
             </div>
 
-            {/* QR va minnatdorchilik */}
+            {/* Buyurtma raqami va minnatdorchilik */}
             <div className="rcpt__foot">
               <div className="rcpt__foot-left">
-                <QrCode text={`https://t.me/${BRAND.botUsername}?start=order_${order.id}`} />
                 <div className="min-w-0">
                   <p className="rcpt__pay-label">{t('receipt.orderId')}</p>
                   <p className="rcpt__id">{order.orderNumber.replace(/^#/, '')}</p>
