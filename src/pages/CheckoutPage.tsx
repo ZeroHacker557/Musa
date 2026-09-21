@@ -9,7 +9,8 @@ import {
 import { formatPrice } from '../data'
 import { hapticFeedback } from '../utils/telegram'
 import { getPaymentSettings, getDeliverySettings } from '../lib/firebase'
-import { apiPost, ApiError } from '../lib/api'
+import { apiErrorText } from '../utils/api-error'
+import { apiPost } from '../lib/api'
 import { useT } from '../i18n'
 import type { AppPage, DeliverySettings, OrderForm, PaymentSettings, Product, UserProfile } from '../types/domain'
 import { PageTitle } from '../components/layout/PageTitle'
@@ -86,6 +87,13 @@ export function CheckoutPage({
       : delivery.fee
   const finalTotal = discountedSubtotal + deliveryFee
 
+  /*
+   * Minimal summa — mahsulotlar summasi bo'yicha (yetkazish va promokod
+   * chegirmasisiz). Sozlanmagan bo'lsa 0 keladi va cheklov ishlamaydi.
+   */
+  const minOrder = delivery?.minOrder ?? 0
+  const belowMin = minOrder > 0 && cartTotal < minOrder
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
@@ -105,7 +113,7 @@ export function CheckoutPage({
     } catch (error) {
       setAppliedPromo(null)
       onUpdateForm('promoCode', undefined)
-      setPromoError(error instanceof ApiError ? error.message : t('reviews.error'))
+      setPromoError(apiErrorText(error, t, 'reviews.error', formatPrice))
     } finally {
       setPromoLoading(false)
     }
@@ -131,7 +139,7 @@ export function CheckoutPage({
   }, [addresses, lastUsedAddress, orderForm.address, onUpdateForm])
 
   const isValid = Boolean(orderForm.name.trim() && orderForm.phone.trim() && orderForm.address.trim())
-  const canSubmit = isValid && !isSubmitting
+  const canSubmit = isValid && !isSubmitting && !belowMin
 
   return (
     <>
@@ -255,6 +263,15 @@ export function CheckoutPage({
                     text={freeText}
                   />
                 </div>
+              )}
+
+              {belowMin && (
+                <p
+                  className="rounded-xl px-3 py-2 text-xs font-semibold"
+                  style={{ background: 'var(--danger-soft, var(--surface))', color: 'var(--danger)' }}
+                >
+                  {t('checkout.minOrderLeft', { amount: formatPrice(minOrder - cartTotal) })}
+                </p>
               )}
 
               <div className="flex items-center justify-between border-t pt-2.5" style={{ borderColor: 'var(--line)' }}>
@@ -543,6 +560,12 @@ export function CheckoutPage({
             <><Send size={20} />{t('checkout.submit')}</>
           )}
         </button>
+
+        {belowMin && (
+          <p className="mt-3 text-center text-xs font-semibold" style={{ color: 'var(--danger)' }}>
+            {t('checkout.minOrder', { amount: formatPrice(minOrder) })}
+          </p>
+        )}
 
         <p className="mt-3 text-center text-xs" style={{ color: 'var(--faint)' }}>{t('checkout.disclaimer')}</p>
       </div>

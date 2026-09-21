@@ -75,6 +75,10 @@ export async function adSave(body: Record<string, unknown>): Promise<Result> {
     const button = (data.button ?? null) as Record<string, unknown> | null
     const buttonText = button ? text(button.text) : ''
     if (buttonText.length > BUTTON_TEXT) throw new Error(`${no}-slayd: tugma matni ${BUTTON_TEXT} belgidan oshmasin`)
+    const buttonTextRu = button ? text(button.textRu) : ''
+    if (buttonTextRu.length > BUTTON_TEXT) {
+      throw new Error(`${no}-slayd: ruscha tugma matni ${BUTTON_TEXT} belgidan oshmasin`)
+    }
 
     return {
       id: text(data.id).slice(0, 40) || `s${Date.now()}${i}`,
@@ -82,7 +86,14 @@ export async function adSave(body: Record<string, unknown>): Promise<Result> {
       url,
       seconds: Number.isFinite(seconds) ? Math.min(MAX_SECONDS, Math.max(MIN_SECONDS, seconds)) : 5,
       // Matn bo'sh bo'lsa tugma yo'q — havola ham saqlanmaydi
-      button: buttonText ? { text: buttonText, link: readLink(button?.link, no) } : null,
+      button: buttonText
+        ? {
+            text: buttonText,
+            // Bo'sh bo'lsa yozilmaydi — ruscha tilda o'zbekchasi ko'rinadi
+            ...(buttonTextRu ? { textRu: buttonTextRu } : {}),
+            link: readLink(button?.link, no),
+          }
+        : null,
     }
   })
 

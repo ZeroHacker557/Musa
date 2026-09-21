@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { notifyNewOrder } from './_lib/actions/orders.js'
+import { LOW_STOCK_AT, notifyLowStock, notifyNewOrder } from './_lib/actions/orders.js'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
 import { bestPromotion, promoPrice, readPromotion } from './_lib/promotions.js'
@@ -178,6 +178,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
 
       const stockUpdates: { ref: FirebaseFirestore.DocumentReference; stock: number }[] = []
+      // Qoldig'i tugab qolganlar — tranzaksiyadan keyin adminlarga aytiladi
+      const lowStock: { id: string; name: string; stock: number }[] = []
       const seenProducts = new Set<string>()
 
       const products = order.items.map((item, i) => {
@@ -202,7 +204,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (data.stock < requested) {
             throw new Error(data.stock <= 0 ? 'OUT_OF_STOCK' : 'NOT_ENOUGH_STOCK')
           }
-          stockUpdates.push({ ref: snap.ref, stock: data.stock - requested })
+          const left = data.stock - requested
+          stockUpdates.push({ ref: snap.ref, stock: left })
+          if (left <= LOW_STOCK_AT) {
+            lowStock.push({ id: snap.id, name: String(data.name || ''), stock: left })
+          }
         }
 
         return {
@@ -257,6 +263,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // ── 4. Yetkazib berish narxi ───────────────────────────
       const delivery = deliverySnap.exists ? deliverySnap.data() : null
+
+      /*
+       * Minimal buyurtma summasi. Sozlanmagan yoki 0 bo'lsa — cheklov
+       * umuman yo'q, ilova avvalgidek ishlayveradi. Tekshiruv promokod
+       * chegirmasidan OLDINGI summa bo'yicha: chegirma do'kon bergan
+       * imtiyoz, u minimalni buzmasligi kerak.
+       */
+      const minOrder = Math.max(Number(delivery?.minOrder) || 0, 0)
+      if (minOrder > 0 && subtotal < minOrder) {
+        throw new Error(`MIN_ORDER:${minOrder}`)
+      }
+
       const deliveryFee = Math.max(Number(delivery?.fee) || 0, 0)
       const freeFrom = Math.max(Number(delivery?.freeFrom) || 0, 0)
       const appliedDelivery = freeFrom > 0 && discountedSubtotal >= freeFrom ? 0 : deliveryFee
@@ -311,6 +329,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         discount,
         deliveryFee: appliedDelivery,
         duplicate: false,
+        lowStock,
       }
     })
 
@@ -320,11 +339,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!result.duplicate) {
       const snap = await db.collection('orders').doc(result.id).get()
       await notifyNewOrder(result.id, snap.data() || {})
+      // Ombor signali — buyurtma xabarnomasidan keyin, alohida xabar
+      await notifyLowStock(result.lowStock ?? [])
     }
 
-    return res.status(200).json(result)
+    // `lowStock` faqat ichki ish uchun — mijozga qaytarilmaydi
+    return res.status(200).json({
+      id: result.id,
+      orderNumber: result.orderNumber,
+      total: result.total,
+      discount: result.discount,
+      deliveryFee: result.deliveryFee,
+      duplicate: result.duplicate,
+    })
   } catch (error) {
-    const code = error instanceof Error ? error.message : ''
+    const raw = error instanceof Error ? error.message : ''
+
+    // MIN_ORDER:150000 — summa xabarga ham, ilovaga ham kerak
+    if (raw.startsWith('MIN_ORDER:')) {
+      const amount = Number(raw.split(':')[1]) || 0
+      return fail(
+        res,
+        400,
+        `Minimal buyurtma summasi ${amount.toLocaleString('uz-UZ')} so'm`,
+        'MIN_ORDER',
+        { amount },
+      )
+    }
+
+    const code = raw
     const messages: Record<string, string> = {
       PRODUCT_GONE: 'Savatdagi mahsulotlardan biri endi mavjud emas',
       PRODUCT_PRICE: "Mahsulot narxi noto'g'ri, adminga murojaat qiling",
@@ -337,7 +380,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       OUT_OF_STOCK: 'Savatdagi mahsulotlardan biri sotuvda qolmadi',
       NOT_ENOUGH_STOCK: 'Omborda yetarli miqdor yo‘q, savatdagi sonni kamaytiring',
     }
-    if (messages[code]) return fail(res, 400, messages[code])
+    if (messages[code]) return fail(res, 400, messages[code], code)
 
     console.error('[orders] xato:', error)
     return fail(res, 500, "Buyurtma yaratilmadi, qayta urinib ko'ring")

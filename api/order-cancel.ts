@@ -76,6 +76,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         status: 'Bekor qilingan',
         cancelledAt: new Date().toISOString(),
         cancelledBy: 'customer',
+        // Qoldiq shu yerda qaytarildi — admin keyin «Rad etildi» qo'ysa
+        // ikkinchi marta oshib ketmasligi uchun (api/_lib/stock.ts)
+        stockRestored: true,
+        stockRestoredAt: new Date().toISOString(),
         // Bot mijozga xabar berishi uchun bayroq
         cancelNotified: false,
       })
@@ -92,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ALREADY_CANCELLED: 'Buyurtma allaqachon bekor qilingan',
       TOO_LATE: "Bu buyurtmani endi bekor qilib bo'lmaydi — operator bilan bog'laning",
     }
-    if (messages[code]) return fail(res, 400, messages[code])
+    if (messages[code]) return fail(res, 400, messages[code], code)
 
     console.error('[order-cancel] xato:', error)
     return fail(res, 500, "Bekor qilinmadi, qayta urinib ko'ring")

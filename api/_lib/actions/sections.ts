@@ -41,7 +41,10 @@ export async function sectionSave(body: Record<string, unknown>): Promise<Result
     if (!existing.exists) throw new Error('Bo‘lim topilmadi')
     // Kategoriyasi o'zgarmaydi: ichidagi mahsulotlar eski kategoriyada qolib,
     // bo'lim ular uchun ko'rinmay qolardi
-    await ref.set({ name, updatedAt: new Date().toISOString() }, { merge: true })
+    await ref.set(
+      { name, nameRu: text(body.nameRu), updatedAt: new Date().toISOString() },
+      { merge: true },
+    )
     return { id }
   }
 
@@ -49,6 +52,7 @@ export async function sectionSave(body: Record<string, unknown>): Promise<Result
   const order = same.docs.reduce((max, doc) => Math.max(max, Number(doc.data().order ?? -1)), -1) + 1
   const ref = await db.collection('sections').add({
     name,
+    nameRu: text(body.nameRu),
     category,
     order,
     createdAt: new Date().toISOString(),

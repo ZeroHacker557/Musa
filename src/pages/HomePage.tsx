@@ -11,10 +11,10 @@ import { ProductCard } from '../components/product/ProductCard'
 import { ProductRowSkeleton } from '../components/ui/ProductCardSkeleton'
 import { IconButton } from '../components/ui/IconButton'
 import { categoryIcon } from '../utils/category-icons'
-import { MAIN_LINES, isMainLine } from '../config/categories'
+import { MAIN_LINES, categoryLabel, isMainLine } from '../config/categories'
 import { useMemo, useRef } from 'react'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
-import { useT, type TranslationKey } from '../i18n'
+import { useI18n, useT, type TranslationKey } from '../i18n'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
 
 const benefits: [LucideIcon, TranslationKey, TranslationKey][] = [
@@ -42,6 +42,7 @@ export function HomePage({
   onOpenCategory, unreadNotificationsCount, onNotify, ...productActions
 }: Props) {
   const t = useT()
+  const { lang } = useI18n()
 
   // Ikkala lenta ham sekin o'ziga surilib turadi (karusel)
   const stripRef = useRef<HTMLDivElement>(null)
@@ -183,7 +184,7 @@ export function HomePage({
                 {!line.image && (
                   <Icon className="line-card__icon" size={index === 0 ? 128 : 104} aria-hidden="true" />
                 )}
-                <span className="line-card__title">{line.name}</span>
+                <span className="line-card__title">{categoryLabel(line, lang)}</span>
               </button>
             )
           })}
@@ -206,7 +207,7 @@ export function HomePage({
                   <span className="category-icon-wrap">
                     <Icon size={22} />
                   </span>
-                  <span className="category-label">{category.name}</span>
+                  <span className="category-label">{categoryLabel(category, lang)}</span>
                 </button>
               )
             })}

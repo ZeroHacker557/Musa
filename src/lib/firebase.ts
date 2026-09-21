@@ -73,6 +73,7 @@ export function subscribeToCategories(callback: (categories: Category[]) => void
       return {
         id: numId,
         name: data.name || '',
+        nameRu: data.nameRu || '',
         icon: data.icon || 'package',
         order: typeof data.order === 'number' ? data.order : undefined,
       }
@@ -107,7 +108,7 @@ const PAYMENT_FALLBACK: PaymentSettings = {
   cardOwner: '',
 }
 
-const DELIVERY_FALLBACK: DeliverySettings = { fee: 0, freeFrom: 0 }
+const DELIVERY_FALLBACK: DeliverySettings = { fee: 0, freeFrom: 0, minOrder: 0 }
 
 /** Yetkazib berish narxi — settings/delivery hujjatidan. */
 export async function getDeliverySettings(): Promise<DeliverySettings> {
@@ -118,6 +119,7 @@ export async function getDeliverySettings(): Promise<DeliverySettings> {
     return {
       fee: Math.max(Number(data.fee) || 0, 0),
       freeFrom: Math.max(Number(data.freeFrom) || 0, 0),
+      minOrder: Math.max(Number(data.minOrder) || 0, 0),
     }
   } catch (error) {
     console.error("[Firebase] Yetkazish sozlamalarini o'qib bo'lmadi:", error)
@@ -211,6 +213,7 @@ export function subscribeToSections(callback: (sections: Section[]) => void) {
         return {
           id: d.id,
           name: String(data.name || ''),
+          nameRu: String(data.nameRu || ''),
           category: String(data.category || ''),
           order: typeof data.order === 'number' ? data.order : undefined,
         }

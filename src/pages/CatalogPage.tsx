@@ -5,9 +5,9 @@ import { ProductCard } from '../components/product/ProductCard'
 import { ProductGridSkeleton } from '../components/ui/ProductCardSkeleton'
 import { TextSkeleton } from '../components/ui/LoadingSkeletons'
 import { categoryIcon } from '../utils/category-icons'
-import { shortCategoryName } from '../config/categories'
+import { categoryLabel, sectionLabel } from '../config/categories'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
-import { useT } from '../i18n'
+import { useI18n, useT } from '../i18n'
 import type { Category, Product, ProductActions, Section } from '../types/domain'
 import { groupBySection, sortForAll } from '../utils/catalog-groups'
 
@@ -34,6 +34,7 @@ export function CatalogPage({
   onSearch, onFavorites, onBack, ...actions
 }: Props) {
   const t = useT()
+  const { lang } = useI18n()
   const ALL = t('common.all')
 
   const [active, setActive] = useState(initialCategory || ALL)
@@ -110,7 +111,9 @@ export function CatalogPage({
               className={'category-pill ' + (selected ? 'active' : '')}
             >
               <Icon size={22} />
-              <span className="category-pill__label">{shortCategoryName(category.name)}</span>
+              <span className="category-pill__label">
+                {category.name === ALL ? ALL : categoryLabel(category, lang)}
+              </span>
             </button>
           )
         })}
@@ -137,7 +140,7 @@ export function CatalogPage({
               >
                 <h2 className="catalog-group__title">
                   <span className="catalog-group__name">
-                    {group.section ? group.section.name : t('catalog.otherProducts')}
+                    {group.section ? sectionLabel(group.section, lang) : t('catalog.otherProducts')}
                   </span>
                   <span className="catalog-group__count">{group.products.length}</span>
                   <span className="catalog-group__line" aria-hidden="true" />

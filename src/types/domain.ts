@@ -15,6 +15,14 @@ export type Product = {
   reviews: number
   /** Tarjimalar — bo'sh bo'lsa o'zbekcha `name` / `description` ko'rsatiladi. */
   nameRu?: string
+  /**
+   * Asl o'zbekcha nom. Ruscha ko'rinishda `name` tarjimaga almashadi
+   * (use-shop-store.ts), asl nom esa qidiruvda kerak bo'ladi.
+   */
+  nameUz?: string
+  descriptionUz?: string
+  /** Kategoriyaning ruscha nomi — faqat qidiruv uchun. */
+  categoryRu?: string
   nameEn?: string
   descriptionRu?: string
   descriptionEn?: string
@@ -60,13 +68,18 @@ export type Product = {
 export type Section = {
   id: string
   name: string
+  /** Ruscha nomi — bo'sh bo'lsa o'zbekchasi ko'rsatiladi. */
+  nameRu?: string
   category: string
   order?: number
 }
 
 export type Category = {
   id: number
+  /** Filtr kaliti — mahsulotdagi `category` bilan aynan bir xil. */
   name: string
+  /** Ruscha nomi — faqat ko'rsatish uchun, filtrga ta'sir qilmaydi. */
+  nameRu?: string
   icon: string
   image?: string
   /** Ro'yxatdagi tartib — admin panelda belgilanadi. */
@@ -116,6 +129,8 @@ export type DeliverySettings = {
   fee: number
   /** Shu summadan yuqori buyurtmalar bepul yetkaziladi. 0 — bepul yetkazish yo'q. */
   freeFrom: number
+  /** Minimal buyurtma summasi. 0 — cheklov yo'q. */
+  minOrder: number
 }
 
 export type OrderForm = {
@@ -169,6 +184,25 @@ export type UserProfile = {
   addresses: Address[]
   /** Tanlangan til — qurilmalar orasida sinxron bo'lishi uchun. */
   language?: 'uz' | 'ru'
+  /**
+   * Savat — qurilmalar orasida saqlanishi uchun profilda ham turadi.
+   *
+   * MASSIV, xarita emas: savat kaliti `id_o'lcham_rang` ko'rinishida
+   * bo'lib, ichida nuqta yoki bo'sh joy bo'lishi mumkin — bunday nom
+   * Firestore maydoni sifatida noqulay.
+   */
+  cart?: CartRow[]
+  /** Savat oxirgi marta qachon o'zgargani — bot tashlab ketilgan savatni shu bo'yicha topadi. */
+  cartUpdatedAt?: string
+}
+
+/** Profilda saqlanadigan savat qatori. */
+export type CartRow = {
+  /** `${productId}_${size}_${color}` — ilovadagi savat kaliti. */
+  key: string
+  quantity: number
+  size?: string
+  color?: string
 }
 
 export type Review = {

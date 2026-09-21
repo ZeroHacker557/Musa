@@ -73,7 +73,7 @@ export function SectionsPage() {
   const [picked, setPicked] = useState('')
   const category = picked || categories[0]?.name || ''
 
-  const [editing, setEditing] = useState<{ id?: string; name: string } | null>(null)
+  const [editing, setEditing] = useState<{ id?: string; name: string; nameRu?: string } | null>(null)
   const [removing, setRemoving] = useState<Section | null>(null)
   const [attaching, setAttaching] = useState<Section | null>(null)
   const [busy, setBusy] = useState(false)
@@ -124,7 +124,13 @@ export function SectionsPage() {
     if (!editing) return
     setBusy(true)
     try {
-      await apiPost('action', { action: 'section.save', id: editing.id, name: editing.name, category })
+      await apiPost('action', {
+        action: 'section.save',
+        id: editing.id,
+        name: editing.name,
+        nameRu: editing.nameRu ?? '',
+        category,
+      })
       show(editing.id ? 'Bo‘lim nomi o‘zgardi' : 'Bo‘lim qo‘shildi')
       setEditing(null)
     } catch (error) {
@@ -227,7 +233,7 @@ export function SectionsPage() {
             <button className="adm-icon-btn adm-icon-btn--brand" onClick={() => section && setAttaching(section)} aria-label="Mahsulot biriktirish">
               <Plus size={15} />
             </button>
-            <button className="adm-icon-btn" onClick={() => section && setEditing({ id: section.id, name: section.name })} aria-label="Nomini o‘zgartirish">
+            <button className="adm-icon-btn" onClick={() => section && setEditing({ id: section.id, name: section.name, nameRu: section.nameRu || '' })} aria-label="Nomini o‘zgartirish">
               <Pencil size={14} />
             </button>
             <button className="adm-icon-btn adm-icon-btn--danger" onClick={() => section && setRemoving(section)} aria-label="Bo‘limni o‘chirish">
@@ -248,7 +254,7 @@ export function SectionsPage() {
         <div className="adm-page-head__actions">
           <button
             className="adm-btn adm-btn--primary"
-            onClick={() => setEditing({ name: '' })}
+            onClick={() => setEditing({ name: '', nameRu: '' })}
             disabled={!category}
           >
             <Plus size={17} /> Bo‘lim qo‘shish
@@ -326,6 +332,15 @@ export function SectionsPage() {
             onChange={(e) => setEditing({ ...editing, name: e.target.value })}
             onKeyDown={(e) => { if (e.key === 'Enter') void saveSection() }}
             placeholder="Musa, Future Fruit, BissGo..."
+          />
+
+          <label className="adm-label mt-4">Nomi (ruscha)</label>
+          <input
+            className="adm-input"
+            value={editing.nameRu ?? ''}
+            onChange={(e) => setEditing({ ...editing, nameRu: e.target.value })}
+            onKeyDown={(e) => { if (e.key === 'Enter') void saveSection() }}
+            placeholder="Bo‘sh qoldirsangiz o‘zbekchasi ko‘rinadi"
           />
           <p className="mt-2 text-xs" style={{ color: 'var(--faint)' }}>
             Qo‘shilgach «+» tugmasi bilan mahsulot biriktiring yoki mahsulotni sarlavha ostiga suring.

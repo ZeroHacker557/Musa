@@ -1,4 +1,5 @@
 import { adminDb } from '../firebase-admin.js'
+import { LOW_STOCK_AT } from './orders.js'
 import type { Staff } from '../admin-auth.js'
 
 /**
@@ -66,6 +67,8 @@ export async function productSave(body: Record<string, unknown>): Promise<Result
     if (!section.exists || section.data()?.category !== category) sectionId = null
   }
 
+  const stock = Math.max(0, Math.round(num(body.stock)))
+
   const data: Record<string, unknown> = {
     id,
     name,
@@ -90,7 +93,9 @@ export async function productSave(body: Record<string, unknown>): Promise<Result
     discount: text(body.discount),
     // Bosh sahifadagi «Mashhur mahsulotlar» qatori
     popular: body.popular === true,
-    stock: Math.max(0, Math.round(num(body.stock))),
+    stock,
+    // Qoldiq to'ldirildi — keyingi safar ombor signali yana ishlasin
+    lowStockAlerted: stock <= LOW_STOCK_AT,
     updatedAt: new Date().toISOString(),
   }
 
@@ -128,7 +133,9 @@ export async function categorySave(body: Record<string, unknown>): Promise<Resul
   }
 
   await db.collection('categories').doc(id).set(
-    { id, name, icon: text(body.icon) || 'package' },
+    // nameRu faqat ko'rinish uchun — mahsulotlar kategoriyaga `name` bilan
+    // bog'langan, shuning uchun u o'zgarmaydi
+    { id, name, nameRu: text(body.nameRu), icon: text(body.icon) || 'package' },
     { merge: true },
   )
   return { id }
@@ -305,7 +312,10 @@ export async function productBulkUpdate(body: Record<string, unknown>): Promise<
           case 'stock': {
             const stock = num(value, NaN)
             if (!Number.isFinite(stock) || stock < 0) throw new Error('Qoldiq 0 yoki undan katta butun son bo‘lsin')
-            data.stock = Math.round(stock)
+            const rounded = Math.round(stock)
+            data.stock = rounded
+            // Chegaradan yuqori bo'lsa signal qaytadan yoqiladi
+            data.lowStockAlerted = rounded <= LOW_STOCK_AT
             break
           }
           case 'category': {

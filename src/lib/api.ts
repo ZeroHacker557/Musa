@@ -2,10 +2,22 @@ import { getIdToken } from './auth'
 
 export class ApiError extends Error {
   status: number
-  constructor(message: string, status: number) {
+  /** Serverdagi sabab kodi — ilova uni o'z tilida ko'rsatadi. */
+  code?: string
+  /** Matnga qo'yiladigan qiymatlar, masalan `{ amount: 150000 }`. */
+  params?: Record<string, string | number>
+
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    params?: Record<string, string | number>,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code
+    this.params = params
   }
 }
 
@@ -39,7 +51,11 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     const message =
       (payload && typeof payload.error === 'string' && payload.error) ||
       "So'rov bajarilmadi, qayta urinib ko'ring"
-    throw new ApiError(message, response.status)
+    const code = payload && typeof payload.code === 'string' ? payload.code : undefined
+    const params = payload && payload.params && typeof payload.params === 'object'
+      ? (payload.params as Record<string, string | number>)
+      : undefined
+    throw new ApiError(message, response.status, code, params)
   }
 
   return payload as T

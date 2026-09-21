@@ -9,6 +9,7 @@ import hmac
 import json
 import logging
 import time
+from datetime import datetime
 
 import aiohttp
 from aiogram import Bot, Dispatcher, F
@@ -1222,6 +1223,119 @@ async def handle_webapp_data(message: Message):
         await message.answer(tr.t("error_retry", lang))
 
 
+# ─── Fon vazifalari ───────────────────────────────────────────
+#
+# Ikkalasi ham bot ishlab turganda bajariladi. Bot o'chiq bo'lsa
+# eslatma yuborilmaydi — buyurtma oqimiga ta'sir qilmaydi, faqat
+# qo'shimcha turtki bo'lgani uchun shunday qoldirilgan.
+
+# Savat to'ldirilib, shuncha soat buyurtma bo'lmasa — eslatma
+CART_REMINDER_HOURS = 2
+# Eslatmalar qanchalik tez-tez tekshiriladi
+CART_CHECK_MINUTES = 15
+# Kunlik hisobot adminlarga shu soatda boradi (bot turgan kompyuter vaqti)
+REPORT_HOUR = 21
+
+
+def cart_reminder_kb(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text=tr.t("cart_button", lang),
+        web_app=WebAppInfo(url=MINI_APP_URL),
+    )]])
+
+
+async def send_cart_reminders():
+    """Tashlab ketilgan savatlar uchun bitta eslatma."""
+    try:
+        rows = db.abandoned_carts(CART_REMINDER_HOURS)
+    except Exception as e:
+        logger.warning(f"[CART] savatlarni o'qib bo'lmadi: {e}")
+        return
+
+    for row in rows:
+        lang = tr.normalize(row.get("language"))
+        try:
+            await bot.send_message(
+                row["id"],
+                tr.t("cart_left", lang, count=row["count"]),
+                reply_markup=cart_reminder_kb(lang),
+            )
+            db.mark_cart_reminded(row["id"])
+            logger.info(f"[CART] eslatma yuborildi: {row['id']} ({row['count']} ta)")
+        except Exception as e:
+            # Bloklagan yoki botni o'chirgan bo'lishi mumkin — qayta urinmaymiz
+            logger.debug(f"[CART] {row['id']} ga yetmadi: {e}")
+            db.mark_cart_reminded(row["id"])
+        await asyncio.sleep(0.2)
+
+
+async def cart_reminder_loop():
+    while True:
+        await asyncio.sleep(CART_CHECK_MINUTES * 60)
+        try:
+            await send_cart_reminders()
+        except Exception as e:
+            logger.warning(f"[CART] eslatma halqasi: {e}")
+
+
+def daily_report_text() -> str:
+    """Kunlik savdo hisoboti — adminlar uchun."""
+    r = db.get_sales_report(1)
+    lines = [
+        "📊 <b>Bugungi hisobot</b>",
+        "━" * 22,
+        "",
+        f"🧾 Buyurtma: <b>{r['orders']} ta</b>",
+        f"✅ Yetkazildi: <b>{r['delivered']} ta</b>",
+        f"🔄 Jarayonda: <b>{r['pending']} ta</b>",
+        f"❌ Bekor/rad: <b>{r['cancelled']} ta</b>",
+        "",
+        f"💰 Tushum: <b>{db.format_price(r['revenue'])}</b>",
+        f"🧮 O'rtacha chek: <b>{db.format_price(r['avg_check'])}</b>",
+        f"👥 Yangi mijoz: <b>{r['new_customers']} ta</b>",
+    ]
+
+    if r["top_products"]:
+        lines += ["", "<b>Eng ko'p sotilgani:</b>"]
+        for item in r["top_products"][:5]:
+            lines.append(f"• {item['name']} — {item['qty']} ta")
+
+    if not r["orders"]:
+        lines += ["", "<i>Bugun buyurtma bo'lmadi.</i>"]
+
+    return "\n".join(lines)
+
+
+async def send_daily_report():
+    text = daily_report_text()
+    for admin_id in all_admins():
+        try:
+            await bot.send_message(admin_id, text)
+        except Exception as e:
+            logger.debug(f"[REPORT] {admin_id} ga yetmadi: {e}")
+        await asyncio.sleep(0.2)
+    logger.info("[REPORT] Kunlik hisobot yuborildi")
+
+
+async def daily_report_loop():
+    """
+    Har kuni REPORT_HOUR da bir marta.
+
+    Soat emas, SANA eslab qolinadi: bot kun davomida qayta ishga
+    tushsa ham hisobot ikki marta ketmaydi.
+    """
+    sent_on = None
+    while True:
+        await asyncio.sleep(60)
+        now = datetime.now()
+        if now.hour == REPORT_HOUR and sent_on != now.date():
+            sent_on = now.date()
+            try:
+                await send_daily_report()
+            except Exception as e:
+                logger.warning(f"[REPORT] yuborilmadi: {e}")
+
+
 # ─── Main ─────────────────────────────────────────────────────
 
 async def main():
@@ -1247,11 +1361,20 @@ async def main():
         asyncio.run_coroutine_threadsafe(notify_admin_cancel(order_data), loop)
 
     watch = db.listen_to_new_orders(None, on_order_cancelled)
+
+    # Fon vazifalari: savat eslatmasi va kunlik hisobot
+    tasks = [
+        asyncio.create_task(cart_reminder_loop()),
+        asyncio.create_task(daily_report_loop()),
+    ]
+
     logger.info("[BOT] Ishga tushdi ✅")
 
     try:
         await dp.start_polling(bot)
     finally:
+        for task in tasks:
+            task.cancel()
         watch.unsubscribe()
         await bot.session.close()
 

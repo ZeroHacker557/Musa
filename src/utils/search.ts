@@ -19,11 +19,23 @@ function normalize(value: string): string {
     .trim()
 }
 
+/*
+ * Nom IKKI tilda qidiriladi. Ilovada ko'rsatiladigan `name` tanlangan
+ * tilga almashadi (use-shop-store.ts), shuning uchun faqat o'shanda
+ * qidirilsa ruscha rejimda o'zbekcha nom, o'zbekcha rejimda esa ruscha
+ * so'z («пельмени») topilmay qolardi.
+ */
 function fields(product: Product): string[] {
   return [
     product.name,
+    product.nameUz ?? '',
+    product.nameRu ?? '',
+    product.nameEn ?? '',
     product.category,
+    product.categoryRu ?? '',
     product.description ?? '',
+    product.descriptionUz ?? '',
+    product.descriptionRu ?? '',
     product.color ?? '',
     ...(product.colors ?? []),
     ...(product.sizes ?? []),

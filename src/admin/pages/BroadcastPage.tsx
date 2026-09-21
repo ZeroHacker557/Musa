@@ -42,6 +42,8 @@ export function BroadcastPage() {
   const { show, node: toast } = useToast()
 
   const [text, setText] = useState('')
+  /** Ruscha matn — bo'sh qolsa ruschada ham o'zbekchasi ketadi. */
+  const [textRu, setTextRu] = useState('')
   const [audience, setAudience] = useState<Audience>('all')
   const [pickedCategories, setPickedCategories] = useState<string[]>([])
   const [pickedProducts, setPickedProducts] = useState<string[]>([])
@@ -103,6 +105,7 @@ export function BroadcastPage() {
         const result = await apiPost<Progress>('action', {
           action: 'broadcast.send',
           text,
+          textRu,
           recipients: ids.slice(i, i + CHUNK),
         })
         totals.sent += result.sent
@@ -156,6 +159,26 @@ export function BroadcastPage() {
               HTML: &lt;b&gt;qalin&lt;/b&gt;, &lt;i&gt;qiya&lt;/i&gt;, &lt;a href=""&gt;havola&lt;/a&gt;
             </p>
             <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{text.length} / 3500</p>
+          </div>
+
+          {/* Ruscha matn: mijoz botda yoki ilovada rus tilini tanlagan
+              bo'lsa shu ketadi. Bo'sh qolsa — hammaga o'zbekchasi. */}
+          <label className="adm-label mt-4" htmlFor="broadcast-text-ru">Xabar matni (ruscha)</label>
+          <textarea
+            id="broadcast-text-ru"
+            className="adm-input"
+            rows={7}
+            value={textRu}
+            onChange={(e) => setTextRu(e.target.value)}
+            placeholder={'🎉 Новинка!\n\nПломбир MUSA уже в каталоге. Закажите — доставим быстро.'}
+            disabled={running}
+            maxLength={3500}
+          />
+          <div className="mt-1.5 flex items-center justify-between">
+            <p className="text-xs" style={{ color: 'var(--faint)' }}>
+              Bo‘sh qoldirilsa, rus tilidagi mijozlarga ham o‘zbekcha matn boradi
+            </p>
+            <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{textRu.length} / 3500</p>
           </div>
 
           <p className="adm-label mt-4">Kimga</p>

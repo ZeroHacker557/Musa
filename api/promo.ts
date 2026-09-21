@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const code = String(req.body?.code || '').trim().toUpperCase().slice(0, 40)
   const subtotal = Math.max(Math.floor(Number(req.body?.subtotal) || 0), 0)
-  if (!code) return fail(res, 400, 'Promokod kiritilmagan')
+  if (!code) return fail(res, 400, 'Promokod kiritilmagan', 'PROMO_EMPTY')
 
   try {
     const snap = await (await adminDb())
@@ -36,32 +36,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .limit(1)
       .get()
 
-    if (snap.empty) return fail(res, 404, 'Bunday promokod topilmadi')
+    if (snap.empty) return fail(res, 404, 'Bunday promokod topilmadi', 'PROMO_NOT_FOUND')
 
     const promo = snap.docs[0].data()
     const userId = Number(uid)
 
-    if (promo.active === false) return fail(res, 400, 'Promokod faol emas')
+    if (promo.active === false) return fail(res, 400, 'Promokod faol emas', 'PROMO_INACTIVE')
 
     const expiresAt = promo.expiresAt ? Date.parse(String(promo.expiresAt)) : NaN
     if (!Number.isNaN(expiresAt) && expiresAt < Date.now()) {
-      return fail(res, 400, 'Promokod muddati tugagan')
+      return fail(res, 400, 'Promokod muddati tugagan', 'PROMO_EXPIRED')
     }
 
     const maxUses = Number(promo.maxUses)
     const usageCount = Number(promo.usageCount) || 0
     if (Number.isFinite(maxUses) && maxUses > 0 && usageCount >= maxUses) {
-      return fail(res, 400, 'Promokoddan foydalanish chegarasi tugagan')
+      return fail(res, 400, 'Promokoddan foydalanish chegarasi tugagan', 'PROMO_USED_UP')
     }
 
     const usedBy: unknown[] = Array.isArray(promo.usedBy) ? promo.usedBy : []
     if (usedBy.includes(userId) || usedBy.includes(uid)) {
-      return fail(res, 400, 'Siz bu promokoddan allaqachon foydalangansiz')
+      return fail(res, 400, 'Siz bu promokoddan allaqachon foydalangansiz', 'PROMO_ALREADY_USED')
     }
 
     const minOrderTotal = Number(promo.minOrderTotal) || 0
     if (subtotal < minOrderTotal) {
-      return fail(res, 400, `Bu promokod ${minOrderTotal.toLocaleString('uz-UZ')} so'mdan yuqori buyurtmalar uchun`)
+      return fail(
+        res,
+        400,
+        `Bu promokod ${minOrderTotal.toLocaleString('uz-UZ')} so'mdan yuqori buyurtmalar uchun`,
+        'PROMO_MIN_TOTAL',
+        { amount: minOrderTotal },
+      )
     }
 
     const discountPercent = Math.min(Math.max(Number(promo.discountPercent) || 0, 0), 100)

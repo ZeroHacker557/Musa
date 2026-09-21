@@ -20,6 +20,7 @@ type SlideDraft = {
   url: string
   seconds: number
   buttonText: string
+  buttonTextRu: string
   linkKind: LinkKind
   linkUrl: string
   category: string
@@ -57,6 +58,7 @@ function toDraft(ad: SplashAd): Draft {
       url: s.url,
       seconds: s.seconds,
       buttonText: s.button?.text ?? '',
+      buttonTextRu: s.button?.textRu ?? '',
       linkKind: s.button?.link.kind ?? 'category',
       linkUrl: s.button?.link.kind === 'url' ? s.button.link.url : '',
       category: s.button?.link.kind === 'category' ? s.button.link.category : '',
@@ -130,7 +132,13 @@ export function AdsPage() {
       type: s.type,
       url: s.url,
       seconds: s.seconds,
-      button: s.buttonText.trim() ? { text: s.buttonText.trim(), link: linkOf(s) } : null,
+      button: s.buttonText.trim()
+        ? {
+            text: s.buttonText.trim(),
+            textRu: s.buttonTextRu.trim(),
+            link: linkOf(s),
+          }
+        : null,
     })),
   }), [draft])
 
@@ -180,6 +188,7 @@ export function AdsPage() {
           url: media.url,
           seconds: AD_LIMITS.defaultSeconds,
           buttonText: '',
+          buttonTextRu: '',
           linkKind: 'category',
           linkUrl: '',
           category: '',
@@ -381,6 +390,19 @@ export function AdsPage() {
                         onChange={(e) => setSlide(i, { buttonText: e.target.value })}
                       />
                     </div>
+
+                    {slide.buttonText.trim() && (
+                      <div>
+                        <label className="adm-label">Tugma matni (ruscha)</label>
+                        <input
+                          className="adm-input"
+                          value={slide.buttonTextRu}
+                          maxLength={AD_LIMITS.buttonText}
+                          placeholder="Bo‘sh qoldirsangiz o‘zbekchasi ko‘rinadi"
+                          onChange={(e) => setSlide(i, { buttonTextRu: e.target.value })}
+                        />
+                      </div>
+                    )}
 
                     {slide.buttonText.trim() && (
                       <div className="grid gap-2">

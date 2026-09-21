@@ -155,6 +155,8 @@ export const ru: Record<TranslationKey, string> = {
   'checkout.delivery': 'Доставка',
   'checkout.deliveryFree': 'Бесплатно',
   'checkout.freeFrom': 'Заказы от {amount} доставляются бесплатно',
+  'checkout.minOrder': 'Минимальная сумма заказа — {amount}',
+  'checkout.minOrderLeft': 'Добавьте ещё {amount}, чтобы оформить заказ',
   'checkout.total': 'Итого:',
   'checkout.deliveryInfo': 'Данные для доставки',
   'checkout.name': 'Ваше имя',
@@ -351,6 +353,28 @@ export const ru: Record<TranslationKey, string> = {
   'error.notSignedIn':
     'Не удалось подключиться к аккаунту. Закройте приложение и откройте снова через бота.',
   'error.saveFailed': 'Не удалось сохранить. Проверьте интернет и попробуйте снова.',
+
+  // Причины с сервера — ключ совпадает с кодом из `/api/*`
+  'error.PRODUCT_GONE': 'Одного из товаров в корзине больше нет',
+  'error.PRODUCT_PRICE': 'Неверная цена товара, свяжитесь с админом',
+  'error.OUT_OF_STOCK': 'Один из товаров в корзине закончился',
+  'error.NOT_ENOUGH_STOCK': 'На складе не хватает — уменьшите количество в корзине',
+  'error.MIN_ORDER': 'Минимальная сумма заказа — {amount}',
+  'error.PROMO_EMPTY': 'Промокод не введён',
+  'error.PROMO_NOT_FOUND': 'Такой промокод не найден',
+  'error.PROMO_INACTIVE': 'Промокод неактивен',
+  'error.PROMO_EXPIRED': 'Срок промокода истёк',
+  'error.PROMO_USED_UP': 'Лимит использования промокода исчерпан',
+  'error.PROMO_ALREADY_USED': 'Вы уже использовали этот промокод',
+  'error.PROMO_MIN_TOTAL': 'Промокод действует на заказы от {amount}',
+  'error.ALREADY_REVIEWED': 'Вы уже оставили отзыв на этот товар',
+  'error.NOT_PURCHASED': 'Чтобы оставить отзыв, сначала купите товар',
+  'error.PRODUCT_MISSING': 'Товар не выбран',
+  'error.RATING_RANGE': 'Оценка должна быть от 1 до 5',
+  'error.NOT_FOUND': 'Заказ не найден',
+  'error.NOT_YOURS': 'Это не ваш заказ',
+  'error.ALREADY_CANCELLED': 'Заказ уже отменён',
+  'error.TOO_LATE': 'Этот заказ уже нельзя отменить — свяжитесь с оператором',
 
   // ── Telegram ──
   'gate.title': 'Откройте через Telegram',

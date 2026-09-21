@@ -7,6 +7,8 @@ export type SplashAdLabels = {
   close: string
   mute: string
   unmute: string
+  /** Mijozning tili — tugma matnining ruscha varianti shu bo'yicha tanlanadi. */
+  lang?: string
 }
 
 type Props = {
@@ -456,7 +458,11 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
               close()
             }}
           >
-            <span className="truncate">{slide.button.text}</span>
+            <span className="truncate">
+              {labels.lang === 'ru' && slide.button.textRu
+                ? slide.button.textRu
+                : slide.button.text}
+            </span>
             <ArrowRight size={19} />
           </button>
         )}

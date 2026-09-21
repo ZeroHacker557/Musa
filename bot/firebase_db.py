@@ -455,6 +455,77 @@ def set_user_phone(user_id: int, phone: str):
         return False
 
 
+def abandoned_carts(hours: int = 2, limit: int = 30) -> list:
+    """
+    Savatni to'ldirib, buyurtma bermay ketganlar.
+
+    Savat ilovada profilga ham yoziladi (`users/{id}.cart`), shuning
+    uchun bot uni ko'ra oladi. Shartlar:
+      • savat bo'sh emas;
+      • oxirgi o'zgarishdan `hours` soat o'tgan;
+      • shu savat uchun eslatma hali yuborilmagan.
+
+    Buyurtma berilganda ilova savatni tozalaydi — demak bo'sh savat
+    eslatmaga tushmaydi.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    found = []
+    try:
+        docs = db.collection("users").where("cartUpdatedAt", "<=", cutoff).limit(200).get()
+    except Exception as e:
+        print(f"[ERR] abandoned_carts: {e}")
+        return found
+
+    for doc in docs:
+        data = doc.to_dict() or {}
+        cart = data.get("cart") or []
+        if not isinstance(cart, list) or not cart:
+            continue
+
+        updated = str(data.get("cartUpdatedAt") or "")
+        reminded = str(data.get("cartRemindedAt") or "")
+        # Eslatma savat oxirgi o'zgarishidan keyin yuborilgan bo'lsa — tinch qo'yamiz
+        if reminded and reminded >= updated:
+            continue
+
+        try:
+            user_id = int(data.get("id") or doc.id)
+        except (TypeError, ValueError):
+            continue
+
+        count = 0
+        for row in cart:
+            try:
+                count += int((row or {}).get("quantity") or 0)
+            except (TypeError, ValueError):
+                continue
+        if count <= 0:
+            continue
+
+        found.append({
+            "id": user_id,
+            "count": count,
+            "language": data.get("language"),
+            "name": data.get("first_name") or "",
+        })
+        if len(found) >= limit:
+            break
+
+    return found
+
+
+def mark_cart_reminded(user_id: int) -> bool:
+    """Eslatma yuborilgani belgilanadi — bitta savat uchun bir marta."""
+    try:
+        db.collection("users").document(str(user_id)).set(
+            {"cartRemindedAt": datetime.now(timezone.utc).isoformat()}, merge=True
+        )
+        return True
+    except Exception as e:
+        print(f"[ERR] mark_cart_reminded: {e}")
+        return False
+
+
 def get_all_users():
     docs = db.collection("users").get()
     users = []

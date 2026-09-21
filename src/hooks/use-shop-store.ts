@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { withMainLines } from '../config/categories'
-import { subscribeToCategories, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead, markOrderNotificationsAsRead } from '../lib/firebase'
+import { subscribeToCategories, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead, markOrderNotificationsAsRead, updateUserProfile } from '../lib/firebase'
 import { ensureSignedIn, onAuthChanged, auth } from '../lib/auth'
-import { apiPost, ApiError } from '../lib/api'
+import { apiPost } from '../lib/api'
+import { apiErrorText } from '../utils/api-error'
+import { formatPrice } from '../data'
 import { track } from '../lib/track'
 import { searchProducts } from '../utils/search'
 import { countUnseenOrders } from '../utils/notifications'
 import { bestPromotion, isRunning, promoPrice, type Promotion } from '../utils/promotions'
 import { useI18n } from '../i18n'
-import type { AppPage, Category, Order, OrderForm, Product, Section, UserProfile, Notification } from '../types/domain'
+import type { AppPage, CartRow, Category, Order, OrderForm, Product, Section, UserProfile, Notification } from '../types/domain'
 import { hapticError, hapticFeedback, hapticSuccess, initTelegram } from '../utils/telegram'
 import { applyTheme, getStoredTheme, storeTheme, type ThemeMode } from '../utils/theme'
 import { useT } from '../i18n'
@@ -42,6 +44,25 @@ function newOrderKey(): string {
     return crypto.randomUUID()
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+/** Profildagi massiv ⇄ ilovadagi xarita. */
+function toCartRows(items: CartItems): CartRow[] {
+  return Object.entries(items).map(([key, item]) => ({
+    key,
+    quantity: item.quantity,
+    ...(item.size ? { size: item.size } : {}),
+    ...(item.color ? { color: item.color } : {}),
+  }))
+}
+
+function fromCartRows(rows: CartRow[]): CartItems {
+  const items: CartItems = {}
+  for (const row of rows) {
+    if (!row?.key || !Number.isFinite(row.quantity) || row.quantity <= 0) continue
+    items[row.key] = { quantity: row.quantity, size: row.size, color: row.color }
+  }
+  return items
 }
 
 function loadCart(): CartItems {
@@ -98,10 +119,25 @@ export function useShopStore() {
    * Narxni baribir server qayta hisoblaydi (api/_lib/promotions.ts) —
    * bu yerda faqat mijozga to'g'ri ko'rsatish uchun.
    */
-  const products = useMemo(() => rawProducts.map((p) => {
-    const localized = lang === 'ru'
-      ? { name: p.nameRu || p.name, description: p.descriptionRu || p.description }
-      : {}
+  const products = useMemo(() => {
+    // Kategoriyaning ruscha nomi — qidiruvda ishlatiladi
+    const categoryRuByName = new Map(
+      categories.filter((c) => c.nameRu).map((c) => [c.name.trim().toLowerCase(), c.nameRu as string]),
+    )
+    return rawProducts.map((p) => {
+    /*
+     * Ko'rsatiladigan nom tanlangan tilga o'tadi, asl nomlar esa
+     * `nameUz`/`descriptionUz` da qoladi: qidiruv ikkala tilda ham
+     * ishlashi kerak (utils/search.ts).
+     */
+    const localized = {
+      nameUz: p.name,
+      descriptionUz: p.description,
+      categoryRu: categoryRuByName.get(p.category.trim().toLowerCase()),
+      ...(lang === 'ru'
+        ? { name: p.nameRu || p.name, description: p.descriptionRu || p.description }
+        : {}),
+    }
     const promo = bestPromotion(
       promotions,
       { id: String(p.id), category: p.category, sectionId: p.sectionId },
@@ -116,7 +152,8 @@ export function useShopStore() {
       discount: `-${promo.percent}%`,
       promotion: { id: promo.id, title: promo.title, percent: promo.percent, endsAt: promo.endsAt },
     }
-  }), [rawProducts, promotions, clock, lang])
+    })
+  }, [rawProducts, promotions, clock, lang, categories])
 
   /** Hozir ishlayotgan aksiyalar — bosh sahifadagi banner uchun. */
   const runningPromotions = useMemo(
@@ -221,6 +258,13 @@ export function useShopStore() {
     }
   }, [])
 
+  /*
+   * Savat qurilmalar orasida: profildagi nusxa bir marta tiklanadi
+   * (`restored`), o'zgarish esa profilga qayta yoziladi. `lastSent` —
+   * oxirgi yuborilgan holat, bir xil ma'lumot ikki marta ketmasin.
+   */
+  const cartSync = useRef({ restored: false, lastSent: '' })
+
   // Shaxsiy ma'lumot: faqat Telegram imzosi tekshirilgandan keyin (F-02).
   // Tizimga kirmagan holatda Rules bu kolleksiyalarni bermaydi, shuning
   // uchun umuman obuna bo'lmaymiz.
@@ -267,6 +311,19 @@ export function useShopStore() {
       unsubProfile = subscribeToUserProfile(userId, (profile) => {
         if (profile) setUserProfile(profile as UserProfile)
         setProfileReady(true)
+
+        /*
+         * Profildagi savat — boshqa qurilmada to'ldirilgani. Faqat BIR
+         * MARTA va faqat shu qurilmadagi savat bo'sh bo'lsa olinadi:
+         * aks holda ochiq turgan savat eski ro'yxat bilan almashardi.
+         */
+        if (!cartSync.current.restored) {
+          cartSync.current.restored = true
+          const saved = profile?.cart
+          if (Array.isArray(saved) && saved.length > 0) {
+            setCartItems((current) => (Object.keys(current).length ? current : fromCartRows(saved)))
+          }
+        }
       })
       unsubNotifications = subscribeToUserNotifications(userId, (notifs) => {
         setNotifications(notifs)
@@ -295,6 +352,32 @@ export function useShopStore() {
       console.warn("[Savat] saqlab bo'lmadi:", error)
     }
   }, [cartItems])
+
+  /*
+   * Savat profilda ham turadi — telefon almashsa yoki brauzer keshi
+   * tozalansa yo'qolmaydi. Profildagi nusxa faqat BIR MARTA va faqat
+   * shu qurilmadagi savat bo'sh bo'lsa olinadi: aks holda ochiq turgan
+   * savatni boshqa qurilmadagi eski ro'yxat bosib ketardi.
+   */
+  useEffect(() => {
+    if (!cartSync.current.restored || !isAuthenticated) return
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+
+    const rows = toCartRows(cartItems)
+    const payload = JSON.stringify(rows)
+    if (payload === cartSync.current.lastSent) return
+
+    // Har bosishda emas — mijoz «−1+» tugmasini tez bossa bitta yozuv
+    const timer = setTimeout(() => {
+      cartSync.current.lastSent = payload
+      updateUserProfile(Number(uid), {
+        cart: rows,
+        cartUpdatedAt: new Date().toISOString(),
+      }).catch((error) => console.warn('[Savat] profilga yozilmadi:', error))
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [cartItems, isAuthenticated])
 
   const cartCount = Object.values(cartItems).reduce((total, item) => total + item.quantity, 0)
 
@@ -660,7 +743,7 @@ export function useShopStore() {
       // Buyurtma yaratilmadi — savat SAQLANIB qoladi (F-05)
       console.error('[Buyurtma] yuborilmadi:', error)
       hapticError()
-      notify(error instanceof ApiError ? error.message : t('checkout.failed'))
+      notify(apiErrorText(error, t, 'checkout.failed', formatPrice))
       return false
     } finally {
       setSubmitting(false)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useT } from '../../i18n'
+import { useI18n, useT } from '../../i18n'
 import { fetchSplashAd } from '../../lib/firebase'
 import type { Product, Section } from '../../types/domain'
 import { ALL_CATEGORIES, markAdSeen, shouldShowAd, type AdLink, type SplashAd as Ad } from '../../utils/splash-ad'
@@ -51,6 +51,7 @@ function preloadFirst(ad: Ad): Promise<boolean> {
  */
 export function SplashAd({ products, sections, onOpenCategory, onOpenProduct, onVisibleChange }: Props) {
   const t = useT()
+  const { lang } = useI18n()
   const [ad, setAd] = useState<Ad | null>(null)
 
   useEffect(() => {
@@ -94,6 +95,7 @@ export function SplashAd({ products, sections, onOpenCategory, onOpenProduct, on
       ad={ad}
       labels={{
         skip: t('ad.skip'), close: t('ad.close'), mute: t('ad.mute'), unmute: t('ad.unmute'),
+        lang,
       }}
       onClose={() => setAd(null)}
       onAction={act}

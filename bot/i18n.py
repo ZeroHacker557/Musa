@@ -355,6 +355,25 @@ TEXTS = {
         "ru": "🎉 Ваш заказ <b>{order}</b> доставлен. Спасибо за покупку!",
     },
     "notif_status_title": {"uz": "Buyurtma holati", "ru": "Статус заказа"},
+
+    # ── Tashlab ketilgan savat ──
+    "cart_left": {
+        "uz": (
+            "🛒 <b>Savatingiz kutib turibdi</b>\n\n"
+            "{count} ta mahsulot hali buyurtma qilinmadi.\n"
+            "Muzlatilgan mahsulotlar tez tugaydi — hozir rasmiylashtirsangiz, "
+            "bugunoq yetkazib beramiz.\n\n"
+            "👇 Savatni ochib, buyurtmani yakunlang:"
+        ),
+        "ru": (
+            "🛒 <b>Ваша корзина ждёт</b>\n\n"
+            "{count} товаров ещё не заказаны.\n"
+            "Замороженные товары быстро разбирают — оформите сейчас, "
+            "и доставим сегодня же.\n\n"
+            "👇 Откройте корзину и завершите заказ:"
+        ),
+    },
+    "cart_button": {"uz": "🛒 Savatni ochish", "ru": "🛒 Открыть корзину"},
 }
 
 

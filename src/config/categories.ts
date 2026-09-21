@@ -19,6 +19,9 @@ import type { Category } from '../types/domain'
  */
 export type MainLine = {
   name: string
+  /** Ruscha nomi va chip uchun qisqa ruscha nomi. */
+  nameRu?: string
+  shortRu?: string
   /** category-icons.ts dagi kalit. */
   icon: string
   /** Karta foni — logotipdagi uch rangdan. */
@@ -40,18 +43,22 @@ export const MAIN_LINES: MainLine[] = [
   {
     name: 'Yarim tayyor mahsulotlar',
     short: 'Yarim tayyorlar',
+    nameRu: 'Полуфабрикаты',
+    shortRu: 'Полуфабрикаты',
     icon: 'chuchvara',
     gradient: 'linear-gradient(135deg, #0f8a48 0%, #04331c 100%)',
     image: yarimTayyor,
   },
   {
     name: 'Muzqaymoqlar',
+    nameRu: 'Мороженое',
     icon: 'muzqaymoq',
     gradient: 'linear-gradient(135deg, #2f5ed6 0%, #101f5e 100%)',
     image: muzqaymoq,
   },
   {
     name: 'Siroklar',
+    nameRu: 'Сырки',
     icon: 'sirok',
     gradient: 'linear-gradient(135deg, #d9a52a 0%, #7a5406 100%)',
     image: sirok,
@@ -64,6 +71,31 @@ const MAIN_NAMES = new Set(MAIN_LINES.map((line) => line.name.toLowerCase()))
 export function shortCategoryName(name: string): string {
   const line = MAIN_LINES.find((l) => l.name.toLowerCase() === name.trim().toLowerCase())
   return line?.short ?? name
+}
+
+/**
+ * Ekranda ko'rinadigan kategoriya nomi.
+ *
+ * `name` — filtr kaliti (mahsulotdagi `category` bilan bir xil), shuning
+ * uchun u hech qachon tarjima qilinmaydi. Bu funksiya faqat KO'RINISHNI
+ * beradi: ruscha tilda tarjima bo'lsa o'sha, bo'lmasa o'zbekchasi.
+ */
+export function categoryLabel(
+  category: { name: string; nameRu?: string },
+  lang: string,
+): string {
+  const line = MAIN_LINES.find(
+    (l) => l.name.toLowerCase() === category.name.trim().toLowerCase(),
+  )
+  if (lang === 'ru') {
+    return category.nameRu || line?.shortRu || line?.nameRu || line?.short || category.name
+  }
+  return line?.short ?? category.name
+}
+
+/** Bo'lim sarlavhasi — kategoriyadagi kabi. */
+export function sectionLabel(section: { name: string; nameRu?: string }, lang: string): string {
+  return lang === 'ru' ? section.nameRu || section.name : section.name
 }
 
 /** Yo'nalish nomimi? Bosh sahifadagi lentada takrorlanmasligi uchun. */
@@ -83,6 +115,8 @@ export function withMainLines(dbCategories: Category[]): Category[] {
   const lines: Category[] = MAIN_LINES.map((line, index) => ({
     id: -100 - index,
     name: line.name,
+    // Bazadagi nusxada tarjima bo'lsa o'sha, bo'lmasa shu yerdagisi
+    nameRu: byName.get(line.name.toLowerCase())?.nameRu || line.nameRu,
     icon: line.icon,
     // Bazadagi nusxaning tartibi — admin panelda belgilangani
     order: byName.get(line.name.toLowerCase())?.order,

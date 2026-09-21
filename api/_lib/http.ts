@@ -9,6 +9,20 @@ export function requirePost(req: VercelRequest, res: VercelResponse): boolean {
   return true
 }
 
-export function fail(res: VercelResponse, status: number, message: string) {
-  res.status(status).json({ error: message })
+/**
+ * Xato javobi.
+ *
+ * `message` — o'zbekcha matn (eski mijozlar va loglar uchun), `code` esa
+ * MASHINA o'qiydigan sabab: ilova uni o'z tilida ko'rsatadi
+ * (src/utils/api-error.ts). `params` matndagi son yoki nomni beradi —
+ * masalan minimal summa.
+ */
+export function fail(
+  res: VercelResponse,
+  status: number,
+  message: string,
+  code?: string,
+  params?: Record<string, string | number>,
+) {
+  res.status(status).json({ error: message, ...(code ? { code } : {}), ...(params ? { params } : {}) })
 }

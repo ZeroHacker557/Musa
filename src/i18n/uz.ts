@@ -160,6 +160,8 @@ export const uz = {
   'checkout.delivery': 'Yetkazib berish',
   'checkout.deliveryFree': 'Bepul',
   'checkout.freeFrom': '{amount}dan yuqori buyurtmalar bepul yetkaziladi',
+  'checkout.minOrder': 'Minimal buyurtma summasi — {amount}',
+  'checkout.minOrderLeft': 'Buyurtma berish uchun yana {amount} qo‘shing',
   'checkout.total': 'Jami:',
   'checkout.deliveryInfo': 'Yetkazib berish ma’lumotlari',
   'checkout.name': 'Ismingiz',
@@ -358,6 +360,32 @@ export const uz = {
   'error.notSignedIn':
     "Hisobingizga ulanib bo'lmadi. Ilovani yopib, bot orqali qaytadan oching.",
   'error.saveFailed': "Saqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.",
+
+  /*
+   * Serverdan kelgan sabablar. Kalit — `/api/*` qaytargan kod
+   * (src/utils/api-error.ts): shuning uchun xato ham mijozning tilida
+   * ko'rinadi, server esa faqat sababni aytadi.
+   */
+  'error.PRODUCT_GONE': 'Savatdagi mahsulotlardan biri endi mavjud emas',
+  'error.PRODUCT_PRICE': "Mahsulot narxi noto'g'ri, adminga murojaat qiling",
+  'error.OUT_OF_STOCK': 'Savatdagi mahsulotlardan biri sotuvda qolmadi',
+  'error.NOT_ENOUGH_STOCK': "Omborda yetarli miqdor yo'q — savatdagi sonni kamaytiring",
+  'error.MIN_ORDER': 'Minimal buyurtma summasi — {amount}',
+  'error.PROMO_EMPTY': 'Promokod kiritilmagan',
+  'error.PROMO_NOT_FOUND': 'Bunday promokod topilmadi',
+  'error.PROMO_INACTIVE': 'Promokod faol emas',
+  'error.PROMO_EXPIRED': 'Promokod muddati tugagan',
+  'error.PROMO_USED_UP': 'Promokoddan foydalanish chegarasi tugagan',
+  'error.PROMO_ALREADY_USED': 'Siz bu promokoddan allaqachon foydalangansiz',
+  'error.PROMO_MIN_TOTAL': 'Bu promokod {amount}dan yuqori buyurtmalar uchun',
+  'error.ALREADY_REVIEWED': 'Siz bu mahsulotga allaqachon sharh qoldirgansiz',
+  'error.NOT_PURCHASED': 'Sharh qoldirish uchun avval mahsulotni sotib olishingiz kerak',
+  'error.PRODUCT_MISSING': 'Mahsulot tanlanmagan',
+  'error.RATING_RANGE': "Baho 1 dan 5 gacha bo'lishi kerak",
+  'error.NOT_FOUND': 'Buyurtma topilmadi',
+  'error.NOT_YOURS': 'Bu buyurtma sizniki emas',
+  'error.ALREADY_CANCELLED': 'Buyurtma allaqachon bekor qilingan',
+  'error.TOO_LATE': "Bu buyurtmani endi bekor qilib bo'lmaydi — operator bilan bog'laning",
 
   // ── Telegram to'sig'i ──
   'gate.title': 'Telegram orqali oching',

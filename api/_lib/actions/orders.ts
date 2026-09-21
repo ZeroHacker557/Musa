@@ -1,6 +1,7 @@
 import { adminDb } from '../firebase-admin.js'
 import { escapeHtml, replaceButtons, sendMessage, sendRows, setKeyboard } from '../telegram.js'
 import { userLang, type Lang } from '../i18n.js'
+import { restoreStock } from '../stock.js'
 import type { Staff } from '../admin-auth.js'
 
 const STATUSES = [
@@ -180,6 +181,67 @@ export async function refreshAdminMessages(
   }
 }
 
+/** Qoldiq shu songa tushsa adminlar ogohlantiriladi. */
+export const LOW_STOCK_AT = 5
+
+/**
+ * Adminlarning Telegram ID lari — xabarnomalar shu ro'yxatga boradi.
+ *
+ * Faqat faol xodimlar va faqat `telegramId` si borlari: panelga email
+ * bilan kiradigan admin Telegram'ga ulanmagan bo'lishi mumkin.
+ */
+async function adminTargets(): Promise<number[]> {
+  const db = await adminDb()
+  const snap = await db.collection('staff').where('role', 'in', ['owner', 'admin']).get()
+  const targets: number[] = []
+  for (const doc of snap.docs) {
+    const data = doc.data() as { telegramId?: number; active?: boolean }
+    if (data.active !== false && data.telegramId) targets.push(data.telegramId)
+  }
+  return targets
+}
+
+/**
+ * Ombor qoldig'i tugab qolgani haqida adminlarga xabar.
+ *
+ * Bir mahsulot uchun BIR MARTA: mahsulotga `lowStockAlerted` bayrog'i
+ * qo'yiladi va u faqat admin qoldiqni chegaradan yuqori qilib
+ * to'ldirganda tozalanadi (actions/catalog.ts). Aks holda har
+ * buyurtmada bir xil xabar kelaverardi.
+ */
+export async function notifyLowStock(
+  items: { id: string; name: string; stock: number }[],
+): Promise<void> {
+  if (!items.length) return
+  try {
+    const db = await adminDb()
+    const fresh: typeof items = []
+
+    for (const item of items) {
+      const ref = db.collection('products').doc(item.id)
+      const snap = await ref.get()
+      if (!snap.exists || snap.data()?.lowStockAlerted === true) continue
+      await ref.set({ lowStockAlerted: true }, { merge: true })
+      fresh.push(item)
+    }
+    if (!fresh.length) return
+
+    const lines = fresh.map((item) =>
+      item.stock <= 0
+        ? `🔴 <b>${escapeHtml(item.name)}</b> — tugadi`
+        : `🟡 <b>${escapeHtml(item.name)}</b> — ${item.stock} ta qoldi`,
+    )
+    const text = `📦 <b>OMBOR</b>\n\n${lines.join('\n')}\n\nQoldiqni admin panel → Mahsulotlar bo'limidan to'ldiring.`
+
+    for (const target of await adminTargets()) {
+      await sendMessage(target, text)
+      await new Promise((resolve) => setTimeout(resolve, 40))
+    }
+  } catch (error) {
+    console.error('[orders] ombor signali yuborilmadi:', error)
+  }
+}
+
 /** Kuryerga va guruhga yuboriladigan to'liq tavsilot. */
 export function orderSummary(id: string, order: OrderDoc): string {
   const lines = (order.products || [])
@@ -261,6 +323,8 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
   } else if (status === 'Bekor qilingan' || status === 'Rad etildi') {
     // Kuryerlardagi «Oldim» tugmasi qolib ketmasin — buyurtma yopilgan
     await clearDispatchButtons(orderId, order, `❌ ${status}`)
+    // Buyurtma yopildi — band qilingan miqdor omborga qaytadi
+    await restoreStock(orderId)
   }
 
   /*

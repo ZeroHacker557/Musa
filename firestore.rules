@@ -82,9 +82,13 @@ service cloud.firestore {
       // Mijoz o'zinikini, admin esa butun bazani ko'radi (admin panel)
       allow read: if isOwner(userId) || isAdmin();
       allow create: if false;  // /api/auth yaratadi
+      // `cart` va `cartUpdatedAt` — savat qurilmalar orasida saqlanishi
+      // uchun (src/hooks/use-shop-store.ts). Pulga aloqasi yo'q: narx
+      // baribir serverda qayta hisoblanadi.
       allow update: if isOwner(userId)
                     && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['first_name', 'last_name', 'phone', 'addresses', 'language']);
+                         .hasOnly(['first_name', 'last_name', 'phone', 'addresses', 'language',
+                                   'cart', 'cartUpdatedAt']);
       allow delete: if false;
     }
 

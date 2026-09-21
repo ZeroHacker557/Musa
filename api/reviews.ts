@@ -36,9 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const rating = Math.floor(Number(req.body?.rating))
   const comment = String(req.body?.comment ?? '').trim().slice(0, MAX_COMMENT)
 
-  if (!productId) return fail(res, 400, 'Mahsulot tanlanmagan')
+  if (!productId) return fail(res, 400, 'Mahsulot tanlanmagan', 'PRODUCT_MISSING')
   if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-    return fail(res, 400, "Baho 1 dan 5 gacha bo'lishi kerak")
+    return fail(res, 400, "Baho 1 dan 5 gacha bo'lishi kerak", 'RATING_RANGE')
   }
 
   const db = await adminDb()
@@ -120,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ALREADY_REVIEWED: 'Siz bu mahsulotga allaqachon sharh qoldirgansiz',
       NOT_PURCHASED: 'Sharh qoldirish uchun avval mahsulotni sotib olishingiz kerak',
     }
-    if (messages[code]) return fail(res, 403, messages[code])
+    if (messages[code]) return fail(res, 403, messages[code], code)
 
     console.error('[reviews] xato:', error)
     return fail(res, 500, "Sharh saqlanmadi, qayta urinib ko'ring")

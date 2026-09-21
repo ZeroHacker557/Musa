@@ -34,7 +34,9 @@ export async function settingsSave(actor: Staff, body: Record<string, unknown>) 
   if (section === 'delivery') {
     const fee = num(body.fee)
     const freeFrom = num(body.freeFrom)
-    await db.collection('settings').doc('delivery').set({ fee, freeFrom }, { merge: true })
+    // 0 — minimal summa yo'q, buyurtma har qanday summada o'tadi
+    const minOrder = num(body.minOrder)
+    await db.collection('settings').doc('delivery').set({ fee, freeFrom, minOrder }, { merge: true })
     return { ok: true }
   }
 

@@ -177,6 +177,7 @@ export function useSections() {
             return {
               id: d.id,
               name: String(data.name || ''),
+              nameRu: String(data.nameRu || ''),
               category: String(data.category || ''),
               order: typeof data.order === 'number' ? data.order : undefined,
             }
@@ -328,13 +329,13 @@ export type CourierSettings = {
 
 export type AllSettings = {
   payment: { cardNumber: string; cardOwner: string }
-  delivery: { fee: number; freeFrom: number }
+  delivery: { fee: number; freeFrom: number; minOrder: number }
   courier: CourierSettings
 }
 
 const SETTINGS_FALLBACK: AllSettings = {
   payment: { cardNumber: '', cardOwner: '' },
-  delivery: { fee: 0, freeFrom: 0 },
+  delivery: { fee: 0, freeFrom: 0, minOrder: 0 },
   courier: { channel: 'couriers', groupChatId: null, notifyAdmins: true },
 }
 

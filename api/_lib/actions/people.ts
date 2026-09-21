@@ -1,5 +1,6 @@
 import { adminAuth, adminDb } from '../firebase-admin.js'
 import { sendMessage } from '../telegram.js'
+import { normalizeLang, type Lang } from '../i18n.js'
 import { verifyInitData } from '../telegram-auth.js'
 import type { Staff, StaffRole } from '../admin-auth.js'
 
@@ -7,6 +8,30 @@ const ROLES: StaffRole[] = ['owner', 'admin', 'courier']
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+/** Ilova ichidagi bildirishnoma sarlavhasi. */
+const BROADCAST_TITLE: Record<Lang, string> = {
+  uz: 'MUSA xabari',
+  ru: 'Сообщение MUSA',
+}
+
+/**
+ * Telegram HTML'ini oddiy matnga aylantiradi.
+ *
+ * Xabar botga HTML bilan ketadi, ilovadagi bildirishnoma esa oddiy
+ * matn ko'rsatadi — teglar ko'rinib qolmasligi kerak.
+ */
+function plain(value: string): string {
+  return value
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .trim()
+    .slice(0, 500)
 }
 
 /**
@@ -168,7 +193,34 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
   if (!message) throw new Error('Xabar matni bo‘sh')
   if (message.length > 3500) throw new Error('Xabar juda uzun (3500 belgigacha)')
 
+  /*
+   * Ruscha matn ixtiyoriy: yozilmagan bo'lsa hammaga o'zbekchasi
+   * ketadi (avvalgidek). Yozilgan bo'lsa — har mijoz o'zi tanlagan
+   * tilda oladi (`users/{id}.language`).
+   */
+  const messageRu = text(body.textRu)
+  if (messageRu.length > 3500) throw new Error('Ruscha xabar juda uzun (3500 belgigacha)')
+  const pick = (lang: Lang) => (lang === 'ru' && messageRu ? messageRu : message)
+
   const db = await adminDb()
+
+  /** Telegram xabari + ilova ichidagi bildirishnoma. */
+  const deliver = async (userId: string, lang: Lang) => {
+    const body = pick(lang)
+    const result = await sendMessage(userId, body)
+    if (result.ok) {
+      // Mijoz xabarni botda o'qimagan bo'lsa ham ilovada ko'radi
+      await db.collection('notifications').add({
+        userId: Number(userId),
+        title: BROADCAST_TITLE[lang],
+        body: plain(body),
+        date: new Date().toISOString(),
+        read: false,
+        type: 'promo',
+      })
+    }
+    return result
+  }
 
   /*
    * Aniq ro'yxat: admin panel mijozlarni o'zi tanlab (kategoriya, mahsulot,
@@ -188,7 +240,7 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
         skipped++
         continue
       }
-      const result = await sendMessage(snap.id, message)
+      const result = await deliver(snap.id, normalizeLang(snap.data()?.language))
       if (result.ok) sent++
       else failed++
       await new Promise((resolve) => setTimeout(resolve, 40))
@@ -211,7 +263,7 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
   let skipped = 0
 
   for (const doc of snap.docs) {
-    const data = doc.data() as { lastActive?: string; phone?: string }
+    const data = doc.data() as { lastActive?: string; phone?: string; language?: string }
 
     if (segment === 'customers' && !data.phone) {
       skipped++
@@ -225,7 +277,7 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
       }
     }
 
-    const result = await sendMessage(doc.id, message)
+    const result = await deliver(doc.id, normalizeLang(data.language))
     if (result.ok) sent++
     else failed++
     await new Promise((resolve) => setTimeout(resolve, 40))

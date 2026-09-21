@@ -40,7 +40,7 @@ export function SettingsPage() {
           onSave={save}
         />
         <DeliveryCard
-          key={`del:${settings.delivery.fee}|${settings.delivery.freeFrom}`}
+          key={`del:${settings.delivery.fee}|${settings.delivery.freeFrom}|${settings.delivery.minOrder}`}
           settings={settings.delivery}
           busy={busy === 'delivery'}
           onSave={save}
@@ -137,12 +137,13 @@ function PaymentCard({
 function DeliveryCard({
   settings, busy, onSave,
 }: {
-  settings: { fee: number; freeFrom: number }
+  settings: { fee: number; freeFrom: number; minOrder: number }
   busy: boolean
   onSave: SaveFn
 }) {
   const [fee, setFee] = useState(String(settings.fee))
   const [freeFrom, setFreeFrom] = useState(String(settings.freeFrom))
+  const [minOrder, setMinOrder] = useState(String(settings.minOrder ?? 0))
 
 
   return (
@@ -167,12 +168,25 @@ function DeliveryCard({
         onChange={(e) => setFreeFrom(e.target.value.replace(/\D/g, ''))}
       />
 
+      {/* 0 — cheklov yo'q: buyurtma har qanday summada o'tadi */}
+      <label className="adm-label mt-3">Minimal buyurtma summasi — 0 bo‘lsa cheklov yo‘q</label>
+      <input
+        className="adm-input"
+        inputMode="numeric"
+        value={minOrder}
+        onChange={(e) => setMinOrder(e.target.value.replace(/\D/g, ''))}
+      />
+
       {/* Mijoz savatda aynan shuni ko'radi — summani surib tekshirish mumkin */}
       <DeliveryPreview fee={Number(fee) || 0} freeFrom={Number(freeFrom) || 0} />
 
       <button
         className="adm-btn adm-btn--primary mt-4 w-full"
-        onClick={() => onSave('delivery', { fee: Number(fee), freeFrom: Number(freeFrom) })}
+        onClick={() => onSave('delivery', {
+          fee: Number(fee),
+          freeFrom: Number(freeFrom),
+          minOrder: Number(minOrder) || 0,
+        })}
         disabled={busy}
       >
         {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash

@@ -8,7 +8,7 @@ import { useToast } from '../components/Toast'
 import { moveItem, useOptimisticValue } from '../lib/sort'
 import { SortableList } from '../components/SortableList'
 
-type Draft = { id?: string; name: string; icon: string }
+type Draft = { id?: string; name: string; nameRu: string; icon: string }
 
 /** Admin tanlashi mumkin bo'lgan ikonka kalitlari — category-icons.ts dagilar. */
 const ICONS = [
@@ -52,6 +52,7 @@ export function CategoriesPage() {
         action: 'category.save',
         id: draft.id,
         name: draft.name,
+        nameRu: draft.nameRu,
         icon: draft.icon,
       })
       show(draft.id ? 'Kategoriya yangilandi' : 'Kategoriya qo‘shildi')
@@ -86,7 +87,7 @@ export function CategoriesPage() {
         <div className="adm-page-head__actions">
           <button
             className="adm-btn adm-btn--primary"
-            onClick={() => setDraft({ name: '', icon: 'box' })}
+            onClick={() => setDraft({ name: '', nameRu: '', icon: 'box' })}
           >
             <Plus size={17} /> Qo‘shish
           </button>
@@ -135,7 +136,7 @@ export function CategoriesPage() {
                     <button
                       className="grid size-8 shrink-0 place-items-center rounded-lg transition active:scale-90"
                       style={{ background: 'var(--surface-2)' }}
-                      onClick={() => setDraft({ id, name: category.name, icon: category.icon })}
+                      onClick={() => setDraft({ id, name: category.name, nameRu: category.nameRu || '', icon: category.icon })}
                       aria-label="Tahrirlash"
                     >
                       <Pencil size={15} />
@@ -183,6 +184,19 @@ export function CategoriesPage() {
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             placeholder="Chuchvara"
           />
+
+          {/* Ruscha nom faqat ko'rinish uchun — mahsulotlar kategoriyaga
+              o'zbekcha nom bilan bog'langan, shuning uchun filtr buzilmaydi */}
+          <label className="adm-label mt-4">Nomi (ruscha)</label>
+          <input
+            className="adm-input"
+            value={draft.nameRu}
+            onChange={(e) => setDraft({ ...draft, nameRu: e.target.value })}
+            placeholder="Пельмени"
+          />
+          <p className="mt-2 text-xs" style={{ color: 'var(--faint)' }}>
+            Bo‘sh qoldirilsa ruscha tilda ham o‘zbekcha nomi ko‘rinadi.
+          </p>
 
           <p className="adm-label mt-4">Ikonka</p>
           <div className="grid grid-cols-5 gap-2 sm:grid-cols-8">

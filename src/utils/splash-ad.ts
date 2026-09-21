@@ -29,7 +29,8 @@ export type AdSlide = {
   url: string
   /** Rasm necha soniya turadi. Video o'z uzunligicha o'ynaydi. */
   seconds: number
-  button: { text: string; link: AdLink } | null
+  /** `textRu` bo'sh bo'lsa ruscha tilda ham o'zbekcha matn ko'rinadi. */
+  button: { text: string; textRu?: string; link: AdLink } | null
 }
 
 /**
@@ -92,6 +93,7 @@ function readSlide(raw: unknown, index: number): AdSlide | null {
   const button = (data.button ?? null) as Record<string, unknown> | null
   const link = button ? readLink(button.link) : null
   const text = button ? str(button.text).slice(0, AD_LIMITS.buttonText) : ''
+  const textRu = button ? str(button.textRu).slice(0, AD_LIMITS.buttonText) : ''
 
   return {
     id: str(data.id) || `s${index}`,
@@ -100,7 +102,7 @@ function readSlide(raw: unknown, index: number): AdSlide | null {
     seconds: Number.isFinite(seconds)
       ? Math.min(AD_LIMITS.maxSeconds, Math.max(AD_LIMITS.minSeconds, seconds))
       : AD_LIMITS.defaultSeconds,
-    button: link && text ? { text, link } : null,
+    button: link && text ? { text, ...(textRu ? { textRu } : {}), link } : null,
   }
 }
 
