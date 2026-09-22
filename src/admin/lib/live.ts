@@ -327,23 +327,85 @@ export type CourierSettings = {
   toGroup?: boolean
 }
 
+export type LinkoSettings = {
+  baseUrl: string
+  priceListId: number
+  stockIds: number[]
+  lastSyncAt: string | null
+  lastReport: string | null
+}
+
 export type AllSettings = {
   payment: { cardNumber: string; cardOwner: string }
   delivery: { fee: number; freeFrom: number; minOrder: number }
   courier: CourierSettings
+  linko: LinkoSettings
 }
 
 const SETTINGS_FALLBACK: AllSettings = {
   payment: { cardNumber: '', cardOwner: '' },
   delivery: { fee: 0, freeFrom: 0, minOrder: 0 },
   courier: { channel: 'couriers', groupChatId: null, notifyAdmins: true },
+  linko: { baseUrl: '', priceListId: 0, stockIds: [], lastSyncAt: null, lastReport: null },
 }
+
+/** Linko katalogining nusxasi — `linko_products` (server yozadi). */
+export type LinkoRow = {
+  linkoId: number
+  name: string
+  code?: string
+  vendorCode?: string
+  typeName?: string
+  measurement?: string
+  price: number
+  stock: number
+  productId: string | null
+  updatedAt?: string
+}
+
+export function useLinkoProducts() {
+  const [rows, setRows] = useState<LinkoRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(
+    () =>
+      onSnapshot(
+        collection(db, 'linko_products'),
+        (snapshot) => {
+          const list = snapshot.docs.map((d) => {
+            const data = d.data()
+            return {
+              linkoId: Number(data.linkoId) || Number(d.id) || 0,
+              name: String(data.name || ''),
+              code: String(data.code || ''),
+              vendorCode: String(data.vendorCode || ''),
+              typeName: String(data.typeName || ''),
+              measurement: String(data.measurement || ''),
+              price: Number(data.price) || 0,
+              stock: Number(data.stock) || 0,
+              productId: data.productId ? String(data.productId) : null,
+              updatedAt: String(data.updatedAt || ''),
+            }
+          })
+          list.sort((a, b) => a.name.localeCompare(b.name))
+          setRows(list)
+          setLoading(false)
+        },
+        // Ruxsat yo'q yoki hali sinxronlanmagan — sahifa bo'sh ro'yxat bilan ishlaydi
+        () => setLoading(false),
+      ),
+    [],
+  )
+
+  return { rows, loading }
+}
+
 
 export function useSettings() {
   const [settings, setSettings] = useState<AllSettings>(SETTINGS_FALLBACK)
 
   useEffect(() => {
-    const sections = ['payment', 'delivery', 'courier'] as const
+    const sections = ['payment', 'delivery', 'courier', 'linko'] as const
     const unsubs = sections.map((section) =>
       onSnapshot(
         doc(db, 'settings', section),

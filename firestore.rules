@@ -141,6 +141,15 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
     }
 
+    // ── Linko katalogining nusxasi ──────────────────────────
+    // Tashqi tizimdagi pozitsiyalar: nomi, narxi, qoldig'i. Mijozga
+    // kerak emas — u do'kondagi mahsulotni ko'radi, shuning uchun
+    // o'qish faqat adminga. Yozish — server (Admin SDK).
+    match /linko_products/{linkoId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // ── Promokodlar: mijoz ko'ra olmaydi ────────────────────
     // Tekshirish /api/promo va /api/orders orqali. Admin panel esa
     // ro'yxatni ko'rsatishi kerak, shuning uchun unga o'qish ochiq.

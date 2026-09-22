@@ -94,6 +94,25 @@ oching va **butun mazmunini** (`{` dan `}` gacha) qiymat sifatida joylang.
 > Ular `.gitignore` da — git'ga tushmagan, lekin diskda turibdi: MUSA
 > kalitini qo'shgandan keyin ularni o'chirib tashlang.
 
+### `LINKO_TOKEN`
+Linko (SFA) External API tokeni — Linko texnik yordamidan olinadi.
+Katalog, narx va ombor qoldig'i shu token bilan tortiladi.
+
+### `LINKO_BASE_URL`
+Tashkilotning Linko manzili, masalan `https://musaservis.linko.uz`.
+Ixtiyoriy: admin panelning «Linko integratsiya» bo'limidan ham kiritiladi
+va o'sha yerdagi qiymat ustun turadi.
+
+### `CRON_SECRET`
+`/api/linko-cron` ni himoyalaydi — uzun tasodifiy satr. Yaratish:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Xuddi shu qiymat `bot/.env` ga ham yoziladi: Vercel kuniga bir marta,
+bot esa har 30 daqiqada sinxronni ishga tushiradi.
+
 Env o'zgaruvchilarni qo'shgandan keyin **qaytadan deploy qiling** —
 Vercel ularni faqat yangi build'ga qo'llaydi.
 
@@ -129,9 +148,41 @@ Qoidalar nima qiladi:
   `addresses` maydonlari
 - **promocodes** — mijoz umuman ko'ra olmaydi
 - **counters** — faqat server
+- **linko_products** — Linko katalogining nusxasi, faqat adminga ko'rinadi
 
 > ⚠️ Rules'ni yangilashdan **oldin** yangi kodni deploy qiling. Aks holda
 > eski mini app buyurtma yarata olmay qoladi (u to'g'ridan-to'g'ri yozardi).
+
+---
+
+## 4a. Linko (SFA) integratsiyasi
+
+Katalog, narx va ombor qoldig'i Linko'dan tortiladi. Buyurtmalar
+yuborilmaydi — oqim bir tomonlama.
+
+1. **Token va manzil**: Vercel env'ga `LINKO_TOKEN`, `CRON_SECRET`
+   (yuqoriga qarang), `bot/.env` ga o'sha `CRON_SECRET`.
+2. **Deploy** qiling va botni qayta ishga tushiring.
+3. Admin panel → **Linko integratsiya**:
+   - server manzilini kiriting → **Ulanishni tekshirish**
+   - **narxlar ro'yxati** va **sklad(lar)** ni tanlang → **Saqlash**
+   - **Sinxronlash** — Linko katalogining nusxasi tortiladi
+4. Har pozitsiyani do'kondagi mahsulotga **bog'lang**. Nomlar ikki tizimda
+   boshqacha yozilgani uchun yonida taklif chiqadi — bir bosishda
+   tasdiqlanadi. Narx va qoldiq faqat bog'langanlariga tushadi.
+
+Keyin sinxron o'zi ishlaydi: Vercel cron kuniga bir marta, bot har
+30 daqiqada. Qo'lda ham istalgan payt bosish mumkin.
+
+> Bog'langan mahsulotning narxini admin paneldan o'zgartirmang — keyingi
+> sinxronda Linko narxi ustidan yozadi. Rasm, tavsif va tarjima esa
+> Linko'da yo'q, ular faqat MUSA tomonida saqlanadi.
+
+Tekshirish (deploy'dan keyin):
+
+```bash
+curl -s -H "x-cron-secret: <CRON_SECRET>" https://musa-delivery.vercel.app/api/linko-cron
+```
 
 ---
 

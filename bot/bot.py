@@ -26,7 +26,7 @@ from aiogram.client.default import DefaultBotProperties
 
 # Karta ma'lumoti config.py dan emas, settings/payment hujjatidan olinadi (F-07)
 from config import (
-    BOT_TOKEN, MINI_APP_URL, ADMIN_PANEL_URL,
+    BOT_TOKEN, MINI_APP_URL, ADMIN_PANEL_URL, CRON_SECRET,
     SUPPORT_PHONE, SUPPORT_EMAIL, SUPPORT_TELEGRAM, COMPANY_CITY, WORK_HOURS,
 )
 # Adminlar ro'yxati dinamik — panel orqali qo'shiladi/o'chiriladi
@@ -1235,6 +1235,8 @@ CART_REMINDER_HOURS = 2
 CART_CHECK_MINUTES = 15
 # Kunlik hisobot adminlarga shu soatda boradi (bot turgan kompyuter vaqti)
 REPORT_HOUR = 21
+# Linko katalogi shu oraliqda sinxronlanadi
+LINKO_SYNC_MINUTES = 30
 
 
 def cart_reminder_kb(lang: str) -> InlineKeyboardMarkup:
@@ -1317,6 +1319,38 @@ async def send_daily_report():
     logger.info("[REPORT] Kunlik hisobot yuborildi")
 
 
+async def linko_sync_loop():
+    """
+    Linko katalogini vaqti-vaqti bilan tortadi.
+
+    Mantiq Vercel tomonida (api/linko-cron.ts) — bot faqat turtki
+    beradi. Sababi: Vercel Hobby rejasida cron kuniga BIR MARTA
+    ishlaydi, narx va qoldiq esa kun davomida o'zgaradi.
+    """
+    if not CRON_SECRET:
+        logger.info("[LINKO] CRON_SECRET yo'q — sinxron o'tkazib yuborildi")
+        return
+
+    url = f"{MINI_APP_URL.rstrip('/')}/api/linko-cron"
+    while True:
+        await asyncio.sleep(LINKO_SYNC_MINUTES * 60)
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers={"x-cron-secret": CRON_SECRET},
+                    timeout=aiohttp.ClientTimeout(total=120),
+                ) as response:
+                    data = await response.json(content_type=None)
+            if response.status == 200:
+                logger.info(f"[LINKO] {data.get('report') or 'sinxronlandi'}")
+            else:
+                logger.warning(f"[LINKO] sinxron xatosi {response.status}: {data}")
+        except Exception as e:
+            # Internet uzilishi yoki Vercel javob bermasligi — do'konga ta'sir qilmaydi
+            logger.warning(f"[LINKO] sinxron bajarilmadi: {e}")
+
+
 async def daily_report_loop():
     """
     Har kuni REPORT_HOUR da bir marta.
@@ -1366,6 +1400,7 @@ async def main():
     tasks = [
         asyncio.create_task(cart_reminder_loop()),
         asyncio.create_task(daily_report_loop()),
+        asyncio.create_task(linko_sync_loop()),
     ]
 
     logger.info("[BOT] Ishga tushdi ✅")

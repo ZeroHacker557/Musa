@@ -1,6 +1,6 @@
 import {
   BarChart3, BrainCircuit, Boxes, Clapperboard, ExternalLink, FileBarChart, Flame, Layers, LayoutGrid, LogOut, Maximize2,
-  Megaphone, Menu, Minimize2, Moon, Settings, ShoppingBag, Sun, Tag, Users, UserCog, X,
+  Megaphone, Menu, Minimize2, Moon, PlugZap, Settings, ShoppingBag, Sun, Tag, Users, UserCog, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import {
@@ -39,6 +39,7 @@ const NAV: NavEntry[] = [
   { route: 'staff', label: 'Xodimlar', icon: UserCog, min: 'owner' },
 
   { route: 'settings', label: 'Sozlamalar', icon: Settings, min: 'owner', section: 'Tizim' },
+  { route: 'linko', label: 'Linko integratsiya', icon: PlugZap, min: 'admin' },
 
   // Eng pastda — butun tizimning galaktika ko'rinishi
   { route: 'brain', label: 'Miya', icon: BrainCircuit, min: 'admin', special: true },
@@ -58,6 +59,7 @@ const TITLES: Record<Route, string> = {
   staff: 'Xodimlar',
   promocodes: 'Promokodlar',
   settings: 'Sozlamalar',
+  linko: 'Linko integratsiya',
   brain: 'Miya',
 }
 

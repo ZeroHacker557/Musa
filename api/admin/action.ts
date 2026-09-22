@@ -11,6 +11,9 @@ import { catalogLayout, sectionDelete, sectionSave } from '../_lib/actions/secti
 import { promotionDelete, promotionSave } from '../_lib/actions/promotions.js'
 import { adSave } from '../_lib/actions/ads.js'
 import { settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
+import {
+  linkoAutoLink, linkoLink, linkoPing, linkoPull, linkoSettingsSave, linkoStatus,
+} from '../_lib/actions/linko.js'
 
 type Body = Record<string, unknown>
 type Handler = (staff: Staff, body: Body) => Promise<unknown>
@@ -55,6 +58,22 @@ const HANDLERS: Record<string, Handler> = {
   // Sozlamalar
   'settings.save': settingsSave,
   'settings.testGroup': settingsTestGroup,
+
+  /*
+   * Linko (SFA) — katalog, narx va qoldiq sinxroni.
+   *
+   * O'qish va sinxronlash katalogga ruxsati borlarga ochiq, ulanish
+   * sozlamasi esa faqat egaga: u yerda tashqi tizim manzili turadi.
+   */
+  'linko.status': (staff) => (requireCatalogAccess(staff), linkoStatus()),
+  'linko.ping': (staff) => (requireCatalogAccess(staff), linkoPing()),
+  'linko.pull': (staff, body) => (requireCatalogAccess(staff), linkoPull(staff, body)),
+  'linko.link': (staff, body) => (requireCatalogAccess(staff), linkoLink(staff, body)),
+  'linko.autoLink': (staff) => (requireCatalogAccess(staff), linkoAutoLink()),
+  'linko.settings': (staff, body) => {
+    if (staff.role !== 'owner') throw new Error('Faqat ega ulanishni o‘zgartira oladi')
+    return linkoSettingsSave(staff, body)
+  },
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

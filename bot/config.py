@@ -36,6 +36,9 @@ _load_env()
 # ── Telegram ──
 # Token .env dan keladi. Bo'sh bo'lsa bot ishga tushmaydi (bot.py tekshiradi).
 BOT_TOKEN    = os.environ.get("BOT_TOKEN", "")
+# Linko katalogini sinxronlash uchun /api/linko-cron kaliti.
+# Bo'sh bo'lsa bot sinxronni chaqirmaydi (Vercel cron baribir ishlaydi).
+CRON_SECRET  = os.environ.get("CRON_SECRET", "")
 BOT_USERNAME = "musauz_bot"
 ADMIN_IDS    = {7203124812}   # Egalar — panel orqali o'chirib bo'lmaydi
 # BotFather /setdomain da ham aynan shu domen ko'rsatilgan bo'lishi kerak.
