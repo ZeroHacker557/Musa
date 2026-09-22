@@ -360,6 +360,8 @@ export type LinkoRow = {
   price: number
   stock: number
   productId: string | null
+  /** Narx shu pozitsiyadan olinadimi (bir mahsulotga bir nechtasi bog'lanadi). */
+  primary?: boolean
   updatedAt?: string
 }
 
@@ -384,6 +386,7 @@ export function useLinkoProducts() {
               price: Number(data.price) || 0,
               stock: Number(data.stock) || 0,
               productId: data.productId ? String(data.productId) : null,
+              primary: data.primary === true,
               updatedAt: String(data.updatedAt || ''),
             }
           })

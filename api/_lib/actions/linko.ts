@@ -60,6 +60,15 @@ type MirrorDoc = {
   balances: Record<string, number>
   stock: number
   productId: string | null
+  /**
+   * Shu pozitsiya do'kondagi mahsulotning NARXINI beradimi.
+   *
+   * Bitta mahsulotga bir nechta pozitsiya bog'lanishi mumkin (masalan
+   * bir mahsulotning to'rt xil ta'mi Linko'da to'rt qator). Qoldiq
+   * hammasining yig'indisi bo'ladi, narx esa bittasidan olinadi — aks
+   * holda qaysi ta'mning narxi chiqishi tasodifga bog'liq bo'lardi.
+   */
+  primary: boolean
   updatedAt: string
 }
 
@@ -96,6 +105,62 @@ async function commitAll(writes: Write[]): Promise<void> {
     }
     await batch.commit()
   }
+}
+
+/**
+ * Do'kondagi mahsulotning narx va qoldig'ini unga bog'langan HAMMA
+ * Linko pozitsiyasidan qayta hisoblaydi.
+ *
+ * Qoldiq — yig'indi: to'rt xil ta'mning qoldig'i qo'shilib, mijoz
+ * «bor» deb ko'radi. Narx — «asosiy» pozitsiyadan; u belgilanmagan
+ * bo'lsa eng qimmatidan olinadi, chunki arzonini ko'rsatib qimmatini
+ * sotish mijozni aldash bo'lardi.
+ */
+async function applyToProduct(
+  productId: string,
+  rows: { price: number; stock: number; primary?: boolean }[],
+  now: string,
+): Promise<Write | null> {
+  /*
+   * Bitta ham bog'langan pozitsiya qolmasa mahsulotga TEGILMAYDI:
+   * narx va qoldiq oxirgi sinxrondagi holatida qoladi va endi ularni
+   * admin o'zi boshqaradi. Qoldiqni nolga tushirish xavfli bo'lardi —
+   * tasodifan uzib qo'yilgan mahsulot do'kondan yo'qolib qolardi.
+   */
+  if (!productId || !rows.length) return null
+
+  const db = await adminDb()
+  const stock = Math.max(0, Math.round(rows.reduce((sum, row) => sum + num(row.stock), 0)))
+  const priced = rows.filter((row) => num(row.price) > 0)
+  const primary = priced.find((row) => row.primary)
+  const price = primary
+    ? num(primary.price)
+    : priced.reduce((max, row) => Math.max(max, num(row.price)), 0)
+
+  return {
+    ref: db.collection('products').doc(productId),
+    data: {
+      ...(price > 0 ? { price } : {}),
+      stock,
+      // Qoldiq to'ldirilgan bo'lsa ombor signali qaytadan yoqiladi
+      lowStockAlerted: stock <= LOW_STOCK_AT,
+      updatedAt: now,
+    },
+  }
+}
+
+/** Nusxadagi hamma qatorni mahsulot bo'yicha guruhlaydi. */
+async function linkedRows(): Promise<Map<string, MirrorDoc[]>> {
+  const db = await adminDb()
+  const snap = await db.collection(MIRROR).get()
+  const map = new Map<string, MirrorDoc[]>()
+  for (const doc of snap.docs) {
+    const data = doc.data() as MirrorDoc
+    const id = text(data.productId)
+    if (!id) continue
+    map.set(id, [...(map.get(id) ?? []), data])
+  }
+  return map
 }
 
 /**
@@ -238,7 +303,9 @@ export async function linkoPull(
   })
 
   const mirrorWrites: Write[] = []
-  const productWrites: Write[] = []
+  // Shu sinxronda tegilgan mahsulotlar — keyin ularning hammasi
+  // bog'langan pozitsiyalar bo'yicha qayta hisoblanadi
+  const affected = new Set<string>()
 
   for (const id of ids) {
     const old = existing.get(id) ?? {}
@@ -276,22 +343,19 @@ export async function linkoPull(
       },
     })
 
-    // Bog'langan bo'lsa — narx va qoldiq do'kondagi mahsulotga tushadi
-    if (productId) {
-      productWrites.push({
-        ref: db.collection('products').doc(productId),
-        data: {
-          ...(price > 0 ? { price } : {}),
-          stock,
-          // Qoldiq to'ldirilgan bo'lsa ombor signali qaytadan yoqiladi
-          lowStockAlerted: stock <= LOW_STOCK_AT,
-          updatedAt: now,
-        },
-      })
-    }
+    if (productId) affected.add(productId)
   }
 
+  // Avval nusxa yangilanadi, keyin do'kon mahsulotlari — hisob yangi
+  // qiymatlar bo'yicha ketishi uchun
   await commitAll(mirrorWrites)
+
+  const grouped = await linkedRows()
+  const productWrites: Write[] = []
+  for (const productId of affected) {
+    const write = await applyToProduct(productId, grouped.get(productId) ?? [], now)
+    if (write) productWrites.push(write)
+  }
   await commitAll(productWrites)
 
   // ── Kursorlar: keyingi safar faqat yangisi keladi ──
@@ -327,6 +391,13 @@ export async function linkoPull(
 /**
  * Linko pozitsiyasini do'kondagi mahsulotga bog'laydi, bog'lanishni
  * uzadi yoki undan yangi mahsulot yaratadi.
+ *
+ * BITTA mahsulotga ISTAGANCHA pozitsiya bog'lanadi: do'konda bir
+ * mahsulot bo'lib turgan narsaning Linko'da to'rt xil ta'mi alohida
+ * qator bo'lishi mumkin. Unda qoldiq hammasining yig'indisi bo'ladi,
+ * narx esa «asosiy» deb belgilangan pozitsiyadan olinadi.
+ *
+ * `makePrimary: true` — shu pozitsiyani asosiy qiladi.
  */
 export async function linkoLink(_staff: unknown, body: Record<string, unknown>): Promise<Result> {
   const linkoId = Math.round(num(body.linkoId))
@@ -341,7 +412,22 @@ export async function linkoLink(_staff: unknown, body: Record<string, unknown>):
   const now = new Date().toISOString()
 
   if (body.unlink === true) {
-    await mirrorRef.set({ productId: null, updatedAt: now }, { merge: true })
+    const was = text(mirror.productId)
+    await mirrorRef.set({ productId: null, primary: false, updatedAt: now }, { merge: true })
+
+    if (was) {
+      /*
+       * Asosiy pozitsiya uzildi — narx manbasiz qolmasligi uchun
+       * qolganlardan biri asosiy bo'ladi va mahsulot qayta hisoblanadi.
+       */
+      const rest = await db.collection(MIRROR).where('productId', '==', was).get()
+      if (mirror.primary && rest.docs.length) {
+        await rest.docs[0].ref.set({ primary: true }, { merge: true })
+      }
+      const grouped = await linkedRows()
+      const write = await applyToProduct(was, grouped.get(was) ?? [], now)
+      if (write) await commitAll([write])
+    }
     return { ok: true, unlinked: true }
   }
 
@@ -372,6 +458,8 @@ export async function linkoLink(_staff: unknown, body: Record<string, unknown>):
       stock: mirror.stock,
       lowStockAlerted: mirror.stock <= LOW_STOCK_AT,
       popular: false,
+      // Narx va qoldiq pastda hamma bog'langan pozitsiya bo'yicha
+      // qayta hisoblanadi — bu faqat boshlang'ich qiymat
       rating: 5,
       reviews: 0,
       linkoId,
@@ -381,26 +469,30 @@ export async function linkoLink(_staff: unknown, body: Record<string, unknown>):
   } else {
     const product = await db.collection('products').doc(productId).get()
     if (!product.exists) throw new Error('Mahsulot topilmadi')
-    await db.collection('products').doc(productId).set(
-      {
-        ...(mirror.price > 0 ? { price: mirror.price } : {}),
-        stock: mirror.stock,
-        lowStockAlerted: mirror.stock <= LOW_STOCK_AT,
-        linkoId,
-        updatedAt: now,
-      },
-      { merge: true },
-    )
   }
 
-  // Bitta MUSA mahsuloti ikki Linko pozitsiyasiga bog'lanib qolmasin
-  const clash = await db.collection(MIRROR).where('productId', '==', productId).get()
-  for (const doc of clash.docs) {
-    if (doc.id !== String(linkoId)) await doc.ref.set({ productId: null }, { merge: true })
+  /*
+   * Shu mahsulotga bog'langan boshqa pozitsiyalar. Birinchi bog'langani
+   * o'z-o'zidan asosiy bo'ladi — aks holda narx umuman kelmasdi.
+   */
+  const siblings = await db.collection(MIRROR).where('productId', '==', productId).get()
+  const others = siblings.docs.filter((doc) => doc.id !== String(linkoId))
+  const primary = body.makePrimary === true || others.every((doc) => !doc.data().primary)
+
+  if (primary) {
+    for (const doc of others) {
+      if (doc.data().primary) await doc.ref.set({ primary: false }, { merge: true })
+    }
   }
 
-  await mirrorRef.set({ productId, updatedAt: now }, { merge: true })
-  return { ok: true, productId, created }
+  await mirrorRef.set({ productId, primary, updatedAt: now }, { merge: true })
+
+  // Narx va qoldiq — hamma bog'langan pozitsiya bo'yicha
+  const grouped = await linkedRows()
+  const write = await applyToProduct(productId, grouped.get(productId) ?? [], now)
+  if (write) await commitAll([write])
+
+  return { ok: true, productId, created, primary, linkedCount: others.length + 1 }
 }
 
 /**
@@ -439,14 +531,14 @@ export async function linkoAutoLink(): Promise<Result> {
 
     taken.add(productId)
     linked++
-    writes.push({ ref: doc.ref, data: { productId, updatedAt: now } })
+    // Nomi aynan mos tushgan yagona pozitsiya — o'zi asosiy bo'ladi
+    writes.push({ ref: doc.ref, data: { productId, primary: true, updatedAt: now } })
     writes.push({
       ref: db.collection('products').doc(productId),
       data: {
         ...(num(data.price) > 0 ? { price: num(data.price) } : {}),
         stock: num(data.stock),
         lowStockAlerted: num(data.stock) <= LOW_STOCK_AT,
-        linkoId: data.linkoId,
         updatedAt: now,
       },
     })

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  Check, CheckCircle2, Link2, Link2Off, Loader2, PlugZap, Plus, RefreshCw, Search, TriangleAlert,
+  Check, CheckCircle2, Link2, Link2Off, Loader2, PlugZap, Plus, RefreshCw, Search, Star, TriangleAlert,
 } from 'lucide-react'
 import { apiPost } from '../lib/api'
 import { useCategories, useLinkoProducts, useProducts, useSettings, type LinkoRow } from '../lib/live'
@@ -56,11 +56,7 @@ export function LinkoPage() {
    * bog'lanmaydi — admin bir bosish bilan tasdiqlaydi.
    */
   const suggestions = useMemo(() => {
-    // Allaqachon boshqa pozitsiyaga bog'langan mahsulot taklif qilinmaydi
-    const taken = new Set(rows.map((row) => row.productId).filter(Boolean))
-    const list = products
-      .filter((p) => !taken.has(p.docId))
-      .map((p) => ({ id: p.docId, name: String(p.name || '') }))
+    const list = products.map((p) => ({ id: p.docId, name: String(p.name || '') }))
     const map = new Map<number, { id: string; name: string; score: number }>()
     for (const row of rows) {
       if (row.productId) continue
@@ -71,6 +67,16 @@ export function LinkoPage() {
     }
     return map
   }, [rows, products])
+
+  /** Mahsulotga nechta Linko pozitsiyasi bog'langan (ta'mlar, o'lchamlar). */
+  const linkedCount = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const row of rows) {
+      if (!row.productId) continue
+      map.set(row.productId, (map.get(row.productId) ?? 0) + 1)
+    }
+    return map
+  }, [rows])
 
   const shown = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -132,6 +138,14 @@ export function LinkoPage() {
   const unlink = (row: LinkoRow) =>
     run(`unlink:${row.linkoId}`, { action: 'linko.link', linkoId: row.linkoId, unlink: true },
       () => 'Bog‘lanish uzildi')
+
+  const makePrimary = (row: LinkoRow) =>
+    run(`primary:${row.linkoId}`, {
+      action: 'linko.link',
+      linkoId: row.linkoId,
+      productId: row.productId,
+      makePrimary: true,
+    }, () => 'Narx endi shu pozitsiyadan olinadi')
 
   const accept = (row: LinkoRow, productId: string) =>
     run(`link:${row.linkoId}`, { action: 'linko.link', linkoId: row.linkoId, productId },
@@ -268,7 +282,24 @@ export function LinkoPage() {
                       style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
                     >
                       {productName.get(row.productId) || 'Bog‘langan'}
+                      {(linkedCount.get(row.productId) ?? 0) > 1 &&
+                        ` · ${linkedCount.get(row.productId)} ta`}
                     </span>
+                    {/* Bir mahsulotga bir nechta pozitsiya bog'langanda narx
+                        qaysi biridan olinishini admin belgilaydi */}
+                    {(linkedCount.get(row.productId) ?? 0) > 1 && (
+                      <button
+                        className="adm-icon-btn"
+                        onClick={() => !row.primary && makePrimary(row)}
+                        disabled={busy === `primary:${row.linkoId}`}
+                        title={row.primary
+                          ? 'Narx shu pozitsiyadan olinadi'
+                          : 'Narxni shu pozitsiyadan olish'}
+                        style={row.primary ? { color: 'var(--brand)' } : undefined}
+                      >
+                        <Star size={15} fill={row.primary ? 'currentColor' : 'none'} />
+                      </button>
+                    )}
                     <button
                       className="adm-icon-btn"
                       onClick={() => unlink(row)}
@@ -313,6 +344,7 @@ export function LinkoPage() {
         <LinkModal
           row={linking}
           products={products.map((p) => ({ id: p.docId, name: String(p.name || '') }))}
+          linkedCount={linkedCount}
           categories={categories.map((c) => String(c.name || ''))}
           onClose={() => setLinking(null)}
           onDone={(message) => {
@@ -483,11 +515,13 @@ function Stat({ label, value }: { label: string; value: number }) {
  * bo'limidan qo'shish kerak, shuning uchun bu haqda ogohlantiramiz.
  */
 function LinkModal({
-  row, products, categories, onClose, onDone, onError,
+  row, products, categories, linkedCount, onClose, onDone, onError,
 }: {
   row: LinkoRow
   products: { id: string; name: string }[]
   categories: string[]
+  /** Mahsulotga allaqachon nechta Linko pozitsiyasi bog'langan. */
+  linkedCount: Map<string, number>
   onClose: () => void
   onDone: (message: string) => void
   onError: (message: string) => void
@@ -566,6 +600,11 @@ function LinkModal({
       <p className="mt-3 text-xs" style={{ color: 'var(--muted)' }}>
         Linko narxi: <b>{row.price > 0 ? formatPrice(row.price) : 'yo‘q'}</b> · qoldiq: <b>{row.stock}</b>
       </p>
+      <p className="mt-1 text-xs" style={{ color: 'var(--faint)' }}>
+        Bitta mahsulotga bir nechta pozitsiya bog‘lash mumkin — masalan bir
+        mahsulotning turli ta’mlari. Qoldiq qo‘shiladi, narx esa yulduzcha bilan
+        belgilangan pozitsiyadan olinadi.
+      </p>
 
       {mode === 'existing' ? (
         <>
@@ -588,6 +627,11 @@ function LinkModal({
                 onClick={() => setProductId(product.id)}
               >
                 <span className="flex-1 truncate">{product.name}</span>
+                {(linkedCount.get(product.id) ?? 0) > 0 && (
+                  <span className="shrink-0 text-[11px]" style={{ color: 'var(--faint)' }}>
+                    {linkedCount.get(product.id)} ta bog‘langan
+                  </span>
+                )}
                 {score >= SUGGEST_AT && (
                   <span
                     className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold"
