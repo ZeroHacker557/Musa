@@ -59,7 +59,7 @@ export function LinkoPage() {
     const list = products.map((p) => ({ id: p.docId, name: String(p.name || '') }))
     const map = new Map<number, { id: string; name: string; score: number }>()
     for (const row of rows) {
-      if (row.productId) continue
+      if (row.productIds.length) continue
       const [best] = bestMatches(row.name, list, 1)
       if (best && best.score >= SUGGEST_AT) {
         map.set(row.linkoId, { ...best.item, score: best.score })
@@ -72,8 +72,7 @@ export function LinkoPage() {
   const linkedCount = useMemo(() => {
     const map = new Map<string, number>()
     for (const row of rows) {
-      if (!row.productId) continue
-      map.set(row.productId, (map.get(row.productId) ?? 0) + 1)
+      for (const id of row.productIds) map.set(id, (map.get(id) ?? 0) + 1)
     }
     return map
   }, [rows])
@@ -81,8 +80,8 @@ export function LinkoPage() {
   const shown = useMemo(() => {
     const needle = search.trim().toLowerCase()
     return rows.filter((row) => {
-      if (filter === 'linked' && !row.productId) return false
-      if (filter === 'free' && row.productId) return false
+      if (filter === 'linked' && !row.productIds.length) return false
+      if (filter === 'free' && row.productIds.length) return false
       if (!needle) return true
       return (
         row.name.toLowerCase().includes(needle) ||
@@ -92,7 +91,7 @@ export function LinkoPage() {
     })
   }, [rows, search, filter])
 
-  const linked = rows.filter((row) => row.productId).length
+  const linked = rows.filter((row) => row.productIds.length).length
 
   const run = async (key: string, body: Record<string, unknown>, done: (result: never) => string) => {
     setBusy(key)
@@ -143,7 +142,6 @@ export function LinkoPage() {
     run(`primary:${row.linkoId}`, {
       action: 'linko.link',
       linkoId: row.linkoId,
-      productId: row.productId,
       makePrimary: true,
     }, () => 'Narx endi shu pozitsiyadan olinadi')
 
@@ -275,19 +273,21 @@ export function LinkoPage() {
                   </p>
                 </div>
 
-                {row.productId ? (
+                {row.productIds.length ? (
                   <div className="flex items-center gap-2">
-                    <span
-                      className="max-w-[180px] truncate rounded-lg px-2 py-1 text-xs font-semibold"
+                    {/* Bog'langan mahsulotlar — bosilsa ro'yxatni tahrirlash oynasi */}
+                    <button
+                      className="max-w-[220px] truncate rounded-lg px-2 py-1 text-left text-xs font-semibold"
                       style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+                      onClick={() => setLinking(row)}
+                      title="Bog‘langan mahsulotlarni o‘zgartirish"
                     >
-                      {productName.get(row.productId) || 'Bog‘langan'}
-                      {(linkedCount.get(row.productId) ?? 0) > 1 &&
-                        ` · ${linkedCount.get(row.productId)} ta`}
-                    </span>
+                      {productName.get(row.productIds[0]) || 'Bog‘langan'}
+                      {row.productIds.length > 1 && ` +${row.productIds.length - 1}`}
+                    </button>
                     {/* Bir mahsulotga bir nechta pozitsiya bog'langanda narx
                         qaysi biridan olinishini admin belgilaydi */}
-                    {(linkedCount.get(row.productId) ?? 0) > 1 && (
+                    {row.productIds.some((id) => (linkedCount.get(id) ?? 0) > 1) && (
                       <button
                         className="adm-icon-btn"
                         onClick={() => !row.primary && makePrimary(row)}
@@ -527,7 +527,12 @@ function LinkModal({
   onError: (message: string) => void
 }) {
   const [mode, setMode] = useState<'existing' | 'new'>('existing')
-  const [productId, setProductId] = useState('')
+  /*
+   * Bir pozitsiya bir NECHTA mahsulotga bog'lanishi mumkin: Linko'da
+   * umumiy «BAMBUK 90GR», do'konda esa har ta'm alohida mahsulot.
+   * Shuning uchun tanlov ro'yxat bo'lib yig'iladi.
+   */
+  const [selected, setSelected] = useState<string[]>(row.productIds)
   const [category, setCategory] = useState(categories[0] ?? '')
   const [name, setName] = useState(row.name)
   const [search, setSearch] = useState('')
@@ -552,9 +557,11 @@ function LinkModal({
     setBusy(true)
     try {
       await apiPost('action', mode === 'existing'
-        ? { action: 'linko.link', linkoId: row.linkoId, productId }
+        ? { action: 'linko.link', linkoId: row.linkoId, productIds: selected }
         : { action: 'linko.link', linkoId: row.linkoId, category, name: name.trim() })
-      onDone(mode === 'existing' ? 'Bog‘landi' : 'Yangi mahsulot yaratildi')
+      onDone(mode === 'existing'
+        ? `${selected.length} ta mahsulotga bog‘landi`
+        : 'Yangi mahsulot yaratildi')
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Bajarilmadi')
     } finally {
@@ -574,10 +581,12 @@ function LinkModal({
           <button
             className="adm-btn adm-btn--primary flex-1"
             onClick={submit}
-            disabled={busy || (mode === 'existing' ? !productId : !category || !name.trim())}
+            disabled={busy || (mode === 'existing' ? !selected.length : !category || !name.trim())}
           >
             {busy ? <Loader2 size={16} className="animate-spin" /> : null}
-            {mode === 'existing' ? 'Bog‘lash' : 'Yaratish'}
+            {mode === 'existing'
+              ? `Bog‘lash${selected.length > 1 ? ` (${selected.length} ta)` : ''}`
+              : 'Yaratish'}
           </button>
         </>
       }
@@ -601,9 +610,10 @@ function LinkModal({
         Linko narxi: <b>{row.price > 0 ? formatPrice(row.price) : 'yo‘q'}</b> · qoldiq: <b>{row.stock}</b>
       </p>
       <p className="mt-1 text-xs" style={{ color: 'var(--faint)' }}>
-        Bitta mahsulotga bir nechta pozitsiya bog‘lash mumkin — masalan bir
-        mahsulotning turli ta’mlari. Qoldiq qo‘shiladi, narx esa yulduzcha bilan
-        belgilangan pozitsiyadan olinadi.
+        Bir nechtasini belgilash mumkin: Linko‘dagi bitta pozitsiya do‘konda
+        bir necha ta’m bo‘lib turgan bo‘lsa, hammasiga shu narx va qoldiq
+        tushadi. Teskarisi ham ishlaydi — bir mahsulotga bir nechta pozitsiya
+        bog‘lansa qoldiq qo‘shiladi.
       </p>
 
       {mode === 'existing' ? (
@@ -616,16 +626,30 @@ function LinkModal({
             placeholder="Nomi bo‘yicha qidiring"
           />
           <div className="mt-2 max-h-56 overflow-auto rounded-xl border" style={{ borderColor: 'var(--line)' }}>
-            {matches.map(({ item: product, score }) => (
+            {matches.map(({ item: product, score }) => {
+              const on = selected.includes(product.id)
+              return (
               <button
                 key={product.id}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
                 style={{
-                  background: productId === product.id ? 'var(--brand-soft)' : 'transparent',
-                  color: productId === product.id ? 'var(--brand)' : 'var(--ink)',
+                  background: on ? 'var(--brand-soft)' : 'transparent',
+                  color: on ? 'var(--brand)' : 'var(--ink)',
                 }}
-                onClick={() => setProductId(product.id)}
+                onClick={() => setSelected(on
+                  ? selected.filter((id) => id !== product.id)
+                  : [...selected, product.id])}
               >
+                <span
+                  className="grid size-4 shrink-0 place-items-center rounded border"
+                  style={{
+                    borderColor: on ? 'var(--brand)' : 'var(--line)',
+                    background: on ? 'var(--brand)' : 'transparent',
+                    color: 'var(--surface)',
+                  }}
+                >
+                  {on && <Check size={11} strokeWidth={3} />}
+                </span>
                 <span className="flex-1 truncate">{product.name}</span>
                 {(linkedCount.get(product.id) ?? 0) > 0 && (
                   <span className="shrink-0 text-[11px]" style={{ color: 'var(--faint)' }}>
@@ -641,7 +665,8 @@ function LinkModal({
                   </span>
                 )}
               </button>
-            ))}
+              )
+            })}
             {matches.length === 0 && (
               <p className="px-3 py-2 text-xs" style={{ color: 'var(--faint)' }}>Topilmadi</p>
             )}

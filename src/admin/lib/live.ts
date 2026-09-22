@@ -359,7 +359,8 @@ export type LinkoRow = {
   measurement?: string
   price: number
   stock: number
-  productId: string | null
+  /** Bog'langan do'kon mahsulotlari — bittadan ko'p bo'lishi mumkin. */
+  productIds: string[]
   /** Narx shu pozitsiyadan olinadimi (bir mahsulotga bir nechtasi bog'lanadi). */
   primary?: boolean
   updatedAt?: string
@@ -385,7 +386,12 @@ export function useLinkoProducts() {
               measurement: String(data.measurement || ''),
               price: Number(data.price) || 0,
               stock: Number(data.stock) || 0,
-              productId: data.productId ? String(data.productId) : null,
+              // Eski yozuvlarda bitta `productId` edi
+              productIds: Array.isArray(data.productIds)
+                ? data.productIds.map(String)
+                : data.productId
+                  ? [String(data.productId)]
+                  : [],
               primary: data.primary === true,
               updatedAt: String(data.updatedAt || ''),
             }

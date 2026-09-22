@@ -59,7 +59,19 @@ type MirrorDoc = {
   price: number
   balances: Record<string, number>
   stock: number
-  productId: string | null
+  /**
+   * Shu pozitsiya bog'langan do'kon mahsulotlari.
+   *
+   * Ikkala yo'nalish ham bo'ladi:
+   *   • bir mahsulotga bir nechta pozitsiya — do'konda bitta kartochka,
+   *     Linko'da to'rt xil ta'm alohida qator (qoldiq qo'shiladi);
+   *   • bir pozitsiya bir nechta mahsulotga — Linko'da umumiy
+   *     «BAMBUK 90GR», do'konda esa har ta'm alohida mahsulot
+   *     (hammasiga o'sha narx va qoldiq tushadi).
+   */
+  productIds: string[]
+  /** Eski yozuvlar — bitta mahsulot. O'qishda hisobga olinadi. */
+  productId?: string | null
   /**
    * Shu pozitsiya do'kondagi mahsulotning NARXINI beradimi.
    *
@@ -74,6 +86,14 @@ type MirrorDoc = {
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+/** Qator bog'langan mahsulotlar — eski (`productId`) yozuvlar bilan ham ishlaydi. */
+function rowProducts(data: Partial<MirrorDoc> | undefined): string[] {
+  if (!data) return []
+  if (Array.isArray(data.productIds)) return data.productIds.map(text).filter(Boolean)
+  const single = text(data.productId)
+  return single ? [single] : []
 }
 
 function num(value: unknown, fallback = 0): number {
@@ -156,9 +176,9 @@ async function linkedRows(): Promise<Map<string, MirrorDoc[]>> {
   const map = new Map<string, MirrorDoc[]>()
   for (const doc of snap.docs) {
     const data = doc.data() as MirrorDoc
-    const id = text(data.productId)
-    if (!id) continue
-    map.set(id, [...(map.get(id) ?? []), data])
+    for (const id of rowProducts(data)) {
+      map.set(id, [...(map.get(id) ?? []), data])
+    }
   }
   return map
 }
@@ -184,7 +204,7 @@ export async function linkoStatus(): Promise<Result> {
 
   const db = await adminDb()
   const mirror = await db.collection(MIRROR).get()
-  const linked = mirror.docs.filter((doc) => doc.data().productId).length
+  const linked = mirror.docs.filter((doc) => rowProducts(doc.data()).length).length
 
   return {
     connected: true,
@@ -324,7 +344,7 @@ export async function linkoPull(
     )
 
     const price = priceById.has(id) ? (priceById.get(id) as number) : num(old.price)
-    const productId = text(old.productId) || null
+    const productIds = rowProducts(old)
 
     mirrorWrites.push({
       ref: db.collection(MIRROR).doc(String(id)),
@@ -338,12 +358,12 @@ export async function linkoPull(
         price,
         balances: stockMap,
         stock,
-        productId,
+        productIds,
         updatedAt: now,
       },
     })
 
-    if (productId) affected.add(productId)
+    for (const productId of productIds) affected.add(productId)
   }
 
   // Avval nusxa yangilanadi, keyin do'kon mahsulotlari — hisob yangi
@@ -389,15 +409,24 @@ export async function linkoPull(
 }
 
 /**
- * Linko pozitsiyasini do'kondagi mahsulotga bog'laydi, bog'lanishni
- * uzadi yoki undan yangi mahsulot yaratadi.
+ * Linko pozitsiyasi bilan do'kon mahsulotlari orasidagi bog'lanish.
  *
- * BITTA mahsulotga ISTAGANCHA pozitsiya bog'lanadi: do'konda bir
- * mahsulot bo'lib turgan narsaning Linko'da to'rt xil ta'mi alohida
- * qator bo'lishi mumkin. Unda qoldiq hammasining yig'indisi bo'ladi,
- * narx esa «asosiy» deb belgilangan pozitsiyadan olinadi.
+ * Ikkala yo'nalish ham qo'llab-quvvatlanadi:
  *
- * `makePrimary: true` — shu pozitsiyani asosiy qiladi.
+ *   • BIR MAHSULOTGA BIR NECHTA POZITSIYA — do'konda bitta kartochka,
+ *     Linko'da har ta'm alohida qator. Qoldiq qo'shiladi, narx esa
+ *     «asosiy» deb belgilangan pozitsiyadan olinadi.
+ *
+ *   • BIR POZITSIYA BIR NECHTA MAHSULOTGA — Linko'da umumiy
+ *     «BAMBUK 90GR», do'konda esa har ta'm alohida mahsulot. Hammasiga
+ *     o'sha narx va qoldiq tushadi (Linko ta'mlarni ajratmaydi).
+ *
+ * Chaqirish usullari:
+ *   { linkoId, productIds: [...] }  — ro'yxatni AYNAN shunday qilib qo'yadi
+ *   { linkoId, productId }          — ro'yxatga bittasini qo'shadi
+ *   { linkoId, category, name }     — yangi mahsulot yaratib bog'laydi
+ *   { linkoId, makePrimary: true }  — narx shu pozitsiyadan olinsin
+ *   { linkoId, unlink: true }       — hamma bog'lanishni uzadi
  */
 export async function linkoLink(_staff: unknown, body: Record<string, unknown>): Promise<Result> {
   const linkoId = Math.round(num(body.linkoId))
@@ -410,40 +439,62 @@ export async function linkoLink(_staff: unknown, body: Record<string, unknown>):
   const mirror = mirrorSnap.data() as MirrorDoc
 
   const now = new Date().toISOString()
+  const before = rowProducts(mirror)
 
-  if (body.unlink === true) {
-    const was = text(mirror.productId)
-    await mirrorRef.set({ productId: null, primary: false, updatedAt: now }, { merge: true })
-
-    if (was) {
-      /*
-       * Asosiy pozitsiya uzildi — narx manbasiz qolmasligi uchun
-       * qolganlardan biri asosiy bo'ladi va mahsulot qayta hisoblanadi.
-       */
-      const rest = await db.collection(MIRROR).where('productId', '==', was).get()
-      if (mirror.primary && rest.docs.length) {
-        await rest.docs[0].ref.set({ primary: true }, { merge: true })
-      }
-      const grouped = await linkedRows()
-      const write = await applyToProduct(was, grouped.get(was) ?? [], now)
-      if (write) await commitAll([write])
+  /** O'zgarishdan keyin tegilgan mahsulotlarni qayta hisoblaydi. */
+  const recalc = async (ids: string[]) => {
+    const grouped = await linkedRows()
+    const writes: Write[] = []
+    for (const id of new Set(ids)) {
+      const write = await applyToProduct(id, grouped.get(id) ?? [], now)
+      if (write) writes.push(write)
     }
+    await commitAll(writes)
+  }
+
+  // ── Uzish ──
+  if (body.unlink === true) {
+    await mirrorRef.set({ productIds: [], productId: null, primary: false, updatedAt: now }, { merge: true })
+    await promotePrimary(before, linkoId)
+    await recalc(before)
     return { ok: true, unlinked: true }
   }
 
-  let productId = text(body.productId)
-  const created = !productId
+  // ── Faqat «asosiy» belgisini o'zgartirish ──
+  if (body.makePrimary === true && !body.productId && !Array.isArray(body.productIds)) {
+    if (!before.length) throw new Error('Avval mahsulotga bog‘lang')
+    await clearPrimary(before, linkoId)
+    await mirrorRef.set({ primary: true, updatedAt: now }, { merge: true })
+    await recalc(before)
+    return { ok: true, primary: true }
+  }
 
-  if (created) {
+  let next: string[]
+  let created = false
+
+  if (Array.isArray(body.productIds)) {
+    // Ro'yxat to'liq almashtiriladi — panel shu usulni ishlatadi
+    next = [...new Set(body.productIds.map(text).filter(Boolean))]
+    for (const id of next) {
+      const product = await db.collection('products').doc(id).get()
+      if (!product.exists) throw new Error('Mahsulot topilmadi')
+    }
+  } else if (text(body.productId)) {
+    const id = text(body.productId)
+    const product = await db.collection('products').doc(id).get()
+    if (!product.exists) throw new Error('Mahsulot topilmadi')
+    next = [...new Set([...before, id])]
+  } else {
+    // ── Linko pozitsiyasidan yangi mahsulot ──
     const category = text(body.category)
     if (!category) throw new Error('Kategoriya tanlanmagan')
     const categories = await db.collection('categories').where('name', '==', category).limit(1).get()
     if (categories.empty) throw new Error(`«${category}» kategoriyasi yo‘q`)
     if (!mirror.price) throw new Error('Narx yo‘q — avval narxlar ro‘yxatini tanlab sinxronlang')
 
-    productId = newNumericId()
-    await db.collection('products').doc(productId).set({
-      id: Number(productId),
+    const fresh = newNumericId()
+    await db.collection('products').doc(fresh).set({
+      id: Number(fresh),
       name: text(body.name) || mirror.name,
       price: mirror.price,
       oldPrice: null,
@@ -458,41 +509,65 @@ export async function linkoLink(_staff: unknown, body: Record<string, unknown>):
       stock: mirror.stock,
       lowStockAlerted: mirror.stock <= LOW_STOCK_AT,
       popular: false,
-      // Narx va qoldiq pastda hamma bog'langan pozitsiya bo'yicha
-      // qayta hisoblanadi — bu faqat boshlang'ich qiymat
       rating: 5,
       reviews: 0,
-      linkoId,
       createdAt: now,
       updatedAt: now,
     })
-  } else {
-    const product = await db.collection('products').doc(productId).get()
-    if (!product.exists) throw new Error('Mahsulot topilmadi')
+    next = [...new Set([...before, fresh])]
+    created = true
   }
 
   /*
-   * Shu mahsulotga bog'langan boshqa pozitsiyalar. Birinchi bog'langani
-   * o'z-o'zidan asosiy bo'ladi — aks holda narx umuman kelmasdi.
+   * Narx manbasi. Qo'shilayotgan mahsulotlardan birortasida hali
+   * asosiy pozitsiya bo'lmasa, shu qator asosiy bo'ladi — aks holda
+   * mahsulot narxsiz qolardi.
    */
-  const siblings = await db.collection(MIRROR).where('productId', '==', productId).get()
-  const others = siblings.docs.filter((doc) => doc.id !== String(linkoId))
-  const primary = body.makePrimary === true || others.every((doc) => !doc.data().primary)
+  const grouped = await linkedRows()
+  const needsPrimary = next.some((id) =>
+    (grouped.get(id) ?? []).every((row) => row.linkoId === linkoId || !row.primary),
+  )
+  const primary = body.makePrimary === true || mirror.primary === true || needsPrimary
 
-  if (primary) {
-    for (const doc of others) {
-      if (doc.data().primary) await doc.ref.set({ primary: false }, { merge: true })
+  if (primary) await clearPrimary(next, linkoId)
+
+  await mirrorRef.set(
+    { productIds: next, productId: next[0] ?? null, primary, updatedAt: now },
+    { merge: true },
+  )
+
+  await recalc([...before, ...next])
+  return { ok: true, productIds: next, created, primary, linkedCount: next.length }
+}
+
+/** Shu mahsulotlarga bog'langan BOSHQA qatorlardan «asosiy» olib tashlanadi. */
+async function clearPrimary(productIds: string[], keepLinkoId: number): Promise<void> {
+  if (!productIds.length) return
+  const grouped = await linkedRows()
+  const db = await adminDb()
+  const seen = new Set<number>()
+  for (const id of productIds) {
+    for (const row of grouped.get(id) ?? []) {
+      if (row.linkoId === keepLinkoId || !row.primary || seen.has(row.linkoId)) continue
+      seen.add(row.linkoId)
+      await db.collection(MIRROR).doc(String(row.linkoId)).set({ primary: false }, { merge: true })
     }
   }
+}
 
-  await mirrorRef.set({ productId, primary, updatedAt: now }, { merge: true })
-
-  // Narx va qoldiq — hamma bog'langan pozitsiya bo'yicha
+/**
+ * Asosiy pozitsiya uzilganda narx manbasiz qolmasligi uchun
+ * qolganlardan biri asosiy qilinadi.
+ */
+async function promotePrimary(productIds: string[], removedLinkoId: number): Promise<void> {
+  if (!productIds.length) return
   const grouped = await linkedRows()
-  const write = await applyToProduct(productId, grouped.get(productId) ?? [], now)
-  if (write) await commitAll([write])
-
-  return { ok: true, productId, created, primary, linkedCount: others.length + 1 }
+  const db = await adminDb()
+  for (const id of productIds) {
+    const rows = (grouped.get(id) ?? []).filter((row) => row.linkoId !== removedLinkoId)
+    if (!rows.length || rows.some((row) => row.primary)) continue
+    await db.collection(MIRROR).doc(String(rows[0].linkoId)).set({ primary: true }, { merge: true })
+  }
 }
 
 /**
@@ -515,7 +590,7 @@ export async function linkoAutoLink(): Promise<Result> {
     byName.set(name, [...(byName.get(name) ?? []), doc.id])
   }
 
-  const taken = new Set(mirrorSnap.docs.map((doc) => text(doc.data().productId)).filter(Boolean))
+  const taken = new Set(mirrorSnap.docs.flatMap((doc) => rowProducts(doc.data())))
 
   const writes: Write[] = []
   const now = new Date().toISOString()
@@ -523,7 +598,7 @@ export async function linkoAutoLink(): Promise<Result> {
 
   for (const doc of mirrorSnap.docs) {
     const data = doc.data() as MirrorDoc
-    if (data.productId) continue
+    if (rowProducts(data).length) continue
     const matches = byName.get(key(String(data.name || '')))
     if (!matches || matches.length !== 1) continue
     const productId = matches[0]
@@ -532,7 +607,10 @@ export async function linkoAutoLink(): Promise<Result> {
     taken.add(productId)
     linked++
     // Nomi aynan mos tushgan yagona pozitsiya — o'zi asosiy bo'ladi
-    writes.push({ ref: doc.ref, data: { productId, primary: true, updatedAt: now } })
+    writes.push({
+      ref: doc.ref,
+      data: { productIds: [productId], productId, primary: true, updatedAt: now },
+    })
     writes.push({
       ref: db.collection('products').doc(productId),
       data: {
