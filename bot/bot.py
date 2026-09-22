@@ -466,6 +466,41 @@ async def cb_admin(callback: CallbackQuery):
 # orders.ts → dispatchToCouriers) kuryerlarga «Oldim» tugmasi bilan
 # xabar yuboradi. Tugmalarni shu yerda qayta ishlaymiz.
 
+async def api_linko_push(telegram_id: int, order_id: str):
+    """
+    Buyurtmani Linko'ga yuborishni so'raydi.
+
+    Kuryer tugmalari holatni bazaga o'zi yozadi (atomar band qilish
+    uchun), shuning uchun `order.status` amali ishlamaydi va Linko
+    xabarsiz qolardi. Shu yerda alohida chaqiramiz.
+
+    Xato bo'lsa faqat logga yoziladi: Linko ishlamayotgani kuryerning
+    ishini to'xtatib qo'ymasligi kerak, buyurtmani keyin admin
+    paneldagi «Yuborilmaganlarini yuborish» tugmasi bilan yuborish mumkin.
+    """
+    ts = str(int(time.time()))
+    payload = f"{telegram_id}.order.linkoPush.{order_id}.{ts}"
+    signature = hmac.new(BOT_TOKEN.encode(), payload.encode(), hashlib.sha256).hexdigest()
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=25)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(
+                f"{MINI_APP_URL.rstrip('/')}/api/admin/action",
+                json={"action": "order.linkoPush", "orderId": order_id},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-bot-actor": str(telegram_id),
+                    "x-bot-ts": ts,
+                    "x-bot-signature": signature,
+                },
+            ) as response:
+                data = await response.json(content_type=None)
+        logger.info(f"[LINKO] buyurtma yuborildi: {order_id} → {data}")
+    except Exception as e:
+        logger.warning(f"[LINKO] {order_id} yuborilmadi: {e}")
+
+
 @dp.callback_query(F.data.startswith("crr:"))
 async def cb_courier(callback: CallbackQuery):
     _, action, order_id = callback.data.split(":", 2)
@@ -502,6 +537,7 @@ async def cb_courier(callback: CallbackQuery):
 
         await callback.answer("Qabul qilindi — yo'lga chiqing 🛵")
         await notify_customer_status(order, "Yetkazilmoqda", order_id)
+        await api_linko_push(callback.from_user.id, order_id)
         await refresh_dispatch(order_id, order, "taken", taker_chat=callback.message.chat.id,
                                courier_name=name)
         return
@@ -522,6 +558,7 @@ async def cb_courier(callback: CallbackQuery):
 
         await callback.answer("Yetkazildi ✅ Rahmat!")
         await notify_customer_status(order, "Yetkazildi", order_id)
+        await api_linko_push(callback.from_user.id, order_id)
         await ask_rating(order_id, order)
         await refresh_dispatch(order_id, order, "done", courier_name=name)
         return

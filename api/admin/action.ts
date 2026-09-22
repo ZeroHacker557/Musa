@@ -14,7 +14,7 @@ import { settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
 import {
   linkoAutoLink, linkoLink, linkoPing, linkoPull, linkoSettingsSave, linkoStatus,
 } from '../_lib/actions/linko.js'
-import { linkoPushOrders } from '../_lib/actions/linko-orders.js'
+import { linkoPushOrder, linkoPushOrders } from '../_lib/actions/linko-orders.js'
 
 type Body = Record<string, unknown>
 type Handler = (staff: Staff, body: Body) => Promise<unknown>
@@ -32,6 +32,9 @@ const HANDLERS: Record<string, Handler> = {
   // Buyurtmalar — kuryer ham chaqira oladi, cheklovlar modul ichida
   'order.status': orderStatus,
   'order.assign': orderAssign,
+  // Kuryer botdan holatni o'zgartirganda Linko'ga xabar beradi —
+  // kuryerga ham ochiq, chunki u faqat mavjud buyurtmani qayta yuboradi
+  'order.linkoPush': (_staff, body) => linkoPushOrder(_staff, body),
 
   // Katalog — kuryerga yopiq
   'product.save': (staff, body) => (requireCatalogAccess(staff), productSave(body)),

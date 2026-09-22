@@ -255,6 +255,26 @@ export async function pushOrderSafe(orderId: string, order: OrderDoc): Promise<v
 }
 
 /**
+ * Bitta buyurtmani Linko'ga yuboradi.
+ *
+ * Kuryer botdagi «Oldim»/«Yetkazdim» tugmasini bosganda holat
+ * Firestore'ga TO'G'RIDAN-TO'G'RI yoziladi (ikki kuryer bir buyurtmani
+ * olib qo'ymasligi uchun atomar tranzaksiya kerak). Shu sababli u yo'l
+ * `order.status` amalidan o'tmaydi va Linko'ga xabar bormay qolardi —
+ * bot shu amalni alohida chaqiradi.
+ */
+export async function linkoPushOrder(_staff: unknown, body: Record<string, unknown>): Promise<Result> {
+  const orderId = text(body.orderId)
+  if (!orderId) throw new Error('orderId kerak')
+
+  const db = await adminDb()
+  const snap = await db.collection('orders').doc(orderId).get()
+  if (!snap.exists) throw new Error('Buyurtma topilmadi')
+
+  return pushOrder(orderId, snap.data() as OrderDoc)
+}
+
+/**
  * Yuborilmay qolganlarini qayta yuboradi — admin paneldagi tugma.
  *
  * Linko o'chiq bo'lgan yoki sozlama to'liq bo'lmagan paytdagi
