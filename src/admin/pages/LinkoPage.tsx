@@ -39,9 +39,6 @@ export function LinkoPage() {
 
   const [busy, setBusy] = useState('')
   const [status, setStatus] = useState<Status | null>(null)
-  const [baseUrl, setBaseUrl] = useState(settings.baseUrl)
-  const [priceListId, setPriceListId] = useState(String(settings.priceListId || ''))
-  const [stockIds, setStockIds] = useState<number[]>(settings.stockIds || [])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [linking, setLinking] = useState<LinkoRow | null>(null)
@@ -115,13 +112,8 @@ export function LinkoPage() {
     }
   }
 
-  const saveSettings = () =>
-    run('settings', {
-      action: 'linko.settings',
-      baseUrl: baseUrl.trim(),
-      priceListId: Number(priceListId) || 0,
-      stockIds,
-    }, () => 'Ulanish sozlamasi saqlandi')
+  const saveSettings = (values: { baseUrl: string; priceListId: number; stockIds: number[] }) =>
+    run('settings', { action: 'linko.settings', ...values }, () => 'Ulanish sozlamasi saqlandi')
 
   const pull = (full: boolean) =>
     run('pull', { action: 'linko.pull', full }, (result: never) =>
@@ -144,112 +136,19 @@ export function LinkoPage() {
   return (
     <>
       <div className="grid gap-4 xl:grid-cols-[1fr_1.1fr]">
-        {/* ── Ulanish ── */}
-        <section className="adm-card p-4 sm:p-5">
-          <div className="flex items-center gap-2.5">
-            <span
-              className="grid size-9 shrink-0 place-items-center rounded-xl"
-              style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
-            >
-              <PlugZap size={18} />
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-sm font-extrabold">Linko ulanishi</h2>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                Katalog, narx va qoldiq shu yerdan tortiladi
-              </p>
-            </div>
-          </div>
-
-          <label className="adm-label mt-4">Server manzili</label>
-          <input
-            className="adm-input"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="https://sfademo.linko.uz"
-          />
-          <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
-            Token serverda <code>LINKO_TOKEN</code> muhit o‘zgaruvchisida saqlanadi — bu yerda emas.
-          </p>
-
-          <label className="adm-label mt-3">Narxlar ro‘yxati</label>
-          <select
-            className="adm-input"
-            value={priceListId}
-            onChange={(e) => setPriceListId(e.target.value)}
-          >
-            <option value="">— tanlanmagan —</option>
-            {(status?.priceLists ?? (settings.priceListId
-              ? [{ id: settings.priceListId, name: `#${settings.priceListId}` }]
-              : [])).map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </select>
-          {!status?.priceLists && (
-            <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
-              Ro‘yxatni ko‘rish uchun «Ulanishni tekshirish» tugmasini bosing.
-            </p>
-          )}
-
-          {status?.stocks?.length ? (
-            <>
-              <p className="adm-label mt-3">Qaysi skladlar qoldig‘i hisoblansin</p>
-              <div className="flex flex-wrap gap-1.5">
-                {status.stocks.map((stock) => {
-                  const active = stockIds.includes(stock.id)
-                  return (
-                    <button
-                      key={stock.id}
-                      className={'adm-chip ' + (active ? 'active' : '')}
-                      onClick={() =>
-                        setStockIds(active
-                          ? stockIds.filter((id) => id !== stock.id)
-                          : [...stockIds, stock.id])
-                      }
-                    >
-                      {stock.name}
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
-                Hech biri tanlanmasa — hamma sklad qoldig‘i qo‘shiladi.
-              </p>
-            </>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button className="adm-btn adm-btn--ghost" onClick={check} disabled={busy === 'check'}>
-              {busy === 'check' ? <Loader2 size={16} className="animate-spin" /> : <PlugZap size={16} />}
-              Ulanishni tekshirish
-            </button>
-            <button className="adm-btn adm-btn--primary" onClick={saveSettings} disabled={busy === 'settings'}>
-              {busy === 'settings' ? <Loader2 size={16} className="animate-spin" /> : null}
-              Saqlash
-            </button>
-          </div>
-
-          {status && !status.connected && (
-            <p
-              className="mt-3 flex items-start gap-2 rounded-xl p-3 text-xs"
-              style={{ background: 'var(--danger-soft, var(--surface-2))', color: 'var(--danger)' }}
-            >
-              <TriangleAlert size={15} className="mt-0.5 shrink-0" />
-              {status.reason === 'token'
-                ? 'LINKO_TOKEN sozlanmagan — uni Vercel muhit o‘zgaruvchilariga qo‘shing.'
-                : 'Server manzili kiritilmagan.'}
-            </p>
-          )}
-          {status?.connected && (
-            <p
-              className="mt-3 flex items-center gap-2 rounded-xl p-3 text-xs"
-              style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
-            >
-              <CheckCircle2 size={15} />
-              Linko‘da {status.products} ta mahsulot bor.
-            </p>
-          )}
-        </section>
+        {/* ── Ulanish ──
+            `key` — jonli sozlama kelganda forma qaytadan o‘rnatilsin uchun.
+            Aks holda maydonlar birinchi renderdagi bo‘sh qiymat bilan qolib,
+            «Saqlash» bosilganda saqlangan narxlar ro‘yxatini o‘chirib yuborardi
+            (SettingsPage.tsx dagi bilan bir xil usul). */}
+        <ConnectionCard
+          key={`linko:${settings.baseUrl}|${settings.priceListId}|${settings.stockIds.join(",")}`}
+          settings={settings}
+          status={status}
+          busy={busy}
+          onCheck={check}
+          onSave={saveSettings}
+        />
 
         {/* ── Sinxronlash ── */}
         <section className="adm-card p-4 sm:p-5">
@@ -422,6 +321,146 @@ export function LinkoPage() {
 
       {toast}
     </>
+  )
+}
+
+
+/**
+ * Ulanish sozlamasi.
+ *
+ * Alohida komponent, chunki forma qiymatlari jonli sozlama kelganda
+ * yangilanishi kerak. Ota komponent unga `key` beradi va qiymat
+ * o'zgarganda karta qaytadan o'rnatiladi — bu loyihadagi odatiy usul
+ * (SettingsPage.tsx). Ilgari maydonlar birinchi renderdagi bo'sh qiymat
+ * bilan qolib ketib, «Saqlash» saqlangan narxlar ro'yxatini nolga
+ * tushirib yuborardi.
+ */
+function ConnectionCard({
+  settings, status, busy, onCheck, onSave,
+}: {
+  settings: { baseUrl: string; priceListId: number; stockIds: number[] }
+  status: Status | null
+  busy: string
+  onCheck: () => void
+  onSave: (values: { baseUrl: string; priceListId: number; stockIds: number[] }) => void
+}) {
+  const [baseUrl, setBaseUrl] = useState(settings.baseUrl)
+  const [priceListId, setPriceListId] = useState(String(settings.priceListId || ''))
+  const [stockIds, setStockIds] = useState<number[]>(settings.stockIds || [])
+
+  return (
+        <section className="adm-card p-4 sm:p-5">
+          <div className="flex items-center gap-2.5">
+            <span
+              className="grid size-9 shrink-0 place-items-center rounded-xl"
+              style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+            >
+              <PlugZap size={18} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-extrabold">Linko ulanishi</h2>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                Katalog, narx va qoldiq shu yerdan tortiladi
+              </p>
+            </div>
+          </div>
+
+          <label className="adm-label mt-4">Server manzili</label>
+          <input
+            className="adm-input"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="https://sfademo.linko.uz"
+          />
+          <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
+            Token serverda <code>LINKO_TOKEN</code> muhit o‘zgaruvchisida saqlanadi — bu yerda emas.
+          </p>
+
+          <label className="adm-label mt-3">Narxlar ro‘yxati</label>
+          <select
+            className="adm-input"
+            value={priceListId}
+            onChange={(e) => setPriceListId(e.target.value)}
+          >
+            <option value="">— tanlanmagan —</option>
+            {(status?.priceLists ?? (settings.priceListId
+              ? [{ id: settings.priceListId, name: `#${settings.priceListId}` }]
+              : [])).map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </select>
+          {!status?.priceLists && (
+            <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
+              Ro‘yxatni ko‘rish uchun «Ulanishni tekshirish» tugmasini bosing.
+            </p>
+          )}
+          {/* Tanlanmagan holatda saqlash narxni butunlay o'chirib qo'yadi */}
+          {!priceListId && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-xs" style={{ color: 'var(--danger)' }}>
+              <TriangleAlert size={13} className="mt-0.5 shrink-0" />
+              Tanlanmasa narx sinxronlanmaydi — mahsulotlarda eski narx qolib ketadi.
+            </p>
+          )}
+
+          {status?.stocks?.length ? (
+            <>
+              <p className="adm-label mt-3">Qaysi skladlar qoldig‘i hisoblansin</p>
+              <div className="flex flex-wrap gap-1.5">
+                {status.stocks.map((stock) => {
+                  const active = stockIds.includes(stock.id)
+                  return (
+                    <button
+                      key={stock.id}
+                      className={'adm-chip ' + (active ? 'active' : '')}
+                      onClick={() =>
+                        setStockIds(active
+                          ? stockIds.filter((id) => id !== stock.id)
+                          : [...stockIds, stock.id])
+                      }
+                    >
+                      {stock.name}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
+                Hech biri tanlanmasa — hamma sklad qoldig‘i qo‘shiladi.
+              </p>
+            </>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button className="adm-btn adm-btn--ghost" onClick={onCheck} disabled={busy === 'check'}>
+              {busy === 'check' ? <Loader2 size={16} className="animate-spin" /> : <PlugZap size={16} />}
+              Ulanishni tekshirish
+            </button>
+            <button className="adm-btn adm-btn--primary" onClick={() => onSave({ baseUrl: baseUrl.trim(), priceListId: Number(priceListId) || 0, stockIds })} disabled={busy === 'settings' || !baseUrl.trim()}>
+              {busy === 'settings' ? <Loader2 size={16} className="animate-spin" /> : null}
+              Saqlash
+            </button>
+          </div>
+
+          {status && !status.connected && (
+            <p
+              className="mt-3 flex items-start gap-2 rounded-xl p-3 text-xs"
+              style={{ background: 'var(--danger-soft, var(--surface-2))', color: 'var(--danger)' }}
+            >
+              <TriangleAlert size={15} className="mt-0.5 shrink-0" />
+              {status.reason === 'token'
+                ? 'LINKO_TOKEN sozlanmagan — uni Vercel muhit o‘zgaruvchilariga qo‘shing.'
+                : 'Server manzili kiritilmagan.'}
+            </p>
+          )}
+          {status?.connected && (
+            <p
+              className="mt-3 flex items-center gap-2 rounded-xl p-3 text-xs"
+              style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+            >
+              <CheckCircle2 size={15} />
+              Linko‘da {status.products} ta mahsulot bor.
+            </p>
+          )}
+        </section>
   )
 }
 
