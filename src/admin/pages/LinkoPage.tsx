@@ -56,7 +56,11 @@ export function LinkoPage() {
    * bog'lanmaydi — admin bir bosish bilan tasdiqlaydi.
    */
   const suggestions = useMemo(() => {
-    const list = products.map((p) => ({ id: p.docId, name: String(p.name || '') }))
+    // Allaqachon boshqa pozitsiyaga bog'langan mahsulot taklif qilinmaydi
+    const taken = new Set(rows.map((row) => row.productId).filter(Boolean))
+    const list = products
+      .filter((p) => !taken.has(p.docId))
+      .map((p) => ({ id: p.docId, name: String(p.name || '') }))
     const map = new Map<number, { id: string; name: string; score: number }>()
     for (const row of rows) {
       if (row.productId) continue
