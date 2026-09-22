@@ -331,6 +331,12 @@ export type LinkoSettings = {
   baseUrl: string
   priceListId: number
   stockIds: number[]
+  /** Buyurtmalar Linko'ga yuborilsinmi va kim nomidan. */
+  sendOrders: boolean
+  agentId: number
+  deliveryManId: number
+  orderStockId: number
+  currencyId: number
   lastSyncAt: string | null
   lastReport: string | null
 }
@@ -346,7 +352,11 @@ const SETTINGS_FALLBACK: AllSettings = {
   payment: { cardNumber: '', cardOwner: '' },
   delivery: { fee: 0, freeFrom: 0, minOrder: 0 },
   courier: { channel: 'couriers', groupChatId: null, notifyAdmins: true },
-  linko: { baseUrl: '', priceListId: 0, stockIds: [], lastSyncAt: null, lastReport: null },
+  linko: {
+    baseUrl: '', priceListId: 0, stockIds: [],
+    sendOrders: false, agentId: 0, deliveryManId: 0, orderStockId: 0, currencyId: 1,
+    lastSyncAt: null, lastReport: null,
+  },
 }
 
 /** Linko katalogining nusxasi — `linko_products` (server yozadi). */

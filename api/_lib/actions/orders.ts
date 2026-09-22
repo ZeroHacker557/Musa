@@ -2,6 +2,7 @@ import { adminDb } from '../firebase-admin.js'
 import { escapeHtml, replaceButtons, sendMessage, sendRows, setKeyboard } from '../telegram.js'
 import { userLang, type Lang } from '../i18n.js'
 import { restoreStock } from '../stock.js'
+import { pushOrderSafe } from './linko-orders.js'
 import type { Staff } from '../admin-auth.js'
 
 const STATUSES = [
@@ -357,6 +358,9 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
     // Yetkazildi — mahsulotlarni baholashni so'raymiz (javobni bot qabul qiladi)
     if (status === 'Yetkazildi') await sendRatingPrompt(orderId, order)
   }
+
+  // Linko'dagi buyurtma holati ham yangilanadi (sozlamada yoqilgan bo'lsa)
+  await pushOrderSafe(orderId, { ...order, status })
 
   return { ok: true, notified }
 }

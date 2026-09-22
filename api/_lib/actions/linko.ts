@@ -196,11 +196,28 @@ export async function linkoStatus(): Promise<Result> {
     return { connected: false, hasToken, settings, reason: hasToken ? 'baseUrl' : 'token' }
   }
 
-  const [products, priceLists, stocks] = await Promise.all([
+  type LinkoUser = {
+    id: number
+    first_name?: string
+    second_name?: string
+    is_active?: boolean
+    job?: { name?: string }
+  }
+
+  const [products, priceLists, stocks, users] = await Promise.all([
     linkoCount('products', settings),
     linkoList<{ id: number; name?: string }>('price_lists/', {}, settings),
     linkoList<{ id: number; name?: string }>('stocks/', {}, settings),
+    // Buyurtma yuborishda agent va yetkazuvchi ko'rsatilishi shart
+    linkoList<LinkoUser>('users/', {}, settings),
   ])
+
+  const person = (user: LinkoUser) => ({
+    id: user.id,
+    name: [user.first_name, user.second_name].filter(Boolean).join(' ').trim() || `#${user.id}`,
+    job: text(user.job?.name),
+  })
+  const active = users.filter((user) => user.is_active !== false)
 
   const db = await adminDb()
   const mirror = await db.collection(MIRROR).get()
@@ -213,6 +230,7 @@ export async function linkoStatus(): Promise<Result> {
     products,
     priceLists: priceLists.map((p) => ({ id: p.id, name: text(p.name) || `#${p.id}` })),
     stocks: stocks.map((s) => ({ id: s.id, name: text(s.name) || `#${s.id}` })),
+    users: active.map(person),
     mirror: { total: mirror.size, linked },
   }
 }
@@ -226,16 +244,29 @@ export async function linkoSettingsSave(
     throw new Error('Manzil `https://nom.linko.uz` ko‘rinishida bo‘lsin')
   }
 
-  const stockIds = Array.isArray(body.stockIds)
-    ? [...new Set(body.stockIds.map((v) => Math.round(num(v))).filter((v) => v > 0))]
-    : []
+  /*
+   * FAQAT kelgan maydonlar yangilanadi.
+   *
+   * Panelda ikki karta bor — ulanish va buyurtma yuborish. Hammasini
+   * birdan yozsak, bir kartadagi «Saqlash» ikkinchisining sozlamasini
+   * nolga tushirib yuborardi.
+   */
+  const update: Record<string, unknown> = {}
+
+  if ('baseUrl' in body) update.baseUrl = baseUrl
+  if ('priceListId' in body) update.priceListId = Math.round(num(body.priceListId))
+  if (Array.isArray(body.stockIds)) {
+    update.stockIds = [...new Set(body.stockIds.map((v) => Math.round(num(v))).filter((v) => v > 0))]
+  }
+  if ('sendOrders' in body) update.sendOrders = body.sendOrders === true
+  if ('agentId' in body) update.agentId = Math.round(num(body.agentId))
+  if ('deliveryManId' in body) update.deliveryManId = Math.round(num(body.deliveryManId))
+  if ('orderStockId' in body) update.orderStockId = Math.round(num(body.orderStockId))
+  if ('currencyId' in body) update.currencyId = Math.round(num(body.currencyId)) || 1
 
   const db = await adminDb()
-  await db.collection('settings').doc('linko').set(
-    { baseUrl, priceListId: Math.round(num(body.priceListId)), stockIds },
-    { merge: true },
-  )
-  return { ok: true }
+  await db.collection('settings').doc('linko').set(update, { merge: true })
+  return { ok: true, saved: Object.keys(update) }
 }
 
 /**

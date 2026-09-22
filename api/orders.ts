@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { LOW_STOCK_AT, notifyLowStock, notifyNewOrder } from './_lib/actions/orders.js'
+import { pushOrderSafe } from './_lib/actions/linko-orders.js'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
 import { bestPromotion, promoPrice, readPromotion } from './_lib/promotions.js'
@@ -341,6 +342,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await notifyNewOrder(result.id, snap.data() || {})
       // Ombor signali — buyurtma xabarnomasidan keyin, alohida xabar
       await notifyLowStock(result.lowStock ?? [])
+      /*
+       * Linko'ga yuborish — sozlamada yoqilgan bo'lsa. Xato tashlamaydi:
+       * tashqi tizim ishlamayotgani mijozning buyurtmasini buzmasligi kerak,
+       * yuborilmagani buyurtmada belgilanadi va paneldan qayta yuboriladi.
+       */
+      await pushOrderSafe(result.id, snap.data() || {})
     }
 
     // `lowStock` faqat ichki ish uchun — mijozga qaytarilmaydi

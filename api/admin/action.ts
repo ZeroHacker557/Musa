@@ -14,6 +14,7 @@ import { settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
 import {
   linkoAutoLink, linkoLink, linkoPing, linkoPull, linkoSettingsSave, linkoStatus,
 } from '../_lib/actions/linko.js'
+import { linkoPushOrders } from '../_lib/actions/linko-orders.js'
 
 type Body = Record<string, unknown>
 type Handler = (staff: Staff, body: Body) => Promise<unknown>
@@ -70,6 +71,7 @@ const HANDLERS: Record<string, Handler> = {
   'linko.pull': (staff, body) => (requireCatalogAccess(staff), linkoPull(staff, body)),
   'linko.link': (staff, body) => (requireCatalogAccess(staff), linkoLink(staff, body)),
   'linko.autoLink': (staff) => (requireCatalogAccess(staff), linkoAutoLink()),
+  'linko.pushOrders': (staff, body) => (requireCatalogAccess(staff), linkoPushOrders(staff, body)),
   'linko.settings': (staff, body) => {
     if (staff.role !== 'owner') throw new Error('Faqat ega ulanishni o‘zgartira oladi')
     return linkoSettingsSave(staff, body)

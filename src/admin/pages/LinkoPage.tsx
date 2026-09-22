@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
-  Check, CheckCircle2, Link2, Link2Off, Loader2, PlugZap, Plus, RefreshCw, Search, Star, TriangleAlert,
+  Check, CheckCircle2, Link2, Link2Off, Loader2, PlugZap, Plus, RefreshCw, Search, Send, Star,
+  TriangleAlert,
 } from 'lucide-react'
 import { apiPost } from '../lib/api'
 import { useCategories, useLinkoProducts, useProducts, useSettings, type LinkoRow } from '../lib/live'
@@ -25,6 +26,7 @@ type Status = {
   products?: number
   priceLists?: { id: number; name: string }[]
   stocks?: { id: number; name: string }[]
+  users?: { id: number; name: string; job: string }[]
   mirror?: { total: number; linked: number }
 }
 
@@ -211,6 +213,23 @@ export function LinkoPage() {
           )}
         </section>
       </div>
+
+      {/* ── Buyurtmalarni yuborish ── */}
+      <OrdersCard
+        key={`orders:${settings.sendOrders}|${settings.agentId}|${settings.deliveryManId}|${settings.orderStockId}`}
+        settings={settings}
+        status={status}
+        busy={busy}
+        onSave={(values) =>
+          run('orders', { action: 'linko.settings', ...values }, () => 'Saqlandi')
+        }
+        onPush={() =>
+          run('push', { action: 'linko.pushOrders', days: 7 }, (result: never) => {
+            const r = result as { sent?: number; failed?: number; skipped?: number }
+            return `${r.sent ?? 0} ta yuborildi, ${r.failed ?? 0} ta xato, ${r.skipped ?? 0} ta o‘zgarmagan`
+          })
+        }
+      />
 
       {/* ── Linko katalogi ── */}
       <section className="adm-card mt-4 p-4 sm:p-5">
@@ -497,6 +516,150 @@ function ConnectionCard({
             </p>
           )}
         </section>
+  )
+}
+
+
+type OrderValues = {
+  sendOrders: boolean
+  agentId: number
+  deliveryManId: number
+  orderStockId: number
+}
+
+/**
+ * Buyurtmalarni Linko'ga yuborish.
+ *
+ * Linko buyurtmada agent, yetkazuvchi va skladni TALAB qiladi — ularsiz
+ * so'rov rad etiladi. Shuning uchun ular shu yerda oldindan tanlanadi
+ * va tanlanmaguncha yuborish yoqilmaydi.
+ */
+function OrdersCard({
+  settings, status, busy, onSave, onPush,
+}: {
+  settings: {
+    sendOrders: boolean
+    agentId: number
+    deliveryManId: number
+    orderStockId: number
+    stockIds: number[]
+  }
+  status: Status | null
+  busy: string
+  onSave: (values: OrderValues) => void
+  onPush: () => void
+}) {
+  const [sendOrders, setSendOrders] = useState(settings.sendOrders)
+  const [agentId, setAgentId] = useState(String(settings.agentId || ''))
+  const [deliveryManId, setDeliveryManId] = useState(String(settings.deliveryManId || ''))
+  const [orderStockId, setOrderStockId] = useState(
+    String(settings.orderStockId || settings.stockIds[0] || ''),
+  )
+
+  const users = status?.users ?? []
+  // Linko'da lavozimlar ruscha nomlanadi
+  const couriers = users.filter((u) => /достав|курьер/i.test(u.job))
+  const agents = users.filter((u) => !/достав|курьер/i.test(u.job))
+  const ready = Boolean(agentId && deliveryManId && orderStockId)
+
+  return (
+    <section className="adm-card mt-4 p-4 sm:p-5">
+      <div className="flex items-center gap-2.5">
+        <span
+          className="grid size-9 shrink-0 place-items-center rounded-xl"
+          style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+        >
+          <Send size={18} />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-sm font-extrabold">Buyurtmalarni Linko‘ga yuborish</h2>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>
+            Mijoz «market», buyurtma esa «order» bo‘lib tushadi
+          </p>
+        </div>
+      </div>
+
+      {!users.length && (
+        <p className="mt-3 text-xs" style={{ color: 'var(--faint)' }}>
+          Agent va yetkazuvchi ro‘yxati uchun yuqorida «Ulanishni tekshirish» tugmasini bosing.
+        </p>
+      )}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div>
+          <label className="adm-label">Agent nomidan</label>
+          <select className="adm-input" value={agentId} onChange={(e) => setAgentId(e.target.value)}>
+            <option value="">— tanlanmagan —</option>
+            {agents.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}{u.job ? ` · ${u.job}` : ''}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="adm-label">Yetkazuvchi</label>
+          <select
+            className="adm-input"
+            value={deliveryManId}
+            onChange={(e) => setDeliveryManId(e.target.value)}
+          >
+            <option value="">— tanlanmagan —</option>
+            {couriers.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="adm-label">Qaysi sklad hisobidan</label>
+          <select
+            className="adm-input"
+            value={orderStockId}
+            onChange={(e) => setOrderStockId(e.target.value)}
+          >
+            <option value="">— tanlanmagan —</option>
+            {(status?.stocks ?? []).map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <label className="mt-4 flex items-center gap-2.5 text-sm font-semibold">
+        <input
+          type="checkbox"
+          checked={sendOrders}
+          disabled={!ready}
+          onChange={(e) => setSendOrders(e.target.checked)}
+        />
+        Yangi buyurtmalar avtomatik yuborilsin
+      </label>
+      {!ready && (
+        <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
+          Avval agent, yetkazuvchi va skladni tanlang.
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          className="adm-btn adm-btn--primary"
+          onClick={() => onSave({
+            sendOrders,
+            agentId: Number(agentId) || 0,
+            deliveryManId: Number(deliveryManId) || 0,
+            orderStockId: Number(orderStockId) || 0,
+          })}
+          disabled={busy === 'orders'}
+        >
+          {busy === 'orders' ? <Loader2 size={16} className="animate-spin" /> : null}
+          Saqlash
+        </button>
+        <button className="adm-btn adm-btn--ghost" onClick={onPush} disabled={busy === 'push'}>
+          {busy === 'push' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+          Yuborilmaganlarini yuborish (7 kun)
+        </button>
+      </div>
+    </section>
   )
 }
 

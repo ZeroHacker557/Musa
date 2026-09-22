@@ -26,6 +26,19 @@ export type LinkoSettings = {
   priceListId: number
   /** Qaysi skladlar qoldig'i hisobga olinadi. Bo'sh — hammasi. */
   stockIds: number[]
+
+  /*
+   * ── Buyurtmalarni Linko'ga yuborish ──
+   * Linko buyurtmada agent, yetkazuvchi va skladni TALAB qiladi,
+   * shuning uchun ular oldindan tanlanadi.
+   */
+  sendOrders: boolean
+  agentId: number
+  deliveryManId: number
+  /** Buyurtma qaysi sklad hisobidan yoziladi. */
+  orderStockId: number
+  /** Valyuta (1 — SUM). */
+  currencyId: number
   /** Oxirgi sinxronlash kursorlari (Linko `tm` qiymatlari). */
   lastProductTm: number
   lastPriceTm: number
@@ -38,6 +51,11 @@ export const LINKO_DEFAULTS: LinkoSettings = {
   baseUrl: '',
   priceListId: 0,
   stockIds: [],
+  sendOrders: false,
+  agentId: 0,
+  deliveryManId: 0,
+  orderStockId: 0,
+  currencyId: 1,
   lastProductTm: 0,
   lastPriceTm: 0,
   lastBalanceTm: 0,
@@ -113,6 +131,44 @@ export async function linkoGet<T>(
   }
   if (!response.ok) {
     throw new LinkoError(`Linko xatosi (${response.status})`, response.status)
+  }
+
+  return (await response.json()) as T
+}
+
+/**
+ * POST so'rov — Linko'ga ma'lumot yuborish (`sync_*` endpointlari).
+ *
+ * Linko qisman muvaffaqiyatni qaytaradi: `{ results: [...], errors: [...] }`.
+ * Shuning uchun javob to'liq qaytariladi, chaqiruvchi `errors` ni o'zi
+ * tekshiradi — bittasi o'tmagani qolganini bekor qilmaydi.
+ */
+export async function linkoPost<T>(
+  resource: string,
+  body: unknown,
+  settings?: LinkoSettings,
+): Promise<T> {
+  const config = settings ?? (await readLinkoSettings())
+  const token = linkoToken()
+  if (!config.baseUrl) throw new LinkoError('Linko manzili kiritilmagan (Sozlamalar → Linko)')
+  if (!token) throw new LinkoError('LINKO_TOKEN muhit o‘zgaruvchisi sozlanmagan')
+
+  let response: Response
+  try {
+    response = await fetch(config.baseUrl + API_PREFIX + resource, {
+      method: 'POST',
+      headers: { Authorization: `External ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch (error) {
+    throw new LinkoError(
+      `Linko serveriga ulanib bo‘lmadi: ${error instanceof Error ? error.message : 'tarmoq xatosi'}`,
+    )
+  }
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new LinkoError(`Linko rad etdi (${response.status}): ${text.slice(0, 200)}`, response.status)
   }
 
   return (await response.json()) as T
