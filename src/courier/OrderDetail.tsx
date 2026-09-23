@@ -1,6 +1,6 @@
 import {
-  Banknote, CheckCircle2, ChevronLeft, Clock3, CreditCard, Loader2, MapPin, MessageSquareText, Package,
-  PackageCheck, Phone, UserRound,
+  Banknote, CheckCircle2, ChevronLeft, ChevronRight, Clock3, CreditCard, Headset, Loader2, MapPin,
+  MessageSquareText, Package, PackageCheck, Phone, UserRound,
 } from 'lucide-react'
 import { useState } from 'react'
 import { formatPrice } from '../data'
@@ -17,6 +17,8 @@ type Props = {
   onClose: () => void
   onTake: (order: CourierOrder) => void
   onDeliver: (order: CourierOrder) => void
+  /** Aynan shu buyurtma bo'yicha qo'llab-quvvatlashga yozish. */
+  onSupport: (order: CourierOrder) => void
 }
 
 /**
@@ -26,7 +28,7 @@ type Props = {
  * nimani olishini ko'rib tekshiradi. Ro'yxatdagi kartochka esa ixcham
  * qoladi — u yerda manzil, masofa va summa kifoya.
  */
-export function OrderDetail({ order, busy, onClose, onTake, onDeliver }: Props) {
+export function OrderDetail({ order, busy, onClose, onTake, onDeliver, onSupport }: Props) {
   const { t } = useI18n()
   const { mounted, leaving } = usePresence(order !== null, 240)
   // Yopilish animatsiyasi paytida ham oxirgi buyurtma ko'rinib tursin
@@ -107,6 +109,16 @@ export function OrderDetail({ order, busy, onClose, onTake, onDeliver }: Props) 
             )}
           </div>
         </section>
+
+        {/* Muammo bo'lsa — shu buyurtma bo'yicha admin bilan yozishish */}
+        <button className="crr-option crr-option--support mt-3.5 w-full" onClick={() => onSupport(shown)}>
+          <span className="crr-option__icon"><Headset size={19} /></span>
+          <span className="min-w-0 flex-1 text-left">
+            <b className="block text-sm" style={{ color: 'var(--ink)' }}>{t('support.writeAboutOrder')}</b>
+            <span className="block text-xs" style={{ color: 'var(--muted)' }}>{t('support.writeAboutOrderSub')}</span>
+          </span>
+          <ChevronRight size={18} style={{ color: 'var(--muted)' }} />
+        </button>
 
         {/* Yetkazilgan — to'liq chek (mahsulotlar rasm bilan uning ichida) */}
         {status === 'done' && (

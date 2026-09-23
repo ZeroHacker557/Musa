@@ -496,6 +496,9 @@ export const uz = {
   'support.problemPlaceholder': 'Masalan: mijoz telefonni ko‘tarmayapti, manzil topilmadi…',
   'support.messagePlaceholder': 'Xabar yozing…',
   'support.send': 'Yuborish',
+  'support.writeAboutOrder': 'Qo‘llab-quvvatlashga yozish',
+  'support.writeAboutOrderSub': 'Shu buyurtma bo‘yicha muammo bo‘lsa — admin bilan yozishing',
+  'support.aboutOrder': 'Murojaat shu buyurtma bo‘yicha',
 } as const
 
 export type TranslationKey = keyof typeof uz

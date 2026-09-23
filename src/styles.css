@@ -3537,6 +3537,8 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Qo'llab-quvvatlash ── */
 .crr-option--support .crr-option__icon { background: var(--royal-soft); color: var(--royal); }
+/* Tafsilotdan ochilganda uning ustida turadi */
+.crr-detail.crr-support { z-index: 47; }
 
 .crr-threads { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
 .crr-thread {

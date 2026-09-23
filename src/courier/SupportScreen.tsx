@@ -16,6 +16,12 @@ type Props = {
   open: boolean
   /** Bot xabaridan (`?support=<id>`) — to'g'ridan-to'g'ri shu chat. */
   initialThreadId: string | null
+  /**
+   * Buyurtma tafsilotidan ochilgan — murojaat faqat SHU buyurtma
+   * bo'yicha: boshqa buyurtmalar va murojaatlar ro'yxati ko'rinmaydi,
+   * «orqaga» esa tafsilotga qaytaradi.
+   */
+  lockedOrder?: CourierOrder | null
   threads: SupportThread[]
   threadsReady: boolean
   /** Tanlash uchun kuryerning buyurtmalari (yo'lda, bugungi, tarix, yangi). */
@@ -30,16 +36,21 @@ type Props = {
  * Xabar admin paneldagi «Qo'llab-quvvatlash» bo'limiga darhol tushadi,
  * adminning javobi shu yerda jonli paydo bo'ladi.
  */
-export function SupportScreen({ open, initialThreadId, threads, threadsReady, orders, onClose }: Props) {
+export function SupportScreen({
+  open, initialThreadId, lockedOrder = null, threads, threadsReady, orders, onClose,
+}: Props) {
   const { t } = useI18n()
   const { mounted, leaving } = usePresence(open, 240)
   const [view, setView] = useState<View>(
-    initialThreadId ? { kind: 'chat', threadId: initialThreadId } : { kind: 'list' },
+    initialThreadId
+      ? { kind: 'chat', threadId: initialThreadId }
+      : lockedOrder ? { kind: 'new' } : { kind: 'list' },
   )
 
   // Telegram «orqaga» tugmasi va ekrandagi «‹» bir xil ishlaydi:
-  // chatdan ro'yxatga, ro'yxatdan — oynani yopish
-  const back = () => (view.kind === 'list' ? onClose() : setView({ kind: 'list' }))
+  // chatdan ro'yxatga, ro'yxatdan — oynani yopish. Buyurtmadan
+  // ochilgan bo'lsa — to'g'ri tafsilotga qaytiladi.
+  const back = () => (view.kind === 'list' || lockedOrder ? onClose() : setView({ kind: 'list' }))
   const backRef = useRef(back)
   useEffect(() => {
     backRef.current = back
@@ -68,7 +79,9 @@ export function SupportScreen({ open, initialThreadId, threads, threadsReady, or
           <b className="block truncate text-lg font-extrabold" style={{ color: 'var(--ink)' }}>
             {view.kind === 'chat'
               ? thread ? orderLabel(thread.orderNumber, thread.orderDay) ?? t('support.general') : t('support.title')
-              : view.kind === 'new' ? t('support.new') : t('support.title')}
+              : view.kind === 'new'
+                ? lockedOrder ? orderLabel(lockedOrder.number, lockedOrder.orderDay) : t('support.new')
+                : t('support.title')}
           </b>
           <span className="block text-xs" style={{ color: 'var(--muted)' }}>
             {view.kind === 'chat'
@@ -93,7 +106,11 @@ export function SupportScreen({ open, initialThreadId, threads, threadsReady, or
         />
       )}
       {view.kind === 'new' && (
-        <NewThread orders={orders} onCreated={(id) => setView({ kind: 'chat', threadId: id })} />
+        <NewThread
+          orders={orders}
+          lockedOrder={lockedOrder}
+          onCreated={(id) => setView({ kind: 'chat', threadId: id })}
+        />
       )}
       {view.kind === 'chat' && <Chat key={view.threadId} threadId={view.threadId} thread={thread} />}
     </div>
@@ -159,9 +176,16 @@ function ThreadList({
 }
 
 /** Yangi murojaat: buyurtma tanlanadi va muammo yoziladi. */
-function NewThread({ orders, onCreated }: { orders: CourierOrder[]; onCreated: (id: string) => void }) {
+function NewThread({
+  orders, lockedOrder, onCreated,
+}: {
+  orders: CourierOrder[]
+  lockedOrder: CourierOrder | null
+  onCreated: (id: string) => void
+}) {
   const { t } = useI18n()
-  const [orderId, setOrderId] = useState<string | null | undefined>(undefined)
+  // Buyurtmadan ochilgan bo'lsa — u oldindan tanlangan va o'zgarmaydi
+  const [orderId, setOrderId] = useState<string | null | undefined>(lockedOrder?.id)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -185,35 +209,53 @@ function NewThread({ orders, onCreated }: { orders: CourierOrder[]; onCreated: (
   return (
     <>
       <div className="crr-detail__body">
-        <p className="crr-block__title">{t('support.pickOrder')}</p>
-        <div className="crr-pick">
-          <button
-            className={'crr-pick__item ' + (orderId === null ? 'active' : '')}
-            onClick={() => setOrderId(null)}
-          >
-            <span className="crr-thread__icon is-general"><Headset size={17} /></span>
-            <span className="min-w-0 flex-1 text-left">
-              <b className="block text-sm">{t('support.general')}</b>
-              <span className="block text-xs" style={{ color: 'var(--muted)' }}>{t('support.generalSub')}</span>
-            </span>
-          </button>
-          {orders.map((order) => (
-            <button
-              key={order.id}
-              className={'crr-pick__item ' + (orderId === order.id ? 'active' : '')}
-              onClick={() => setOrderId(order.id)}
-            >
+        {lockedOrder ? (
+          <>
+            <p className="crr-block__title">{t('support.aboutOrder')}</p>
+            <div className="crr-pick__item active">
               <span className="crr-thread__icon"><Package size={17} /></span>
               <span className="min-w-0 flex-1 text-left">
-                <b className="block text-sm">{orderLabel(order.number, order.orderDay)}</b>
+                <b className="block text-sm">{orderLabel(lockedOrder.number, lockedOrder.orderDay)}</b>
                 <span className="block truncate text-xs" style={{ color: 'var(--muted)' }}>
-                  {order.customer.address || '—'}
+                  {lockedOrder.customer.address || '—'}
                 </span>
               </span>
-              <span className="crr-thread__closed">{statusShort(order.status, t)}</span>
-            </button>
-          ))}
-        </div>
+              <span className="crr-thread__closed">{statusShort(lockedOrder.status, t)}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="crr-block__title">{t('support.pickOrder')}</p>
+            <div className="crr-pick">
+              <button
+                className={'crr-pick__item ' + (orderId === null ? 'active' : '')}
+                onClick={() => setOrderId(null)}
+              >
+                <span className="crr-thread__icon is-general"><Headset size={17} /></span>
+                <span className="min-w-0 flex-1 text-left">
+                  <b className="block text-sm">{t('support.general')}</b>
+                  <span className="block text-xs" style={{ color: 'var(--muted)' }}>{t('support.generalSub')}</span>
+                </span>
+              </button>
+              {orders.map((order) => (
+                <button
+                  key={order.id}
+                  className={'crr-pick__item ' + (orderId === order.id ? 'active' : '')}
+                  onClick={() => setOrderId(order.id)}
+                >
+                  <span className="crr-thread__icon"><Package size={17} /></span>
+                  <span className="min-w-0 flex-1 text-left">
+                    <b className="block text-sm">{orderLabel(order.number, order.orderDay)}</b>
+                    <span className="block truncate text-xs" style={{ color: 'var(--muted)' }}>
+                      {order.customer.address || '—'}
+                    </span>
+                  </span>
+                  <span className="crr-thread__closed">{statusShort(order.status, t)}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <p className="crr-block__title mt-5">{t('support.problem')}</p>
         <textarea

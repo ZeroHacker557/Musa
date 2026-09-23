@@ -484,4 +484,7 @@ export const ru: Record<TranslationKey, string> = {
   'support.problemPlaceholder': 'Например: клиент не берёт трубку, адрес не найден…',
   'support.messagePlaceholder': 'Напишите сообщение…',
   'support.send': 'Отправить',
+  'support.writeAboutOrder': 'Написать в поддержку',
+  'support.writeAboutOrderSub': 'Проблема с этим заказом — напишите админу',
+  'support.aboutOrder': 'Обращение по этому заказу',
 }

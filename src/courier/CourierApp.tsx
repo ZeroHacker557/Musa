@@ -41,7 +41,13 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
   // Tafsilotlar — id bo'yicha: ro'yxat yangilanganda oyna ham yangi holatni ko'rsatadi
   const [detailId, setDetailId] = useState<string | null>(null)
   // Qo'llab-quvvatlash: `key` har ochilishda o'zgaradi — oyna ro'yxatdan boshlanadi
-  const [support, setSupport] = useState({ open: supportId !== null, threadId: supportId, key: 0 })
+  const [support, setSupport] = useState<{
+    open: boolean
+    threadId: string | null
+    /** Tafsilotdan ochilgan — murojaat faqat shu buyurtma bo'yicha. */
+    order: CourierOrder | null
+    key: number
+  }>({ open: supportId !== null, threadId: supportId, order: null, key: 0 })
 
   const { data, error, refreshing, busyId, setBusyId, load } = useCourierData(onNotCourier)
   const { location, retry } = useCourierLocation()
@@ -72,8 +78,10 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
         .find((o) => o.id === detailId) ?? null
     : null
 
-  // Tafsilot ochiq bo'lsa Telegram'ning «orqaga» tugmasi uni yopadi
-  const detailOpen = detail !== null
+  // Tafsilot ochiq bo'lsa Telegram'ning «orqaga» tugmasi uni yopadi.
+  // Ustida qo'llab-quvvatlash oynasi turganda — u o'zi boshqaradi,
+  // aks holda bitta bosishda ikkala oyna ham yopilib ketardi.
+  const detailOpen = detail !== null && !support.open
   useEffect(() => {
     if (!detailOpen) return
     toggleBackButton(true)
@@ -143,7 +151,7 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
               onOpenShop={onOpenShop}
               onOpenOrder={(order) => setDetailId(order.id)}
               supportUnread={supportUnread}
-              onOpenSupport={() => setSupport((s) => ({ open: true, threadId: null, key: s.key + 1 }))}
+              onOpenSupport={() => setSupport((s) => ({ open: true, threadId: null, order: null, key: s.key + 1 }))}
             />
           )}
         </div>
@@ -186,6 +194,7 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
         key={support.key}
         open={support.open}
         initialThreadId={support.threadId}
+        lockedOrder={support.order}
         threads={threads}
         threadsReady={threadsReady}
         orders={supportOrders}
@@ -198,6 +207,12 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
         onClose={() => setDetailId(null)}
         onTake={take}
         onDeliver={setConfirm}
+        onSupport={(order) => {
+          // Shu buyurtma bo'yicha ochiq murojaat bo'lsa — to'g'ri o'sha chat,
+          // bo'lmasa yozish oynasi (buyurtma oldindan tanlangan)
+          const existing = threads.find((thread) => thread.orderId === order.id && thread.status === 'open')
+          setSupport((s) => ({ open: true, threadId: existing?.id ?? null, order, key: s.key + 1 }))
+        }}
       />
 
       <DeliverSheet
