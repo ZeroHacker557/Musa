@@ -21,6 +21,12 @@ export type Staff = {
   telegramId?: number | null
   phone?: string | null
   active: boolean
+  /**
+   * Ega yoki admin kuryer sifatida ham ishlaydi — mini app'da kuryer
+   * sahifasi ochiladi va buyurtma xabarlari keladi. Kuryer rolida
+   * ma'nosi yo'q (u baribir kuryer).
+   */
+  canDeliver?: boolean
 }
 
 /** Rol ierarxiyasi: yuqoridagi quyidagining hamma huquqini o'z ichiga oladi. */
@@ -99,6 +105,7 @@ export async function requireStaff(
     telegramId: data.telegramId ?? null,
     phone: data.phone ?? null,
     active: data.active !== false,
+    canDeliver: data.canDeliver === true,
   }
 
   if (!staff.active) {
@@ -214,6 +221,7 @@ export async function staffFromBot(
     telegramId,
     phone: data.phone ?? null,
     active: data.active !== false,
+    canDeliver: data.canDeliver === true,
   }
 
   if (!staff.active) {

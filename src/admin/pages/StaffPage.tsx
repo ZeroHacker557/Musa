@@ -23,11 +23,13 @@ type Draft = {
    * belgilaydi. Admin va ega uchun doim true.
    */
   webAccess: boolean
+  /** Ega/admin kuryer sifatida ham ishlaydi — mini app'da kuryer sahifasi. */
+  canDeliver: boolean
 }
 
 const EMPTY: Draft = {
   email: '', name: '', password: '', role: 'courier', telegramId: '',
-  phone: '', active: true, webAccess: false,
+  phone: '', active: true, webAccess: false, canDeliver: false,
 }
 
 const ROLE_LABEL: Record<StaffRole, string> = {
@@ -155,6 +157,11 @@ export function StaffPage({ me }: { me: Staff }) {
                       Bloklangan
                     </span>
                   )}
+                  {person.role !== 'courier' && person.canDeliver && (
+                    <span className="adm-badge" style={{ background: ROLE_TONE.courier.bg, color: ROLE_TONE.courier.fg }}>
+                      + Kuryer
+                    </span>
+                  )}
                   {person.telegramId ? (
                     <span
                       className="adm-badge"
@@ -188,6 +195,7 @@ export function StaffPage({ me }: { me: Staff }) {
                           phone: person.phone || '',
                           active: person.active,
                           webAccess: person.webAccess ?? Boolean(person.email),
+                          canDeliver: person.canDeliver === true,
                         })
                       }
                       aria-label="Tahrirlash"
@@ -364,6 +372,31 @@ export function StaffPage({ me }: { me: Staff }) {
                 </p>
               )}
             </div>
+
+            {/* Ega yoki admin o'zi ham buyurtma yetkazishi mumkin */}
+            {draft.role !== 'courier' && (
+              <label
+                className="flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 sm:col-span-2"
+                style={{
+                  borderColor: draft.canDeliver ? 'var(--gold-line)' : 'var(--line)',
+                  background: draft.canDeliver ? 'var(--gold-soft)' : 'var(--surface)',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4"
+                  checked={draft.canDeliver}
+                  onChange={(e) => setDraft({ ...draft, canDeliver: e.target.checked })}
+                />
+                <span className="min-w-0">
+                  <b className="block text-sm">Kuryer sifatida ham ishlaydi</b>
+                  <span className="block text-xs" style={{ color: 'var(--muted)' }}>
+                    Rol o‘zgarmaydi. Mini app'da kuryer sahifasi ochiladi, yangi buyurtmalar
+                    «Sizni … kutmoqda» deb botga tushadi. Telegram ID kerak.
+                  </span>
+                </span>
+              </label>
+            )}
 
             <label className="flex cursor-pointer items-center gap-2.5 sm:col-span-2">
               <input

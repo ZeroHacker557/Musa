@@ -3,7 +3,7 @@ import { sendMessage } from '../telegram.js'
 import { normalizeLang, type Lang } from '../i18n.js'
 import { verifyInitData } from '../telegram-auth.js'
 import type { Staff, StaffRole } from '../admin-auth.js'
-import { syncCourierFlag } from '../courier-staff.js'
+import { canDeliver, syncCourierFlag } from '../courier-staff.js'
 
 const ROLES: StaffRole[] = ['owner', 'admin', 'courier']
 
@@ -62,6 +62,8 @@ export async function staffSave(actor: Staff, body: Record<string, unknown>) {
   const phone = text(body.phone)
   const telegramRaw = text(body.telegramId)
   const active = body.active !== false
+  // Ega/admin kuryer sifatida ham ishlashi mumkin; kuryerning o'zida bu belgi kerak emas
+  const delivers = role !== 'courier' && body.canDeliver === true
 
   if (!ROLES.includes(role)) throw new Error('Rol noto‘g‘ri')
   if (!name) throw new Error('Ism kerak')
@@ -135,6 +137,7 @@ export async function staffSave(actor: Staff, body: Record<string, unknown>) {
       telegramId,
       active,
       webAccess,
+      canDeliver: delivers,
       updatedAt: new Date().toISOString(),
       ...(uid ? {} : { createdAt: new Date().toISOString() }),
     },
@@ -145,7 +148,7 @@ export async function staffSave(actor: Staff, body: Record<string, unknown>) {
   if (previousTelegramId && previousTelegramId !== telegramId) {
     await syncCourierFlag(previousTelegramId, false)
   }
-  await syncCourierFlag(telegramId, role === 'courier' && active)
+  await syncCourierFlag(telegramId, active && canDeliver({ role, canDeliver: delivers }))
 
   if (!uid && telegramId) {
     await sendMessage(
@@ -343,7 +346,7 @@ export async function staffLinkTelegram(actor: Staff, body: Record<string, unkno
     { merge: true },
   )
   if (actor.telegramId) await syncCourierFlag(actor.telegramId, false)
-  await syncCourierFlag(telegramId, actor.role === 'courier' && actor.active)
+  await syncCourierFlag(telegramId, actor.active && canDeliver(actor))
 
   return { telegramId, linked: true }
 }

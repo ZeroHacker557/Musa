@@ -288,6 +288,8 @@ export type StaffRow = {
   active: boolean
   /** Panelga kira oladimi. false — faqat Telegram orqali ishlaydigan kuryer. */
   webAccess?: boolean
+  /** Ega/admin kuryer sifatida ham ishlaydi. */
+  canDeliver?: boolean
 }
 
 /**

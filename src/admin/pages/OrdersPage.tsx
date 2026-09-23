@@ -67,7 +67,8 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
   // bo'sh keladi va biriktirish tanlovi ko'rinmaydi.
   const { staff: team } = useStaff(staff.role === 'owner')
   const couriers = useMemo(
-    () => team.filter((person) => person.role === 'courier' && person.active),
+    // Kuryerlar va kuryer sifatida ham ishlaydigan ega/adminlar
+    () => team.filter((person) => (person.role === 'courier' || person.canDeliver === true) && person.active),
     [team],
   )
 

@@ -8,7 +8,15 @@ import type { Staff } from './admin-auth.js'
  * uchun bu faylda buyurtma mantig'i (orders.ts, Linko) import qilinmaydi.
  */
 
-/** Telegram ID bo'yicha faol kuryer. Kuryer bo'lmasa — null. */
+/**
+ * Buyurtma yetkaza oladimi: kuryer, yoki «kuryer sifatida ham ishlaydi»
+ * belgisi yoqilgan ega/admin. Rol o'zgarmaydi — ega egaligicha qoladi.
+ */
+export function canDeliver(staff: { role?: unknown; canDeliver?: unknown }): boolean {
+  return staff.role === 'courier' || staff.canDeliver === true
+}
+
+/** Telegram ID bo'yicha faol yetkazuvchi. Bo'lmasa — null. */
 export async function courierByTelegram(telegramId: number): Promise<Staff | null> {
   if (!Number.isFinite(telegramId)) return null
   const db = await adminDb()
@@ -16,15 +24,16 @@ export async function courierByTelegram(telegramId: number): Promise<Staff | nul
   const doc = snap.docs[0]
   if (!doc) return null
   const data = doc.data()
-  if (data.role !== 'courier' || data.active === false) return null
+  if (!canDeliver(data) || data.active === false) return null
   return {
     uid: doc.id,
     email: String(data.email || ''),
     name: String(data.name || 'Kuryer'),
-    role: 'courier',
+    role: data.role === 'owner' || data.role === 'admin' ? data.role : 'courier',
     telegramId,
     phone: data.phone ?? null,
     active: true,
+    canDeliver: true,
   }
 }
 

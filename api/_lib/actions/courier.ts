@@ -1,6 +1,7 @@
 import { adminDb } from '../firebase-admin.js'
 import type { Staff } from '../admin-auth.js'
 import { applyStatusEffects, type OrderDoc } from './orders.js'
+import { canDeliver } from '../courier-staff.js'
 
 /**
  * Kuryer amallari — mini app'dagi kuryer sahifasi uchun.
@@ -21,7 +22,7 @@ const TASHKENT_OFFSET_MS = 5 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function requireCourier(staff: Staff) {
-  if (staff.role !== 'courier') throw new Error('Bu amal faqat kuryer uchun')
+  if (!canDeliver(staff)) throw new Error('Bu amal faqat kuryer uchun')
 }
 
 function orderIdOf(body: Body): string {

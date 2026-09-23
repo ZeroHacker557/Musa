@@ -604,8 +604,12 @@ export async function dispatchToCouriers(orderId: string, order: OrderDoc): Prom
       const courier = snap.data() as { telegramId?: number; active?: boolean } | undefined
       if (courier?.telegramId && courier.active !== false) couriers.push(courier.telegramId)
     } else {
-      const snap = await db.collection('staff').where('role', '==', 'courier').get()
-      for (const doc of snap.docs) {
+      // Kuryerlar va «kuryer sifatida ham ishlaydi» belgili ega/adminlar
+      const [byRole, byFlag] = await Promise.all([
+        db.collection('staff').where('role', '==', 'courier').get(),
+        db.collection('staff').where('canDeliver', '==', true).get(),
+      ])
+      for (const doc of [...byRole.docs, ...byFlag.docs]) {
         const data = doc.data() as { telegramId?: number; active?: boolean }
         if (data.active !== false && data.telegramId) couriers.push(data.telegramId)
       }
