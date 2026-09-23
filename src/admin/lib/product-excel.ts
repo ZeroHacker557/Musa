@@ -31,7 +31,7 @@ export const COLUMNS: Column[] = [
   { key: 'category', header: 'Kategoriya', width: 24, kind: 'text' },
   { key: 'section', header: 'Bo‘lim', width: 22, kind: 'text' },
   { key: 'stock', header: 'Qoldiq', width: 9, kind: 'number' },
-  { key: 'sizes', header: 'Vaznlar (vergul bilan)', width: 22, kind: 'text' },
+  { key: 'sizes', header: 'Vazni', width: 16, kind: 'text' },
   { key: 'color', header: 'Turi', width: 16, kind: 'text' },
   { key: 'discount', header: 'Chegirma nishoni', width: 15, kind: 'text' },
   { key: 'popular', header: 'Mashhur (ha / yo‘q)', width: 16, kind: 'text' },
@@ -93,7 +93,7 @@ export function exportSheets(products: ProductRow[], sections: Section[], catego
         ['• Eski narx bo‘sh qolsa — chegirma ko‘rsatilmaydi. U joriy narxdan katta bo‘lishi kerak.'],
         [`• Kategoriya — mavjudlaridan biri: ${categories.map((c) => c.name).join(', ') || '—'}.`],
         ['• Bo‘lim — shu kategoriyadagi bo‘lim nomi. Bo‘sh qoldirilsa mahsulot bo‘limsiz bo‘ladi.'],
-        ['• Vaznlar — vergul bilan: 400 g, 800 g, 1 kg.'],
+        ['• Vazni — bitta qiymat, masalan «500 gr» yoki «0,5 kg». Kartochkada nom tagida ko‘rinadi.'],
         ['• Mashhur — «ha» yozilsa bosh sahifadagi «Mashhur mahsulotlar» qatorida chiqadi, «yo‘q» yoki bo‘sh bo‘lsa chiqmaydi.'],
         ['• Rasmlar Excel orqali o‘zgarmaydi — ularni mahsulot oynasida almashtiring.'],
         ['• Yangi mahsulot Excel orqali qo‘shilmaydi (rasm kerak) — ID si yo‘q qatorlar o‘tkazib yuboriladi.'],
@@ -133,6 +133,11 @@ export function planImport(rows: string[][], products: ProductRow[], categories:
   for (const col of COLUMNS) {
     const i = header.indexOf(normalize(col.header))
     if (i >= 0) position.set(col.key, i)
+  }
+  // Oldin yuklab olingan fayllarda vazn ustuni boshqacha atalgan
+  if (!position.has('sizes')) {
+    const i = header.indexOf(normalize('Vaznlar (vergul bilan)'))
+    if (i >= 0) position.set('sizes', i)
   }
   if (!position.has('name') && !position.has('price')) {
     throw new Error('Ustun sarlavhalari tanilmadi. Sarlavha qatorini o‘zgartirmang.')
@@ -219,8 +224,9 @@ export function planImport(rows: string[][], products: ProductRow[], categories:
 
       const sizesCell = cell('sizes')
       if (sizesCell !== undefined) {
-        const next = sizesCell.split(',').map((s) => s.trim()).filter(Boolean)
-        record('sizes', (product.sizes || []).join(', '), next.join(', '), next)
+        // Bitta qiymat — «0,5 kg» dagi vergul bo'luvchi emas
+        const value = sizesCell.trim()
+        record('sizes', (product.sizes || []).join(', '), value, value ? [value] : [])
       }
 
       let category = product.category

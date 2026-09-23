@@ -16,6 +16,7 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
   const [imgError, setImgError] = useState(false)
   const soldOut = product.stock === 0
   const qty = cartQtyOf(product)
+  const weight = product.sizes?.[0]
 
   return (
     <article className={'product-card group ' + (compact ? 'compact' : '')}>
@@ -47,6 +48,8 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
 
         <div className="product-card-info">
           <h3 className="product-card-name">{product.name}</h3>
+          {/* Vazni bo'lmasa ham joy qoladi — qatordagi kartochkalar bir tekis turadi */}
+          <p className="product-card-weight">{weight}</p>
           {!compact && (
             <p className="product-card-rating">
               <Star size={14} fill="var(--warning)" style={{ color: 'var(--warning)' }} />

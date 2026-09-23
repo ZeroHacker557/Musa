@@ -1,11 +1,13 @@
 import {
-  ArrowUpDown, Boxes, ImagePlus, Loader2, Pencil, Plus, Search, Star, Trash2, X,
+  ArrowUpDown, Boxes, CircleAlert, CircleCheck, ImagePlus, Link2, Loader2, Pencil, Plus, Search, Star, Trash2, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { formatPrice } from '../../data'
 import { apiPost } from '../lib/api'
 import { uploadProductImage } from '../lib/storage'
-import { useCategories, useProducts, useSections, type ProductRow } from '../lib/live'
+import {
+  useCategories, useLinkoProducts, useProducts, useSections, type LinkoRow, type ProductRow,
+} from '../lib/live'
 import { Modal, ConfirmDialog } from '../components/Modal'
 import { ProductExcel } from '../components/ProductExcel'
 import { useToast } from '../components/Toast'
@@ -25,8 +27,14 @@ type Draft = {
   descriptionEn: string
   discount: string
   stock: string
+  /** Vazni — bitta qiymat, kartochkada nom tagida ko'rinadi («500 gr»). */
   sizes: string
   color: string
+  /**
+   * Linko pozitsiyalarining ID lari (vergul bilan). Saqlanganda mahsulot
+   * shularga bog'lanadi va narx/qoldiq Linko'dan keladi.
+   */
+  linkoIds: string
   /** Bosh sahifadagi «Mashhur mahsulotlar» qatorida. */
   popular: boolean
   /** Bo'lim identifikatori; bo'sh — bo'limsiz. */
@@ -45,7 +53,24 @@ const EMPTY: Draft = {
   name: '', nameRu: '', nameEn: '', price: '', oldPrice: '', category: '',
   description: '', descriptionRu: '', descriptionEn: '',
   discount: '', stock: '0', sizes: '', color: '', popular: false, sectionId: '',
+  linkoIds: '',
   images: [], thumbs: [], optimized: [],
+}
+
+/** «4020, 4021» → [4020, 4021]. Takror va noto'g'ri qiymatlar tashlanadi. */
+function parseLinkoIds(value: string): number[] {
+  const ids = value
+    .split(/[\s,;]+/)
+    .map((part) => Number(part.replace(/\D/g, '')))
+    .filter((id) => Number.isInteger(id) && id > 0)
+  return [...new Set(ids)]
+}
+
+/** Mahsulotga bog'langan pozitsiyalar — narx olinadigani (asosiy) birinchi. */
+function linkedTo(rows: LinkoRow[], productId: string): LinkoRow[] {
+  return rows
+    .filter((row) => row.productIds.includes(productId))
+    .sort((a, b) => Number(b.primary === true) - Number(a.primary === true))
 }
 
 /**
@@ -57,7 +82,7 @@ function aligned(product: ProductRow, list: string[] | undefined): string[] {
   return images.map((url, i) => (product.variantSources?.[i] === url && list?.[i]) || '')
 }
 
-function toDraft(product: ProductRow): Draft {
+function toDraft(product: ProductRow, linko: LinkoRow[]): Draft {
   return {
     id: product.docId,
     name: product.name,
@@ -75,6 +100,7 @@ function toDraft(product: ProductRow): Draft {
     color: product.color || '',
     popular: product.popular === true,
     sectionId: product.sectionId || '',
+    linkoIds: linkedTo(linko, product.docId).map((row) => row.linkoId).join(', '),
     images: product.images || [],
     thumbs: aligned(product, product.thumbs),
     optimized: aligned(product, product.optimized),
@@ -85,6 +111,7 @@ export function ProductsPage() {
   const { products, loading } = useProducts()
   const { categories } = useCategories()
   const { sections } = useSections()
+  const { rows: linkoRows } = useLinkoProducts()
   const { show, node: toast } = useToast()
   const sectionName = (id?: string | null) => sections.find((x) => x.id === id)?.name
 
@@ -104,9 +131,19 @@ export function ProductsPage() {
 
   const save = async () => {
     if (!draft) return
+
+    // Mavjud bo'lmagan ID bilan mahsulot saqlanib, bog'lanish esa jim
+    // o'tib ketmasin — avval tekshiramiz
+    const wanted = parseLinkoIds(draft.linkoIds)
+    const missing = wanted.filter((id) => !linkoRows.some((row) => row.linkoId === id))
+    if (missing.length) {
+      show(`Linko'da bunday ID yo‘q: ${missing.join(', ')}`, 'error')
+      return
+    }
+
     setBusy(true)
     try {
-      await apiPost('action', {
+      const { id: productId } = await apiPost<{ id: string }>('action', {
         action: 'product.save',
         id: draft.id,
         name: draft.name,
@@ -120,7 +157,8 @@ export function ProductsPage() {
         descriptionEn: draft.descriptionEn,
         discount: draft.discount,
         stock: Number(draft.stock),
-        sizes: draft.sizes.split(',').map((s) => s.trim()).filter(Boolean),
+        // Bitta qiymat: «0,5 kg» dagi vergul endi bo'luvchi emas
+        sizes: draft.sizes.trim() ? [draft.sizes.trim()] : [],
         color: draft.color,
         popular: draft.popular,
         sectionId: draft.sectionId || null,
@@ -128,6 +166,28 @@ export function ProductsPage() {
         thumbs: draft.thumbs,
         optimized: draft.optimized,
       })
+
+      /*
+       * Linko bog'lanishi — mahsulot saqlangandan KEYIN: server bog'langan
+       * pozitsiyaning narx va qoldig'ini mahsulotga yozadi, formadagi
+       * narx ustidan. Faqat o'zgargan pozitsiyalarga tegiladi.
+       */
+      const current = linkedTo(linkoRows, productId)
+      for (const linkoId of wanted) {
+        if (current.some((row) => row.linkoId === linkoId)) continue
+        await apiPost('action', { action: 'linko.link', linkoId, productId })
+      }
+      for (const row of current) {
+        if (wanted.includes(row.linkoId)) continue
+        const rest = row.productIds.filter((id) => id !== productId)
+        await apiPost(
+          'action',
+          rest.length
+            ? { action: 'linko.link', linkoId: row.linkoId, productIds: rest }
+            : { action: 'linko.link', linkoId: row.linkoId, unlink: true },
+        )
+      }
+
       show(draft.id ? 'Mahsulot yangilandi' : 'Mahsulot qo‘shildi')
       setDraft(null)
     } catch (error) {
@@ -268,7 +328,7 @@ export function ProductsPage() {
                 <button
                   className="grid size-8 place-items-center rounded-lg transition active:scale-90"
                   style={{ background: 'var(--surface-2)' }}
-                  onClick={() => setDraft(toDraft(product))}
+                  onClick={() => setDraft(toDraft(product, linkoRows))}
                   aria-label="Tahrirlash"
                 >
                   <Pencil size={15} />
@@ -292,6 +352,7 @@ export function ProductsPage() {
           draft={draft}
           categories={categories.map((c) => c.name)}
           sections={sections}
+          linkoRows={linkoRows}
           busy={busy}
           onChange={setDraft}
           onSave={save}
@@ -326,11 +387,12 @@ const LANGS = [
 ] as const
 
 function ProductForm({
-  draft, categories, sections, busy, onChange, onSave, onClose, onError,
+  draft, categories, sections, linkoRows, busy, onChange, onSave, onClose, onError,
 }: {
   draft: Draft
   categories: string[]
   sections: Section[]
+  linkoRows: LinkoRow[]
   busy: boolean
   onChange: (draft: Draft) => void
   onSave: () => void
@@ -539,12 +601,12 @@ function ProductForm({
           />
         </Field>
 
-        <Field label="Vaznlar — vergul bilan">
+        <Field label="Vazni — kartochkada nom tagida">
           <input
             className="adm-input"
             value={draft.sizes}
             onChange={(e) => set({ sizes: e.target.value })}
-            placeholder="400 g, 800 g, 1 kg"
+            placeholder="500 gr"
           />
         </Field>
 
@@ -556,6 +618,13 @@ function ProductForm({
             placeholder="Mol go‘shti"
           />
         </Field>
+
+        <LinkoField
+          value={draft.linkoIds}
+          rows={linkoRows}
+          productId={draft.id}
+          onChange={(linkoIds) => set({ linkoIds })}
+        />
 
         {/* Bosh sahifa qatori — faqat shu belgilanganlar chiqadi */}
         <label
@@ -633,6 +702,99 @@ function ProductForm({
         </div>
       </div>
     </Modal>
+  )
+}
+
+/**
+ * Linko ID — pozitsiyani raqami bilan bog'lash. Yozilgan har bir ID
+ * darrov katalog nusxasidan qidiriladi: admin saqlashdan oldin to'g'ri
+ * pozitsiyani tanlaganini (nomi, narxi, qoldig'i) ko'radi.
+ */
+function LinkoField({
+  value, rows, productId, onChange,
+}: {
+  value: string
+  rows: LinkoRow[]
+  productId?: string
+  onChange: (value: string) => void
+}) {
+  const ids = parseLinkoIds(value)
+  const found = ids.map((id) => rows.find((r) => r.linkoId === id)).filter((r) => r !== undefined)
+  // Narx olinadigan pozitsiya: allaqachon asosiy bo'lgani, bo'lmasa server
+  // birinchi bog'langanini asosiy qiladi
+  const primaryId = (
+    found.find((r) => r.primary && productId && r.productIds.includes(productId)) ?? found[0]
+  )?.linkoId
+
+  return (
+    <div className="sm:col-span-2">
+      <label className="adm-label">Linko ID — bir nechta bo‘lsa vergul bilan</label>
+      <div className="relative">
+        <Link2
+          size={16}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+          style={{ color: 'var(--faint)' }}
+        />
+        <input
+          className="adm-input"
+          style={{ paddingLeft: 36 }}
+          inputMode="numeric"
+          value={value}
+          onChange={(e) => onChange(e.target.value.replace(/[^\d,\s]/g, ''))}
+          placeholder="4020"
+        />
+      </div>
+
+      {ids.length > 0 && (
+        <ul className="mt-2 grid gap-1.5">
+          {ids.map((id) => {
+            const row = rows.find((r) => r.linkoId === id)
+            if (!row) {
+              return (
+                <li
+                  key={id}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                  style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}
+                >
+                  <CircleAlert size={14} className="shrink-0" />
+                  <span>
+                    <b>{id}</b> — Linko'da bunday pozitsiya topilmadi
+                  </span>
+                </li>
+              )
+            }
+            // Boshqa mahsulotlarga ham bog'langan bo'lishi mumkin (ta'mlar) — bu xato emas
+            const others = row.productIds.filter((pid) => pid !== productId).length
+            return (
+              <li
+                key={id}
+                className="flex items-start gap-2 rounded-lg px-3 py-2 text-xs"
+                style={{ background: 'var(--brand-soft)', color: 'var(--ink)' }}
+              >
+                <CircleCheck size={14} className="mt-px shrink-0" style={{ color: 'var(--brand)' }} />
+                <span className="min-w-0">
+                  <b className="block">
+                    {row.name}
+                    {found.length > 1 && id === primaryId && (
+                      <span style={{ color: 'var(--muted)', fontWeight: 500 }}> · narx shundan</span>
+                    )}
+                  </b>
+                  <span style={{ color: 'var(--muted)' }}>
+                    {row.price ? formatPrice(row.price) : 'narx yo‘q'} · qoldiq {row.stock}
+                    {others > 0 && ` · yana ${others} ta mahsulotga bog‘langan`}
+                  </span>
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
+        Bog‘langan mahsulotning narxi va qoldig‘i Linko'dan olinadi — yuqoridagi narx saqlashdan keyin almashadi.
+        Bo‘shatib saqlansa bog‘lanish uziladi.
+      </p>
+    </div>
   )
 }
 
