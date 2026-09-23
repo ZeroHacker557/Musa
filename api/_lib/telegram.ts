@@ -14,6 +14,12 @@ export type SendResult = { ok: true; messageId: number } | { ok: false; error: s
 type InlineButton = { text: string; url: string }
 /** Bot ichida ishlov beriladigan tugma (bot/bot.py dagi cb_courier). */
 type CallbackButton = { text: string; callback_data: string }
+/**
+ * Mini app'ni to'g'ridan-to'g'ri ochadigan tugma. Faqat SHAXSIY chatda
+ * ishlaydi — guruhda Telegram uni rad etadi.
+ */
+export type WebAppButton = { text: string; web_app: { url: string } }
+export type AnyButton = InlineButton | CallbackButton | WebAppButton
 
 function token(): string {
   const value = process.env.BOT_TOKEN
@@ -73,7 +79,7 @@ export async function sendMessage(
 export async function setKeyboard(
   chatId: number | string,
   messageId: number,
-  rows: (InlineButton | CallbackButton)[][],
+  rows: AnyButton[][],
 ): Promise<boolean> {
   try {
     const response = await fetch(`${API}${token()}/editMessageReplyMarkup`, {
@@ -96,7 +102,7 @@ export async function setKeyboard(
 export async function sendRows(
   chatId: number | string,
   text: string,
-  rows: (InlineButton | CallbackButton)[][],
+  rows: AnyButton[][],
 ): Promise<SendResult> {
   try {
     const response = await fetch(`${API}${token()}/sendMessage`, {
@@ -115,6 +121,38 @@ export async function sendRows(
     return { ok: true, messageId: json.result?.message_id ?? 0 }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Tarmoq xatosi' }
+  }
+}
+
+/**
+ * Yuborilgan xabarning matni va tugmalarini birga almashtiradi.
+ *
+ * Kuryerlarga ketgan nusxalarda «kim oldi» qatori paydo bo'lishi va
+ * tugma o'chishi uchun. Xato tashlamaydi.
+ */
+export async function editMessage(
+  chatId: number | string,
+  messageId: number,
+  text: string,
+  rows: AnyButton[][],
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${API}${token()}/editMessageText`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        reply_markup: { inline_keyboard: rows },
+      }),
+    })
+    const json = (await response.json()) as { ok: boolean }
+    return json.ok
+  } catch {
+    return false
   }
 }
 

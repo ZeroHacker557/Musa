@@ -34,11 +34,11 @@ const KIND = {
 const ROLE = { owner: 'Ega', admin: 'Admin', courier: 'Kuryer' }
 
 const SYSTEMS = [
-  { key: 'miniapp', label: 'Mini app', sub: 'Telegram ichidagi do‘kon', info: 'Mijoz shu yerda katalogni ko‘radi, savatni to‘ldiradi va buyurtma beradi.' },
+  { key: 'miniapp', label: 'Mini app', sub: 'Telegram ichidagi do‘kon', info: 'Mijoz shu yerda katalogni ko‘radi, savatni to‘ldiradi va buyurtma beradi. Kuryer esa o‘z sahifasida buyurtmani oladi, marshrutni ko‘radi va yetkazadi.' },
   { key: 'server', label: 'Server', sub: 'Vercel · /api', info: 'Buyurtma narxini qayta hisoblaydi, qoldiqni kamaytiradi, promokodni tekshiradi va Telegram xabarlarini jo‘natadi.' },
   { key: 'firestore', label: 'Firestore', sub: 'Ma’lumotlar bazasi', info: 'Mahsulotlar, bo‘limlar, buyurtmalar va mijozlar shu yerda jonli saqlanadi — o‘zgarish ilova va panelga darhol yetib boradi.' },
   { key: 'admin', label: 'Admin panel', sub: '/admin', info: 'Ega va adminlar buyurtmani tasdiqlaydi, katalog va bo‘limlarni boshqaradi.' },
-  { key: 'bot', label: 'Bot', sub: '@musauz_bot', info: 'Kuryerning «Oldim» va «Yetkazdim» tugmalarini, admindagi «Qabul qilindi» ni qabul qiladi.' },
+  { key: 'bot', label: 'Bot', sub: '@musauz_bot', info: 'Admindagi «Qabul qilindi» tugmasini va eski xabarlardagi kuryer tugmalarini qabul qiladi. Yangi buyurtmani kuryerga server o‘zi yozadi.' },
   { key: 'telegram', label: 'Telegram', sub: 'Xabarlar va kuryerlar guruhi', info: 'Admin, kuryer va mijozga buyurtma haqidagi xabarlar shu yo‘l bilan boradi.' },
   { key: 'storage', label: 'Storage', sub: 'Mahsulot rasmlari', info: 'Har rasmning asl fayli va ikki siqilgan nusxasi (480 px va 1200 px WebP) saqlanadi.' },
 ]

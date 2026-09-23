@@ -290,10 +290,10 @@ function CourierCard({
         hint="Buyurtma tushishi bilan admin va egaga xabar boradi (tasdiqlash uchun)"
       />
 
-      <p className="adm-label mt-4">Tasdiqlangach — kuryerlarga qayerda tushsin</p>
+      <p className="adm-label mt-4">Tasdiqlangach — kuryerlarga</p>
       <p className="mb-2 text-xs" style={{ color: 'var(--muted)' }}>
-        Faqat bittasi tanlanadi. Ikkalasi ham yoqilsa, kuryer bitta buyurtmani
-        ikki joyda ko‘rib, «Oldim» tugmasini ikki marta bosishi mumkin edi.
+        Kuryer buyurtmani mini app ichida oladi va yetkazadi. Bot har bir kuryerga
+        shaxsan «Sizni #… buyurtma kutmoqda» deb yozadi, tagida ilovani ochadigan tugma bo‘ladi.
       </p>
 
       <div className="flex flex-col gap-2">
@@ -301,13 +301,13 @@ function CourierCard({
           [
             {
               key: 'couriers' as const,
-              label: 'Kuryerlarga shaxsiy xabar',
+              label: 'Faqat kuryerlarga shaxsiy xabar',
               hint: 'Biriktirilgan kuryerga, biriktirilmagan bo‘lsa — barcha faol kuryerlarga',
             },
             {
               key: 'group' as const,
-              label: 'Umumiy guruhga',
-              hint: 'Barcha kuryerlar bitta guruhda ko‘radi, kim birinchi «Oldim» bossa — o‘shaniki',
+              label: 'Shaxsiy xabar + guruhga nusxa',
+              hint: 'Kuryerlarga shaxsan yoziladi, guruhga esa tugmasiz nusxa — kim olgani va yetkazgani ko‘rinib turadi',
             },
           ]
         ).map((item) => (

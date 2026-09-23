@@ -27,6 +27,12 @@ import { LanguagePage } from './pages/LanguagePage'
 import { SupportPage } from './pages/SupportPage'
 import { setupBackButton, toggleBackButton, watchSafeArea } from './utils/telegram'
 import { SERVER_LANG_KEY, useI18n } from './i18n'
+import { useCourierMode } from './courier/mode'
+
+// Kuryer sahifasi faqat kuryerlarga yuklanadi — mijozning ilovasi og'irlashmaydi
+const CourierApp = lazy(() =>
+  import('./courier/CourierApp').then((m) => ({ default: m.CourierApp })),
+)
 
 // Xarita kutubxonasi (~150 KB) faqat manzil sahifasi ochilganda yuklanadi (P-01)
 const AddressesPage = lazy(() =>
@@ -52,6 +58,8 @@ function PageFallback() {
 function App() {
   const shop = useShopStore()
   const { lang, setLang } = useI18n()
+  // Admin panelda kuryer qilib qo'shilganlarga — kuryer sahifasi
+  const courier = useCourierMode(shop.userProfile)
 
   const productActions = {
     onOpen: shop.openProduct,
@@ -79,8 +87,10 @@ function App() {
   // Chap-o'ngga surish bilan asosiy sahifalar orasida yurish.
   // Oyna ochiq bo'lsa o'chiriladi — savat yoki qidiruv ustida surish
   // sahifani almashtirmasligi kerak.
-  useSwipeNav(shop.page, shop.navigate, !shop.isCartOpen && !shop.isSearchOpen)
-  useEffect(() => toggleBackButton(shop.canGoBack), [shop.canGoBack])
+  // Kuryer sahifasida do'kon sahifalari ko'rinmaydi — surish va orqaga
+  // tugmasi ularni ko'rinmas holda almashtirib yurmasin
+  useSwipeNav(shop.page, shop.navigate, !courier.active && !shop.isCartOpen && !shop.isSearchOpen)
+  useEffect(() => toggleBackButton(!courier.active && shop.canGoBack), [courier.active, shop.canGoBack])
 
   // Profilda saqlangan til — botda yoki boshqa qurilmada tanlangani.
   // Serverdagi qiymat o'zgarsa ilova ham o'sha tilga o'tadi, lekin bir
@@ -109,6 +119,25 @@ function App() {
   const goToCatalog = () => shop.navigate('catalog')
   // Savat yopilganda ham silliq tushib ketsin — styles.css `.cart-drawer.leaving`
   const cartPresence = usePresence(shop.isCartOpen, 280)
+
+  if (courier.active) {
+    return (
+      <main className="app-shell">
+        <div className="app-container">
+          <div className="app-tint" aria-hidden="true" />
+          <TopBar />
+          <Suspense fallback={<PageFallback />}>
+            <CourierApp
+              focusId={courier.focusId}
+              photo={shop.userProfile?.photo_url}
+              onOpenShop={courier.openShop}
+              onNotCourier={courier.dropCourier}
+            />
+          </Suspense>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="app-shell">
@@ -248,6 +277,7 @@ function App() {
                 onToggleTheme={shop.toggleTheme}
                 onNavigate={shop.navigate}
                 onNotify={shop.notify}
+                onOpenCourier={courier.isCourier ? courier.openCourier : undefined}
               />
             </div>
           )}

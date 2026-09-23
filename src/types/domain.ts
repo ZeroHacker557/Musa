@@ -194,6 +194,11 @@ export type UserProfile = {
   cart?: CartRow[]
   /** Savat oxirgi marta qachon o'zgargani — bot tashlab ketilgan savatni shu bo'yicha topadi. */
   cartUpdatedAt?: string
+  /**
+   * Admin panelda kuryer qilib qo'shilgan — ilova kuryer sahifasini
+   * ochadi. Faqat server yozadi (api/_lib/courier-staff.ts).
+   */
+  courier?: boolean
 }
 
 /** Profilda saqlanadigan savat qatori. */

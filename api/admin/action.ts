@@ -15,6 +15,7 @@ import {
   linkoAutoLink, linkoLink, linkoPing, linkoPull, linkoSettingsSave, linkoStatus,
 } from '../_lib/actions/linko.js'
 import { linkoPushOrder, linkoPushOrders } from '../_lib/actions/linko-orders.js'
+import { courierDeliver, courierTake } from '../_lib/actions/courier.js'
 
 type Body = Record<string, unknown>
 type Handler = (staff: Staff, body: Body) => Promise<unknown>
@@ -35,6 +36,9 @@ const HANDLERS: Record<string, Handler> = {
   // Kuryer botdan holatni o'zgartirganda Linko'ga xabar beradi —
   // kuryerga ham ochiq, chunki u faqat mavjud buyurtmani qayta yuboradi
   'order.linkoPush': (_staff, body) => linkoPushOrder(_staff, body),
+  // Botdagi eski «Oldim / Yetkazdim» tugmalari — mini app bilan bir xil yo'l
+  'courier.take': courierTake,
+  'courier.deliver': courierDeliver,
 
   // Katalog — kuryerga yopiq
   'product.save': (staff, body) => (requireCatalogAccess(staff), productSave(body)),
@@ -102,14 +106,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const staff = fromBot ?? (await requireStaff(req, res, 'courier'))
   if (!staff) return
 
-  // Bot orqali faqat buyurtma holati o'zgartiriladi. Xodim qo'shish,
+  // Bot orqali faqat buyurtma holati o'zgartiriladi: admin — tasdiqlash,
+  // kuryer — eski xabarlardagi «Oldim / Yetkazdim». Xodim qo'shish,
   // ommaviy xabar va sozlamalar — faqat panelda, haqiqiy seans bilan.
   if (fromBot) {
     const action = typeof req.body?.action === 'string' ? req.body.action : ''
-    if (action !== 'order.status') {
+    if (action === 'courier.take' || action === 'courier.deliver') {
+      // Kuryer cheklovi amalning o'zida (requireCourier)
+    } else if (action !== 'order.status') {
       return fail(res, 403, 'Bu amal bot orqali bajarilmaydi')
-    }
-    if (!atLeast(staff.role, 'admin')) {
+    } else if (!atLeast(staff.role, 'admin')) {
       return fail(res, 403, 'Buyurtmani faqat admin tasdiqlaydi')
     }
   }

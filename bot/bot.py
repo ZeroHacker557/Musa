@@ -374,29 +374,30 @@ async def notify_admin_cancel(order_data: dict):
 # paneldan ochish» tugmalari. Birinchisini shu yerda ishlaymiz.
 
 
-async def api_order_status(telegram_id: int, order_id: str, status: str):
+async def api_admin_action(telegram_id: int, action: str, order_id: str, extra: dict | None = None):
     """
     Admin panelning `/api/admin/action` funksiyasini chaqiradi.
 
     Nega bot o'zi Firestore'ga yozmaydi? Holat o'zgarishi yolg'iz
     yozuv emas: tarix qo'shiladi, kuryerga/guruhga xabar ketadi,
     mijozga bildirishnoma boradi, boshqa adminlarning tugmasi
-    yangilanadi. Bularning hammasi allaqachon TypeScript'da yozilgan.
-    Botda qayta yozilsa ikki nusxa paydo bo'lib, vaqt o'tib
-    bir-biridan farq qilib ketardi.
+    yangilanadi, Linko xabardor qilinadi. Bularning hammasi
+    TypeScript'da (orders.ts → applyStatusEffects). Botda qayta
+    yozilsa ikki nusxa paydo bo'lib, vaqt o'tib bir-biridan farq
+    qilib ketardi.
 
     So'rov BOT_TOKEN bilan imzolanadi — server shu imzoga qarab
     «bu haqiqatan bizning botimiz» deb ishonadi, kim bosgani esa
     `staff.telegramId` bo'yicha topiladi.
     """
     ts = str(int(time.time()))
-    payload = f"{telegram_id}.order.status.{order_id}.{ts}"
+    payload = f"{telegram_id}.{action}.{order_id}.{ts}"
     signature = hmac.new(
         BOT_TOKEN.encode(), payload.encode(), hashlib.sha256
     ).hexdigest()
 
     url = f"{MINI_APP_URL.rstrip('/')}/api/admin/action"
-    body = {"action": "order.status", "orderId": order_id, "status": status}
+    body = {"action": action, "orderId": order_id, **(extra or {})}
     headers = {
         "Content-Type": "application/json",
         "x-bot-actor": str(telegram_id),
@@ -404,14 +405,19 @@ async def api_order_status(telegram_id: int, order_id: str, status: str):
         "x-bot-signature": signature,
     }
 
-    timeout = aiohttp.ClientTimeout(total=20)
+    timeout = aiohttp.ClientTimeout(total=25)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.post(url, json=body, headers=headers) as response:
             try:
-                data = await response.json()
+                data = await response.json(content_type=None)
             except Exception:
                 data = {"error": await response.text()}
-            return response.status, data
+            return response.status, data or {}
+
+
+async def api_order_status(telegram_id: int, order_id: str, status: str):
+    """Admin botdan buyurtmani tasdiqlaganda."""
+    return await api_admin_action(telegram_id, "order.status", order_id, {"status": status})
 
 
 @dp.callback_query(F.data.startswith("adm:"))
@@ -460,217 +466,63 @@ async def cb_admin(callback: CallbackQuery):
         pass
 
 
-# ─── Kuryer tugmalari ────────────────────────────────────────
+# ─── Kuryer tugmalari (eski xabarlar) ────────────────────────
 #
-# Buyurtma «Qabul qilindi» bo'lganda admin panel (api/_lib/actions/
-# orders.ts → dispatchToCouriers) kuryerlarga «Oldim» tugmasi bilan
-# xabar yuboradi. Tugmalarni shu yerda qayta ishlaymiz.
+# Kuryer endi buyurtmani mini app ichida oladi va yetkazadi, bot esa
+# faqat «Sizni #… buyurtma kutmoqda» deb xabar beradi. Bu ishlovchi
+# oldin yuborilgan xabarlardagi «Oldim / Yetkazdim» tugmalari uchun
+# qoldi — ular ham mini app bilan BIR XIL server yo'lidan o'tadi
+# (api/_lib/actions/courier.ts): atomar band qilish, mijozga xabar,
+# Linko, baho so'rovi va boshqa kuryerlardagi xabarlarni yangilash.
 
-async def api_linko_push(telegram_id: int, order_id: str):
-    """
-    Buyurtmani Linko'ga yuborishni so'raydi.
+COURIER_ACTIONS = {"take": "courier.take", "done": "courier.deliver"}
 
-    Kuryer tugmalari holatni bazaga o'zi yozadi (atomar band qilish
-    uchun), shuning uchun `order.status` amali ishlamaydi va Linko
-    xabarsiz qolardi. Shu yerda alohida chaqiramiz.
-
-    Xato bo'lsa faqat logga yoziladi: Linko ishlamayotgani kuryerning
-    ishini to'xtatib qo'ymasligi kerak, buyurtmani keyin admin
-    paneldagi «Yuborilmaganlarini yuborish» tugmasi bilan yuborish mumkin.
-    """
-    ts = str(int(time.time()))
-    payload = f"{telegram_id}.order.linkoPush.{order_id}.{ts}"
-    signature = hmac.new(BOT_TOKEN.encode(), payload.encode(), hashlib.sha256).hexdigest()
-
-    try:
-        timeout = aiohttp.ClientTimeout(total=25)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(
-                f"{MINI_APP_URL.rstrip('/')}/api/admin/action",
-                json={"action": "order.linkoPush", "orderId": order_id},
-                headers={
-                    "Content-Type": "application/json",
-                    "x-bot-actor": str(telegram_id),
-                    "x-bot-ts": ts,
-                    "x-bot-signature": signature,
-                },
-            ) as response:
-                data = await response.json(content_type=None)
-        logger.info(f"[LINKO] buyurtma yuborildi: {order_id} → {data}")
-    except Exception as e:
-        logger.warning(f"[LINKO] {order_id} yuborilmadi: {e}")
+COURIER_OUTCOMES = {
+    # natija: (matn, ogohlantirish oynasida ko'rsatilsinmi)
+    "claimed": ("Qabul qilindi — yo'lga chiqing 🛵", False),
+    "already": ("Bu buyurtma allaqachon sizda", False),
+    "taken": ("Bu buyurtmani {who} oldi", True),
+    "closed": ("Bu buyurtma yopilgan yoki hali tasdiqlanmagan", True),
+    "not_found": ("Buyurtma topilmadi", True),
+    "done": ("Yetkazildi ✅ Rahmat!", False),
+    "not_yours": ("Bu buyurtma sizga biriktirilmagan", True),
+}
 
 
 @dp.callback_query(F.data.startswith("crr:"))
 async def cb_courier(callback: CallbackQuery):
     _, action, order_id = callback.data.split(":", 2)
-
-    courier = db.get_courier_by_telegram(callback.from_user.id)
-    if not courier:
-        await callback.answer("Siz kuryer emassiz yoki hisobingiz faol emas", show_alert=True)
+    server_action = COURIER_ACTIONS.get(action)
+    if not server_action:
+        await callback.answer()
         return
 
-    name = courier.get("name") or callback.from_user.first_name
-    uid = courier["uid"]
-
-    if action == "take":
-        # Atomar band qilish: bir buyurtma bir necha chatga yuborilgan
-        # bo'lishi mumkin, ikki kuryer bir vaqtda bosishi ham mumkin.
-        outcome, order = db.claim_order_for_courier(order_id, uid, name)
-
-        if outcome == "not_found":
-            await callback.answer("Buyurtma topilmadi", show_alert=True)
-            return
-        if outcome == "taken":
-            await callback.answer(
-                f"Bu buyurtmani {order.get('courierName') or 'boshqa kuryer'} oldi",
-                show_alert=True,
-            )
-            await refresh_dispatch(order_id, order, "taken_by_other")
-            return
-        if outcome == "already":
-            # Boshqa chatdagi eskirgan tugmani bosdi — hech narsa
-            # o'zgarmaydi, mijozga takroriy xabar ham ketmaydi.
-            await callback.answer("Siz bu buyurtmani allaqachon olgansiz")
-            await refresh_dispatch(order_id, order, "taken", taker_chat=callback.message.chat.id)
-            return
-
-        await callback.answer("Qabul qilindi — yo'lga chiqing 🛵")
-        await notify_customer_status(order, "Yetkazilmoqda", order_id)
-        await api_linko_push(callback.from_user.id, order_id)
-        await refresh_dispatch(order_id, order, "taken", taker_chat=callback.message.chat.id,
-                               courier_name=name)
+    try:
+        code, data = await api_admin_action(callback.from_user.id, server_action, order_id)
+    except Exception as e:
+        logger.error(f"[COURIER] {order_id} {action}: {e}", exc_info=True)
+        await callback.answer(
+            "Server bilan bog'lanib bo'lmadi — ilovadan urinib ko'ring",
+            show_alert=True,
+        )
         return
 
-    if action == "done":
-        outcome, order = db.complete_order_by_courier(order_id, uid, name)
-
-        if outcome == "not_found":
-            await callback.answer("Buyurtma topilmadi", show_alert=True)
-            return
-        if outcome == "not_yours":
-            await callback.answer("Bu buyurtma sizga biriktirilmagan", show_alert=True)
-            return
-        if outcome == "already":
-            await callback.answer("Bu buyurtma allaqachon yetkazilgan")
-            await refresh_dispatch(order_id, order, "done")
-            return
-
-        await callback.answer("Yetkazildi ✅ Rahmat!")
-        await notify_customer_status(order, "Yetkazildi", order_id)
-        await api_linko_push(callback.from_user.id, order_id)
-        await ask_rating(order_id, order)
-        await refresh_dispatch(order_id, order, "done", courier_name=name)
+    if code != 200:
+        await callback.answer(data.get("error") or "Bajarilmadi", show_alert=True)
         return
+
+    text, alert = COURIER_OUTCOMES.get(data.get("outcome"), ("Bajarildi", False))
+    await callback.answer(
+        text.format(who=data.get("courierName") or "boshqa kuryer"),
+        show_alert=alert,
+    )
+    # Xabarlarning o'zini server yangilaydi (updateCourierMessages)
 
 
 @dp.callback_query(F.data == "noop")
 async def cb_noop(callback: CallbackQuery):
     """Faqat holatni ko'rsatuvchi tugma — bosilganda hech narsa qilmaydi."""
     await callback.answer()
-
-
-def route_button(order: dict):
-    """
-    Marshrut havolasi — Google Maps'ni YO'NALISH rejimida ochadi.
-
-    `dir/?api=1&destination=` telefonda ilovani ishga tushirib
-    navigatsiyani boshlaydi; oddiy `?q=` esa faqat nuqtani ko'rsatadi.
-    """
-    loc = (order or {}).get("customer", {}).get("location") or {}
-    lat, lng = loc.get("lat"), loc.get("lng")
-    if lat is None or lng is None:
-        return None
-    return InlineKeyboardButton(
-        text="🗺 Manzilga yo'l olish",
-        url=f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}",
-    )
-
-
-async def refresh_dispatch(order_id: str, order: dict, stage: str,
-                           taker_chat=None, courier_name: str | None = None):
-    """
-    Buyurtma yuborilgan BARCHA chatlardagi xabarni yangilaydi.
-
-    Buyurtma bir necha joyga tushishi mumkin (kuryerlarning shaxsiy
-    chatlari yoki umumiy guruh). Faqat bosilgan xabarni yangilash
-    yetarli emas: qolgan nusxalarda «Oldim» tugmasi eskirib turaverardi.
-
-    Matnga ham «kim biriktirildi» qatori qo'shiladi — ayniqsa guruhda
-    muhim: u yerda bir necha kuryer turadi va kim olganini ko'rishi kerak.
-    Asl matn /api/orders tomonidan `dispatchText` ga yozib qo'yilgan.
-    """
-    messages = order.get("dispatchMessages") or []
-    base_text = order.get("dispatchText") or ""
-    who = courier_name or order.get("courierName") or "Kuryer"
-
-    if stage == "done":
-        suffix = f"\n\n✅ <b>{who} yetkazdi</b>"
-    else:
-        suffix = f"\n\n🛵 <b>{who} bu buyurtmaga biriktirildi</b>"
-
-    for item in messages:
-        chat_id = item.get("chatId")
-        message_id = item.get("messageId")
-        if not chat_id or not message_id:
-            continue
-
-        is_taker = taker_chat is not None and str(chat_id) == str(taker_chat)
-
-        if stage == "done":
-            rows = [[InlineKeyboardButton(text="✅ Yetkazildi", callback_data="noop")]]
-        elif is_taker:
-            # Olgan kuryer: keyingi qadam va marshrut
-            rows = [[InlineKeyboardButton(
-                text="📦 Yetkazdim", callback_data=f"crr:done:{order_id}"
-            )]]
-            route = route_button(order)
-            if route:
-                rows.append([route])
-        else:
-            rows = [[InlineKeyboardButton(text=f"🛵 {who} oldi", callback_data="noop")]]
-
-        markup = InlineKeyboardMarkup(inline_keyboard=rows)
-
-        try:
-            if base_text:
-                await bot.edit_message_text(
-                    base_text + suffix,
-                    chat_id=chat_id,
-                    message_id=message_id,
-                    reply_markup=markup,
-                )
-            else:
-                # Eski buyurtmalarda matn saqlanmagan — hech bo'lmasa
-                # tugmani yangilaymiz
-                await bot.edit_message_reply_markup(
-                    chat_id=chat_id, message_id=message_id, reply_markup=markup,
-                )
-        except Exception as e:
-            # Xabar o'chirilgan yoki o'zgarmagan bo'lishi mumkin — muhim emas
-            logger.debug(f"[COURIER] {chat_id}/{message_id} yangilanmadi: {e}")
-
-
-async def notify_customer_status(order: dict, status: str, order_id: str | None = None):
-    """Mijozga holat o'zgargani haqida xabar va bildirishnoma."""
-    user_id = order.get("userId")
-    if not user_id:
-        return
-
-    label = db.order_display_id(order)
-    lang = tr.normalize(db.get_user_language(user_id))
-    status_text = tr.status_name(status, lang)
-    keys = {"Yetkazilmoqda": "status_delivering", "Yetkazildi": "status_delivered"}
-    key = keys.get(status)
-    text = tr.t(key, lang, order=label) if key else f"{label} — {status_text}"
-    try:
-        db.send_notification(
-            user_id, tr.t("notif_status_title", lang),
-            f"{label} — {status_text}", "order", order_id,
-        )
-        await bot.send_message(user_id, text)
-    except Exception as e:
-        logger.warning(f"[COURIER] Mijozga xabar bormadi: {e}")
 
 
 @dp.callback_query(F.data.startswith("os:"))
@@ -1063,36 +915,8 @@ async def cmd_contact(message: Message):
 #
 # Ilgari har mahsulot alohida so'ralardi: besh mahsulotli buyurtmada
 # mijoz besh marta bosishi kerak edi va ko'pchilik yarim yo'lda tashlab
-# ketardi. Matn api/_lib/actions/orders.ts dagi sendRatingPrompt bilan bir xil.
-
-def rating_prompt(order_id: str, order: dict, lang: str = tr.DEFAULT):
-    items = db.order_review_items(order)
-    if not items:
-        return None, None
-    label = db.order_display_id(order)
-    scope = tr.t("rate_scope", lang, count=len(items)) if len(items) > 1 else ""
-    text = tr.t("rate_ask", lang, order=label, scope=scope)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"{n}⭐", callback_data=f"rv:{order_id}:all:{n}") for n in range(1, 6)],
-        [InlineKeyboardButton(text=tr.t("rate_skip", lang), callback_data=f"rv:{order_id}:all:0")],
-    ])
-    return text, kb
-
-
-async def ask_rating(order_id: str, order: dict):
-    """Kuryer «Yetkazdim» bosganda — baho so'rovi mijozga."""
-    user_id = (order or {}).get("userId")
-    if not user_id:
-        return
-    lang = tr.normalize(db.get_user_language(user_id))
-    text, kb = rating_prompt(order_id, order, lang)
-    if not text:
-        return
-    try:
-        await bot.send_message(user_id, text, reply_markup=kb)
-    except Exception as e:
-        logger.warning(f"[REVIEW] baho so'rovi yetmadi: {e}")
-
+# ketardi. So'rovni server yuboradi (api/_lib/actions/orders.ts → sendRatingPrompt),
+# bot faqat javobni qabul qiladi.
 
 @dp.callback_query(F.data.startswith("rv:"))
 async def cb_review(callback: CallbackQuery):
@@ -1204,7 +1028,11 @@ async def cmd_today(message: Message):
     if not (r["delivered"] or r["on_way"] or r["waiting"]):
         lines += ["", "<i>Bugun hali buyurtma yo'q. Omad! 🍀</i>"]
 
-    await message.answer("\n".join(lines))
+    # Batafsil statistika va marshrut — mini app'dagi kuryer sahifasida
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="📱 Kuryer sahifasi", web_app=WebAppInfo(url=MINI_APP_URL)),
+    ]])
+    await message.answer("\n".join(lines), reply_markup=kb)
 
 
 @dp.message(Command("group"))

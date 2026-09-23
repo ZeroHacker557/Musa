@@ -1,0 +1,56 @@
+import { adminDb } from './firebase-admin.js'
+import type { Staff } from './admin-auth.js'
+
+/*
+ * Kuryerni Telegram ID bo'yicha aniqlash — YENGIL modul.
+ *
+ * api/auth.ts har bir mijoz kirishida shu yerdan foydalanadi, shuning
+ * uchun bu faylda buyurtma mantig'i (orders.ts, Linko) import qilinmaydi.
+ */
+
+/** Telegram ID bo'yicha faol kuryer. Kuryer bo'lmasa — null. */
+export async function courierByTelegram(telegramId: number): Promise<Staff | null> {
+  if (!Number.isFinite(telegramId)) return null
+  const db = await adminDb()
+  const snap = await db.collection('staff').where('telegramId', '==', telegramId).limit(1).get()
+  const doc = snap.docs[0]
+  if (!doc) return null
+  const data = doc.data()
+  if (data.role !== 'courier' || data.active === false) return null
+  return {
+    uid: doc.id,
+    email: String(data.email || ''),
+    name: String(data.name || 'Kuryer'),
+    role: 'courier',
+    telegramId,
+    phone: data.phone ?? null,
+    active: true,
+  }
+}
+
+/**
+ * Ilova kuryer sahifasini ochishi uchun belgi: `users/{telegramId}.courier`.
+ *
+ * Ilova o'z profil hujjatini jonli tinglaydi, shuning uchun admin kuryer
+ * qo'shishi bilan mini app o'zi kuryer rejimiga o'tadi. Belgi faqat
+ * QAYSI SAHIFA chiqishini hal qiladi — huquq baribir har so'rovda
+ * `staff` dan tekshiriladi (courierByTelegram). Mijoz bu maydonni o'zi
+ * yoza olmaydi (firestore.rules → users update).
+ *
+ * Hujjat faqat mavjud bo'lsa yangilanadi: ilovani hali ochmagan
+ * kuryerga bo'sh «mijoz» yozuvi yaratilmasin. Birinchi kirishda belgini
+ * api/auth.ts qo'yadi.
+ */
+export async function syncCourierFlag(telegramId: number | null | undefined, courier: boolean) {
+  if (!telegramId || !Number.isFinite(Number(telegramId))) return
+  try {
+    const ref = (await adminDb()).collection('users').doc(String(telegramId))
+    const snap = await ref.get()
+    if (!snap.exists) return
+    if ((snap.data()?.courier === true) === courier) return
+    await ref.set({ courier }, { merge: true })
+  } catch (error) {
+    // Belgi qo'yilmagani xodimni saqlashni to'xtatmasin
+    console.error('[courier] belgi yozilmadi:', error)
+  }
+}

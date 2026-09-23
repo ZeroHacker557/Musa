@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Bell, ChevronRight, CircleHelp, ClipboardList, Languages, MapPin, Moon, Star, Sun, UserRound } from 'lucide-react'
+import { Bell, Bike, ChevronRight, CircleHelp, ClipboardList, Languages, MapPin, Moon, Star, Sun, UserRound } from 'lucide-react'
 import { formatPrice } from '../data'
 import { formatOrderDate } from '../utils/date'
 import { IconButton } from '../components/ui/IconButton'
@@ -28,9 +28,11 @@ type Props = {
   onToggleTheme: () => void
   onNavigate: (page: AppPage) => void
   onNotify: (msg: string) => void
+  /** Faqat kuryerlarga — do'kondan kuryer sahifasiga qaytish. */
+  onOpenCourier?: () => void
 }
 
-export function ProfilePage({ profile, orders, ordersReady, theme, onToggleTheme, onNavigate, onNotify }: Props) {
+export function ProfilePage({ profile, orders, ordersReady, theme, onToggleTheme, onNavigate, onNotify, onOpenCourier }: Props) {
   const { t, lang } = useI18n()
   const tgUser = getTelegramUser()
 
@@ -104,6 +106,21 @@ export function ProfilePage({ profile, orders, ordersReady, theme, onToggleTheme
         </div>
         <ChevronRight style={{ color: 'var(--muted)' }} />
       </button>
+
+      {onOpenCourier && (
+        <button
+          className="crr-option crr-option--brand mx-5 mt-3 w-[calc(100%-2.5rem)] sm:mx-10 sm:w-[calc(100%-5rem)]"
+          onClick={onOpenCourier}
+          style={{ animation: 'fadeInUp 0.4s ease 0.03s both' }}
+        >
+          <span className="crr-option__icon"><Bike size={19} /></span>
+          <span className="min-w-0 flex-1 text-left">
+            <b className="block text-sm" style={{ color: 'var(--ink)' }}>{t('courier.backToCourier')}</b>
+            <span className="block text-xs" style={{ color: 'var(--muted)' }}>{t('courier.backToCourierSub')}</span>
+          </span>
+          <ChevronRight size={18} style={{ color: 'var(--muted)' }} />
+        </button>
+      )}
 
       {/* Statistika */}
       <section className="mx-5 mt-5 grid grid-cols-3 gap-3 sm:mx-10" style={{ animation: 'fadeInUp 0.4s ease 0.05s both' }}>

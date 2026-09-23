@@ -3,6 +3,7 @@ import { sendMessage } from '../telegram.js'
 import { normalizeLang, type Lang } from '../i18n.js'
 import { verifyInitData } from '../telegram-auth.js'
 import type { Staff, StaffRole } from '../admin-auth.js'
+import { syncCourierFlag } from '../courier-staff.js'
 
 const ROLES: StaffRole[] = ['owner', 'admin', 'courier']
 
@@ -93,6 +94,7 @@ export async function staffSave(actor: Staff, body: Record<string, unknown>) {
 
   const existing = uid ? await db.collection('staff').doc(uid).get() : null
   const hadAuth = existing?.exists ? existing.data()?.webAccess !== false : false
+  const previousTelegramId = existing?.exists ? (existing.data()?.telegramId as number | null) : null
 
   let targetUid = uid
 
@@ -139,6 +141,12 @@ export async function staffSave(actor: Staff, body: Record<string, unknown>) {
     { merge: true },
   )
 
+  // Mini app'dagi kuryer sahifasi — Telegram ID almashgan bo'lsa eskisidan olinadi
+  if (previousTelegramId && previousTelegramId !== telegramId) {
+    await syncCourierFlag(previousTelegramId, false)
+  }
+  await syncCourierFlag(telegramId, role === 'courier' && active)
+
   if (!uid && telegramId) {
     await sendMessage(
       telegramId,
@@ -166,7 +174,9 @@ export async function staffDelete(actor: Staff, body: Record<string, unknown>) {
     await doc.ref.set({ courierId: null, courierName: null }, { merge: true })
   }
 
+  const removed = await db.collection('staff').doc(uid).get()
   await db.collection('staff').doc(uid).delete()
+  await syncCourierFlag(removed.data()?.telegramId as number | null, false)
   try {
     await (await adminAuth()).deleteUser(uid)
   } catch {
@@ -332,6 +342,8 @@ export async function staffLinkTelegram(actor: Staff, body: Record<string, unkno
     },
     { merge: true },
   )
+  if (actor.telegramId) await syncCourierFlag(actor.telegramId, false)
+  await syncCourierFlag(telegramId, actor.role === 'courier' && actor.active)
 
   return { telegramId, linked: true }
 }

@@ -1,5 +1,7 @@
 import { adminDb } from '../firebase-admin.js'
-import { escapeHtml, replaceButtons, sendMessage, sendRows, setKeyboard } from '../telegram.js'
+import {
+  editMessage, escapeHtml, replaceButtons, sendMessage, sendRows, setKeyboard, type AnyButton,
+} from '../telegram.js'
 import { userLang, type Lang } from '../i18n.js'
 import { restoreStock } from '../stock.js'
 import { pushOrderSafe } from './linko-orders.js'
@@ -92,14 +94,26 @@ const RATING_TEXT: Record<Lang, {
 
 type ChatMessage = { chatId: string; messageId: number }
 
-type OrderDoc = {
+/**
+ * Kuryerlarga yuborilgan nusxa. `kind` — kimga ketgani:
+ *   courier — kuryerning shaxsiy chati («Ilovada ochish» tugmasi bilan)
+ *   group   — umumiy guruhdagi ma'lumot nusxasi (tugmasiz)
+ * Eski yozuvlarda `kind` yo'q — ular kuryer nusxasi deb olinadi.
+ */
+type DispatchMessage = ChatMessage & { kind?: 'courier' | 'group' }
+
+export type OrderDoc = {
   orderNumber?: string
   status?: string
   userId?: number
   courierId?: string | null
+  courierName?: string | null
   total?: number
   paymentMethod?: string
-  products?: { product?: { name?: string; price?: number }; quantity?: number }[]
+  products?: { product?: { name?: string; price?: number }; quantity?: number; size?: string | null }[]
+  dispatchMessages?: DispatchMessage[]
+  dispatchText?: string
+  groupText?: string
   customer?: {
     name?: string
     phone?: string
@@ -301,20 +315,38 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
   if (order.status === status) return { ok: true, notified: false, unchanged: true }
 
   const now = new Date().toISOString()
-  await ref.set(
-    {
-      status,
-      statusUpdatedAt: now,
-      statusUpdatedBy: { uid: staff.uid, name: staff.name, role: staff.role },
-    },
-    { merge: true },
-  )
-  await ref.collection('history').add({
-    at: now,
-    from: order.status ?? null,
-    to: status,
-    by: { uid: staff.uid, name: staff.name, role: staff.role },
-  })
+  const by = { uid: staff.uid, name: staff.name, role: staff.role }
+  await ref.set({ status, statusUpdatedAt: now, statusUpdatedBy: by }, { merge: true })
+
+  const { notified } = await applyStatusEffects(orderId, order, status, by, now)
+  return { ok: true, notified }
+}
+
+type Actor = { uid: string; name: string; role: string }
+
+/**
+ * Holat o'zgargandan KEYINGI hamma ish — bitta joyda.
+ *
+ * Holatni uch yo'l o'zgartiradi: admin panel, kuryerning mini app'i va
+ * botdagi eski tugmalar. Ilgari har biri bu ishlarni o'zicha qilardi va
+ * bittasi Linko'ni unutib qo'ygan edi. Endi hammasi shu funksiyani
+ * chaqiradi: tarix, kuryer va admin xabarlari, mijozga xabar, baho
+ * so'rovi va Linko.
+ *
+ * `order` — o'zgarishdan OLDINGI holat (tarixdagi «qaysidan» uchun).
+ * Holatning o'zi bazaga chaqiruvchi tomonidan allaqachon yozilgan.
+ */
+export async function applyStatusEffects(
+  orderId: string,
+  order: OrderDoc,
+  status: Status,
+  by: Actor,
+  now: string,
+): Promise<{ notified: boolean }> {
+  const db = await adminDb()
+  const ref = db.collection('orders').doc(orderId)
+
+  await ref.collection('history').add({ at: now, from: order.status ?? null, to: status, by })
 
   // «Qabul qilindi» — buyurtma shu zahoti kuryerga ketadi.
   // Bu yerda ataylab: admin alohida «yuborish» tugmasini bosishi shart
@@ -326,6 +358,9 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
     await clearDispatchButtons(orderId, order, `❌ ${status}`)
     // Buyurtma yopildi — band qilingan miqdor omborga qaytadi
     await restoreStock(orderId)
+  } else if (status === 'Yetkazilmoqda' || status === 'Yetkazildi') {
+    // Boshqa kuryerlardagi nusxa «… oldi» ga aylanadi va tugmasi o'chadi
+    await updateCourierMessages(orderId, order, status)
   }
 
   /*
@@ -334,7 +369,7 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
    * ham bir xil ishlaydi: tasdiqlash qaysi yo'ldan bo'lganidan qat'i
    * nazar boshqa adminlarda tugma eskirib qolmaydi.
    */
-  await refreshAdminMessages(orderId, `${statusIcon(status)} ${status} — ${staff.name}`)
+  await refreshAdminMessages(orderId, `${statusIcon(status)} ${status} — ${by.name}`)
 
   const label = order.orderNumber || `#${orderId.slice(0, 6)}`
   let notified = false
@@ -362,7 +397,7 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
   // Linko'dagi buyurtma holati ham yangilanadi (sozlamada yoqilgan bo'lsa)
   await pushOrderSafe(orderId, { ...order, status })
 
-  return { ok: true, notified }
+  return { notified }
 }
 
 /**
@@ -400,18 +435,16 @@ export async function orderAssign(staff: Staff, body: Record<string, unknown>) {
 
   let notified = false
   if (courier.telegramId) {
-    // Qo'lda biriktirishda ham marshrut tugmasi bo'ladi. «Oldim» esa
-    // faqat buyurtma tasdiqlangan bo'lsa — aks holda kuryer hali
-    // tasdiqlanmagan buyurtmani yo'lga olib chiqib ketardi.
-    const route = routeButton(order)
+    // Tugma faqat tasdiqlangan buyurtmada — aks holda kuryer hali
+    // tasdiqlanmagan buyurtmani ilovada qidirib yurardi
     const accepted = order.status === 'Qabul qilindi'
+    const open = openInAppButton(orderId)
 
-    const result = await sendMessage(
+    const result = await sendRows(
       courier.telegramId,
       `🛵 <b>Sizga buyurtma biriktirildi</b>\n\n${orderSummary(orderId, order)}` +
         (accepted ? '' : '\n\n<i>Tasdiqlangach yetkazishga chiqasiz.</i>'),
-      route ? [route] : undefined,
-      accepted ? [{ text: '✅ Oldim', callback_data: `crr:take:${orderId}` }] : undefined,
+      accepted && open ? [[open]] : [],
     )
     notified = result.ok
   }
@@ -504,109 +537,159 @@ ${orderSummary(orderId, order)}`
 
 
 /**
+ * Mini app manzili — kuryer xabaridagi «Ilovada ochish» tugmasi uchun.
+ *
+ * `MINI_APP_URL` bo'lmasa admin panel manzilidan olinadi: ikkalasi bitta
+ * domenda turadi (`.../admin` → `...`).
+ */
+function miniAppUrl(): string | null {
+  const direct = process.env.MINI_APP_URL
+  if (direct) return direct.replace(/\/+$/, '')
+  const panel = process.env.ADMIN_PANEL_URL
+  if (!panel) return null
+  try {
+    return new URL(panel).origin
+  } catch {
+    return null
+  }
+}
+
+/** Kuryer sahifasini aynan shu buyurtmada ochadigan tugma. */
+function openInAppButton(orderId: string): AnyButton | null {
+  const base = miniAppUrl()
+  if (!base) return null
+  return { text: '📱 Ilovada ochish', web_app: { url: `${base}/?courier=${encodeURIComponent(orderId)}` } }
+}
+
+/**
  * Buyurtmani kuryerlarga yetkazadi.
  *
- * Biriktirilgan kuryer bo'lsa — faqat unga. Bo'lmasa, sozlamaga qarab
- * barcha faol kuryerlarga va/yoki umumiy guruhga. Xabarda «Oldim»
- * tugmasi bo'ladi: kuryer bosganda buyurtma «Yetkazilmoqda» ga o'tadi.
+ * Har bir kuryerga SHAXSAN yoziladi: «Sizni #1042-buyurtma kutmoqda» va
+ * tagida mini app'ni ochadigan tugma. Buyurtmani olish va yetkazish
+ * endi ilova ichida — bot faqat xabar beradi.
+ *
+ * Biriktirilgan kuryer bo'lsa — faqat unga, bo'lmasa barcha faol
+ * kuryerlarga. Kim birinchi olsa, o'shaniki bo'ladi; qolganlardagi
+ * xabar «… oldi» ga aylanadi (updateCourierMessages).
+ *
+ * Sozlamada guruh tanlangan bo'lsa, guruhga ham ma'lumot nusxasi
+ * ketadi — tugmasiz, chunki mini app tugmasi guruhda ishlamaydi.
  *
  * Xato tashlamaydi — xabar ketmagani holat o'zgarishini bekor qilmaydi.
  */
-export async function dispatchToCouriers(
-  orderId: string,
-  order: OrderDoc & { dispatchMessages?: { chatId: string; messageId: number }[] },
-): Promise<void> {
+export async function dispatchToCouriers(orderId: string, order: OrderDoc): Promise<void> {
   try {
     const db = await adminDb()
 
     const settingsSnap = await db.collection('settings').doc('courier').get()
     const settings = (settingsSnap.data() || {}) as {
       channel?: 'couriers' | 'group'
-      toCouriers?: boolean
       toGroup?: boolean
       groupChatId?: string | null
     }
+    const channel = settings.channel ?? (settings.toGroup ? 'group' : 'couriers')
 
-    /*
-     * Kanal BITTA bo'ladi — shaxsiy xabar YOKI guruh.
-     *
-     * Ilgari ikkalasi mustaqil belgilanardi va ikkalasi yoqilganda
-     * kuryer bir buyurtmani ikki marta olardi: shaxsiy chatda va
-     * guruhda. Ikki nusxada esa «Oldim» tugmasi ham ikkita bo'lib,
-     * qaysidir biri eskirib qolardi.
-     *
-     * Eski sozlamalar uchun: toGroup yoqilgan bo'lsa — guruh.
-     */
-    const channel =
-      settings.channel ?? (settings.toGroup ? 'group' : 'couriers')
+    const label = escapeHtml(order.orderNumber || `#${orderId.slice(0, 6)}`)
+    const summary = orderSummary(orderId, order)
+    const courierText = `🛵 <b>Sizni ${label}-buyurtma kutmoqda</b>\n\n${summary}`
+    const groupText = `🛵 <b>YETKAZISHGA TAYYOR</b>\n\n${summary}`
 
-    const text = `🛵 <b>YETKAZISHGA TAYYOR</b>
+    // Qayta yuborilayotgan bo'lsa (admin holatni qaytarib, yana
+    // tasdiqlagan bo'lsa), eski xabarlardagi tugmalarni o'chiramiz.
+    await clearDispatchButtons(orderId, order, null)
 
-${orderSummary(orderId, order)}`
-    const targets: (number | string)[] = []
-
-    if (channel === 'group') {
-      if (settings.groupChatId) targets.push(settings.groupChatId)
-    } else if (order.courierId) {
+    const couriers: number[] = []
+    if (order.courierId) {
       const snap = await db.collection('staff').doc(order.courierId).get()
       const courier = snap.data() as { telegramId?: number; active?: boolean } | undefined
-      if (courier?.telegramId && courier.active !== false) targets.push(courier.telegramId)
+      if (courier?.telegramId && courier.active !== false) couriers.push(courier.telegramId)
     } else {
-      // Biriktirilmagan — barcha faol kuryerlarga. Kim birinchi «Oldim»
-      // bossa, o'shanga tegadi; qolganlarining tugmasi o'chiriladi.
       const snap = await db.collection('staff').where('role', '==', 'courier').get()
       for (const doc of snap.docs) {
         const data = doc.data() as { telegramId?: number; active?: boolean }
-        if (data.active !== false && data.telegramId) targets.push(data.telegramId)
+        if (data.active !== false && data.telegramId) couriers.push(data.telegramId)
       }
     }
 
+    const open = openInAppButton(orderId)
+    const dispatchMessages: DispatchMessage[] = []
+
     // Bir chatga ikki marta yuborilmasin
-    const unique = [...new Set(targets.map(String))]
-
-    // Kuryerga «Admin paneldan ochish» tugmasi ATAYLAB berilmaydi —
-    // unda panelga kirish huquqi yo'q. O'rniga marshrut havolasi.
-    const route = routeButton(order)
-
-    /*
-     * Yuborilgan xabarlar ro'yxati saqlanadi.
-     *
-     * Kuryer birortasida «Oldim» bosganda bot QOLGAN nusxalarning
-     * tugmasini ham yangilaydi — aks holda boshqa chatdagi «Oldim»
-     * eskirib turaverardi va qayta bosilishi mumkin edi.
-     */
-    // Qayta yuborilayotgan bo'lsa (masalan admin holatni qaytarib, yana
-    // tasdiqlagan bo'lsa), eski xabarlardagi tugmalarni o'chiramiz.
-    await clearDispatchButtons(
-      orderId,
-      order as OrderDoc & { dispatchMessages?: { chatId: string; messageId: number }[] },
-      null,
-    )
-
-    const dispatchMessages: { chatId: string; messageId: number }[] = []
-
-    for (const target of unique) {
-      const result = await sendMessage(target, text, route ? [route] : undefined, [
-        { text: '✅ Oldim', callback_data: `crr:take:${orderId}` },
-      ])
-      if (result.ok) dispatchMessages.push({ chatId: target, messageId: result.messageId })
+    for (const target of [...new Set(couriers.map(String))]) {
+      const result = await sendRows(target, courierText, open ? [[open]] : [])
+      if (result.ok) dispatchMessages.push({ chatId: target, messageId: result.messageId, kind: 'courier' })
       await new Promise((resolve) => setTimeout(resolve, 40))
     }
 
+    if (channel === 'group' && settings.groupChatId) {
+      const route = routeButton(order)
+      const result = await sendMessage(settings.groupChatId, groupText, route ? [route] : undefined)
+      if (result.ok) {
+        dispatchMessages.push({ chatId: String(settings.groupChatId), messageId: result.messageId, kind: 'group' })
+      }
+    }
+
     /*
-     * Matn ham saqlanadi.
-     *
-     * Kuryer «Oldim» bosganda bot BARCHA nusxalarning matniga «kim
-     * oldi» qatorini qo'shadi. Bosilgan xabarning matnini Telegram
-     * o'zi beradi, qolganlariniki esa bu yerdan olinadi — aks holda
-     * guruhdagi xabar eski holida qolib ketardi.
+     * Xabarlar va ularning matni saqlanadi: kuryer buyurtmani olganda
+     * yoki yetkazganda BARCHA nusxalar yangilanadi (updateCourierMessages).
      */
     await db.collection('orders').doc(orderId).set(
-      { dispatchedAt: new Date().toISOString(), dispatchMessages, dispatchText: text },
+      { dispatchedAt: new Date().toISOString(), dispatchMessages, dispatchText: courierText, groupText },
       { merge: true },
     )
   } catch (error) {
     console.error('[orders] kuryerga yuborilmadi:', error)
+  }
+}
+
+/**
+ * Kuryerlarga ketgan barcha nusxalarni yangilaydi.
+ *
+ *   Yetkazilmoqda — «🛵 Ali oldi». Olgan kuryerning xabarida «Ilovada
+ *                   ochish» qoladi, boshqalarida tugma o'chadi.
+ *   Yetkazildi    — «✅ Ali yetkazdi», tugmalar yo'q.
+ *
+ * Xato tashlamaydi.
+ */
+export async function updateCourierMessages(
+  orderId: string,
+  order: OrderDoc,
+  status: 'Yetkazilmoqda' | 'Yetkazildi',
+): Promise<void> {
+  try {
+    const messages = order.dispatchMessages || []
+    if (!messages.length) return
+
+    const db = await adminDb()
+    let who = order.courierName || 'Kuryer'
+    let takerChat: string | null = null
+    if (order.courierId) {
+      const snap = await db.collection('staff').doc(order.courierId).get()
+      const courier = snap.data() as { name?: string; telegramId?: number } | undefined
+      if (courier?.name) who = courier.name
+      if (courier?.telegramId) takerChat = String(courier.telegramId)
+    }
+
+    const suffix =
+      status === 'Yetkazildi'
+        ? `\n\n✅ <b>${escapeHtml(who)} yetkazdi</b>`
+        : `\n\n🛵 <b>${escapeHtml(who)} oldi</b>`
+    const open = openInAppButton(orderId)
+
+    for (const item of messages) {
+      if (!item?.chatId || !item?.messageId) continue
+      const base = (item.kind === 'group' ? order.groupText : order.dispatchText) || ''
+      const rows: AnyButton[][] =
+        status === 'Yetkazilmoqda' && item.kind !== 'group' && String(item.chatId) === takerChat && open
+          ? [[open]]
+          : []
+
+      if (base) await editMessage(item.chatId, item.messageId, base + suffix, rows)
+      else await setKeyboard(item.chatId, item.messageId, rows)
+      await new Promise((resolve) => setTimeout(resolve, 30))
+    }
+  } catch (error) {
+    console.error('[orders] kuryer xabarlari yangilanmadi:', error)
   }
 }
 

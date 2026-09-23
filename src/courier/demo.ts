@@ -1,0 +1,100 @@
+import type { CourierOrder, CourierOverview } from './api'
+
+/*
+ * FAQAT dev rejimi uchun soxta ma'lumot (`?courierDemo`). Kuryer
+ * sahifasini Telegram va serversiz ko'rib chiqish uchun. api.ts uni
+ * `import.meta.env.DEV` sharti ostida dinamik yuklaydi — production
+ * bundlega kirmaydi.
+ */
+
+const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
+
+function order(
+  id: string, n: number, address: string, lat: number, lng: number,
+  total: number, pay: string, minutes: number, extra: Partial<CourierOrder> = {},
+): CourierOrder {
+  return {
+    id,
+    number: `#${n}`,
+    status: 'Qabul qilindi',
+    createdAt: minutesAgo(minutes),
+    takenAt: null,
+    deliveredAt: null,
+    assignedToMe: false,
+    customer: {
+      name: ['Dilnoza', 'Jasur', 'Malika', 'Sardor', 'Aziza', 'Bekzod'][n % 6],
+      phone: '+998 90 123 45 ' + String(10 + (n % 80)),
+      address,
+      comment: n % 3 === 0 ? 'Domofon ishlamaydi, qo‘ng‘iroq qiling' : '',
+      recipientName: '',
+      recipientPhone: '',
+      location: { lat, lng },
+    },
+    items: [
+      { name: 'Musa Chuchvara 500 gr', quantity: 2, price: 27200, size: '500gr' },
+      { name: 'Musa Kartoshkali Somsa 12 dona', quantity: 1, price: 38000, size: '12 dona' },
+    ],
+    total,
+    paymentMethod: pay,
+    ...extra,
+  }
+}
+
+let available: CourierOrder[] = [
+  order('d1', 1051, 'Yunusobod 19-kvartal, 12-uy', 41.3645, 69.2851, 92400, 'Naqd', 6),
+  order('d2', 1052, 'Chilonzor 9-kvartal, 3-uy', 41.2858, 69.2034, 143500, 'Karta', 14, { assignedToMe: true }),
+  order('d3', 1053, 'Sergeli 5-mavze, 44-uy', 41.2275, 69.2233, 61000, 'Naqd', 21),
+  order('d4', 1054, 'Mirzo Ulug‘bek, Buyuk Ipak Yo‘li 158', 41.3269, 69.3312, 118000, 'Naqd', 3),
+  order('d5', 1055, 'Olmazor, Qorasaroy ko‘chasi 7', 41.3462, 69.2211, 77500, 'Karta', 33),
+]
+let active: CourierOrder[] = [
+  order('d6', 1048, 'Shayxontohur, Navoiy ko‘chasi 30', 41.3240, 69.2489, 54000, 'Naqd', 48,
+    { status: 'Yetkazilmoqda', takenAt: minutesAgo(20), assignedToMe: true }),
+  order('d7', 1049, 'Yakkasaroy, Shota Rustaveli 41', 41.2885, 69.2573, 210000, 'Karta', 40,
+    { status: 'Yetkazilmoqda', takenAt: minutesAgo(18), assignedToMe: true }),
+]
+let done: CourierOrder[] = [
+  order('d8', 1041, 'Mirobod, Amir Temur 99', 41.3006, 69.2798, 88000, 'Naqd', 190,
+    { status: 'Yetkazildi', deliveredAt: minutesAgo(95), assignedToMe: true }),
+  order('d9', 1043, 'Yashnobod, Parkent 12', 41.3157, 69.3120, 132000, 'Karta', 150,
+    { status: 'Yetkazildi', deliveredAt: minutesAgo(60), assignedToMe: true }),
+]
+
+const sum = (list: CourierOrder[], card: boolean) =>
+  list.filter((o) => (o.paymentMethod === 'Karta') === card).reduce((s, o) => s + o.total, 0)
+
+export function demoOverview(): Promise<CourierOverview> {
+  const today = { delivered: done.length, cash: sum(done, false), card: sum(done, true) }
+  return new Promise((resolve) =>
+    setTimeout(() => resolve({
+      profile: { name: 'Komiljon Karimov', phone: '+998 90 555 12 34', telegramId: 1 },
+      available: [...available],
+      active: [...active],
+      done: [...done],
+      recent: [...done],
+      stats: {
+        today,
+        week: { delivered: 38, cash: 2_840_000, card: 1_920_000 },
+        month: { delivered: 146, cash: 11_350_000, card: 7_410_000 },
+        total: 412,
+      },
+      serverTime: new Date().toISOString(),
+    }), 350),
+  )
+}
+
+export async function demoTake(id: string) {
+  const found = available.find((o) => o.id === id)
+  if (!found) return { outcome: 'taken' as const, courierName: 'Ali' }
+  available = available.filter((o) => o.id !== id)
+  active = [...active, { ...found, status: 'Yetkazilmoqda', takenAt: new Date().toISOString(), assignedToMe: true }]
+  return { outcome: 'claimed' as const, courierName: null }
+}
+
+export async function demoDeliver(id: string) {
+  const found = active.find((o) => o.id === id)
+  if (!found) return { outcome: 'not_found' as const }
+  active = active.filter((o) => o.id !== id)
+  done = [{ ...found, status: 'Yetkazildi', deliveredAt: new Date().toISOString() }, ...done]
+  return { outcome: 'done' as const }
+}
