@@ -1,15 +1,16 @@
 import {
-  Banknote, CheckCircle2, ChevronDown, CreditCard, LocateFixed, LocateOff, Loader2, MapPin, MessageSquareText,
+  Banknote, CheckCircle2, ChevronRight, CreditCard, LocateFixed, LocateOff, Loader2, MapPin, MessageSquareText,
   Navigation, PackageCheck, Phone, RotateCw, Route, UserRound,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { formatPrice } from '../data'
 import { useI18n } from '../i18n'
 import { PageTitle } from '../components/layout/PageTitle'
-import { getTelegram } from '../utils/telegram'
 import type { CourierOrder, CourierOverview } from './api'
+import { clock, openExternal, telHref, timeAgo } from './format'
+import { NavigateButton } from './NavigateButton'
 import {
-  GOOGLE_MAX_STOPS, formatKm, googleMultiRoute, googleRouteTo, planRoute, yandexMultiRoute, yandexRouteTo,
+  GOOGLE_MAX_STOPS, formatKm, googleMultiRoute, planRoute, yandexMultiRoute,
   type Point, type RouteStop,
 } from './route'
 import type { LocationState } from './use-courier'
@@ -29,13 +30,8 @@ type Props = {
   onRetryLocation: () => void
   onTake: (order: CourierOrder) => void
   onDeliver: (order: CourierOrder) => void
-}
-
-/** Tashqi havola — Telegram ichida tizim brauzeri/ilovasida ochiladi. */
-function openExternal(url: string) {
-  const tg = getTelegram()
-  if (tg?.openLink) tg.openLink(url)
-  else window.open(url, '_blank', 'noopener')
+  /** Tafsilotlar oynasi — mahsulotlar rasmi bilan. */
+  onOpen: (order: CourierOrder) => void
 }
 
 const pointOf = (order: CourierOrder): Point | null => order.customer.location
@@ -46,7 +42,7 @@ const byCreated = (a: CourierOrder, b: CourierOrder) =>
 
 export function CourierOrdersPage({
   data, error, refreshing, busyId, location, tab, focusId,
-  onTab, onRefresh, onRetryLocation, onTake, onDeliver,
+  onTab, onRefresh, onRetryLocation, onTake, onDeliver, onOpen,
 }: Props) {
   const { t, lang } = useI18n()
   const start = location.status === 'ok' ? location.point : null
@@ -149,6 +145,7 @@ export function CourierOrdersPage({
                 focused={stop.item.id === focusId}
                 busy={busyId === stop.item.id}
                 lang={lang}
+                onOpen={onOpen}
                 action={
                   <button
                     className="crr-btn crr-btn--primary crr-btn--block"
@@ -180,6 +177,7 @@ export function CourierOrdersPage({
                   focused={stop.item.id === focusId}
                   busy={busyId === stop.item.id}
                   lang={lang}
+                  onOpen={onOpen}
                   action={
                     <div className="grid grid-cols-[auto_1fr] gap-2">
                       {stop.item.customer.location ? (
@@ -207,7 +205,7 @@ export function CourierOrdersPage({
           data.done.length ? (
             <div className="grid gap-3">
               {data.done.map((order, index) => (
-                <OrderCard key={order.id} order={order} index={index} numbered={false} focused={false} busy={false} lang={lang} />
+                <OrderCard key={order.id} order={order} index={index} numbered={false} focused={false} busy={false} lang={lang} onOpen={onOpen} />
               ))}
             </div>
           ) : (
@@ -299,54 +297,8 @@ function RouteCard({ stops, totalKm, lang }: { stops: RouteStop<CourierOrder>[];
   )
 }
 
-/** Bitta manzilga yo'l — bosilganda Yandex yoki Google tanlanadi. */
-function NavigateButton({ point }: { point: Point }) {
-  const { t } = useI18n()
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const close = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', close)
-    return () => document.removeEventListener('pointerdown', close)
-  }, [open])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button className="crr-btn crr-btn--ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        <Navigation size={17} /> {t('courier.navigate')}
-      </button>
-      {open && (
-        <div className="crr-menu">
-          <button onClick={() => { setOpen(false); openExternal(yandexRouteTo(point)) }}>Yandex</button>
-          <button onClick={() => { setOpen(false); openExternal(googleRouteTo(point)) }}>Google Maps</button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function timeAgo(value: string | null, t: ReturnType<typeof useI18n>['t']): string {
-  const ms = Date.parse(value || '')
-  if (!Number.isFinite(ms)) return ''
-  const minutes = Math.max(0, Math.round((Date.now() - ms) / 60_000))
-  if (minutes < 1) return t('courier.justNow')
-  if (minutes < 60) return t('courier.minutesAgo', { n: minutes })
-  return t('courier.hoursAgo', { n: Math.floor(minutes / 60) })
-}
-
-function clock(value: string | null): string {
-  const ms = Date.parse(value || '')
-  if (!Number.isFinite(ms)) return ''
-  const d = new Date(ms)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
 function OrderCard({
-  order, stop, index, numbered, focused, busy, lang, action,
+  order, stop, index, numbered, focused, busy, lang, action, onOpen,
 }: {
   order: CourierOrder
   stop?: RouteStop<CourierOrder>
@@ -356,9 +308,9 @@ function OrderCard({
   busy: boolean
   lang: 'uz' | 'ru'
   action?: React.ReactNode
+  onOpen: (order: CourierOrder) => void
 }) {
   const { t } = useI18n()
-  const [itemsOpen, setItemsOpen] = useState(false)
   const ref = useRef<HTMLElement>(null)
 
   // Bot xabaridagi «Ilovada ochish» — aynan shu buyurtmaga olib keladi
@@ -427,26 +379,19 @@ function OrderCard({
           </span>
         </span>
         {phone && !delivered && (
-          <a className="crr-call" href={`tel:${phone.replace(/[^\d+]/g, '')}`} aria-label={t('courier.call')}>
+          <a className="crr-call" href={telHref(phone)} aria-label={t('courier.call')}>
             <Phone size={17} />
           </a>
         )}
       </div>
 
-      <button className="crr-items-toggle mt-3" onClick={() => setItemsOpen((v) => !v)} aria-expanded={itemsOpen}>
-        {t('courier.items', { count })}
-        <ChevronDown size={16} style={{ transform: itemsOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+      {/* Mahsulotlar va rasmlar — faqat tafsilotlar oynasida */}
+      <button className="crr-details-btn mt-3" onClick={() => onOpen(order)}>
+        <span className="min-w-0 flex-1 text-left">{t('courier.items', { count })}</span>
+        <span className="crr-details-btn__cta">
+          {t('courier.details')} <ChevronRight size={16} />
+        </span>
       </button>
-      {itemsOpen && (
-        <ul className="crr-items">
-          {order.items.map((item, i) => (
-            <li key={i}>
-              <span className="min-w-0 flex-1 truncate">{item.name}{item.size ? ` · ${item.size}` : ''}</span>
-              <b>× {item.quantity}</b>
-            </li>
-          ))}
-        </ul>
-      )}
 
       <div className={'crr-pay mt-3 ' + (cash ? 'crr-pay--cash' : 'crr-pay--card')}>
         {cash ? <Banknote size={18} /> : <CreditCard size={18} />}

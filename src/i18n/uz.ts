@@ -462,6 +462,20 @@ export const uz = {
   'courier.openShopSub': 'O‘zingiz uchun xarid qilish',
   'courier.backToCourier': 'Kuryer sahifasiga qaytish',
   'courier.backToCourierSub': 'Buyurtmalar va marshrut',
+  'courier.details': 'Tafsilotlar',
+  'courier.detailsTitle': 'Buyurtma tafsilotlari',
+  'courier.statusNew': 'Yangi',
+  'courier.statusActive': 'Yo‘lda',
+  'courier.statusDone': 'Yetkazildi',
+  'courier.createdAt': 'Tushdi',
+  'courier.takenAt': 'Olindi',
+  'courier.address': 'Manzil',
+  'courier.customer': 'Mijoz',
+  'courier.orderedBy': 'Buyurtmachi: {name}',
+  'courier.products': 'Mahsulotlar',
+  'courier.total': 'Jami',
+  'courier.holdHint': 'Tasdiqlash uchun tugmani 3 soniya bosib turing',
+  'courier.holdKeep': 'Bosib turing… {n}',
 } as const
 
 export type TranslationKey = keyof typeof uz

@@ -82,7 +82,8 @@ function App() {
   }, [shop.loading])
 
   // Telegram BackButton — Android'ning tizim tugmasi ham shu bilan ishlaydi
-  useEffect(() => setupBackButton(shop.goBack), [shop.goBack])
+  // Kuryer sahifasi orqaga tugmasini o'zi boshqaradi (tafsilotlar oynasi)
+  useEffect(() => (courier.active ? undefined : setupBackButton(shop.goBack)), [courier.active, shop.goBack])
 
   // Chap-o'ngga surish bilan asosiy sahifalar orasida yurish.
   // Oyna ochiq bo'lsa o'chiriladi — savat yoki qidiruv ustida surish

@@ -19,7 +19,8 @@ export type CourierOrder = {
     recipientPhone: string
     location: { lat: number; lng: number } | null
   }
-  items: { name: string; quantity: number; price: number; size: string | null }[]
+  /** `image` — kichik nusxa (~480px), faqat tafsilotlar oynasida ko'rinadi. */
+  items: { name: string; quantity: number; price: number; size: string | null; image: string | null }[]
   total: number
   paymentMethod: string
 }

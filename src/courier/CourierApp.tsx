@@ -1,12 +1,14 @@
-import { Banknote, ClipboardList, CreditCard, Loader2, PackageCheck, UserRound } from 'lucide-react'
+import { Banknote, ClipboardList, CreditCard, PackageCheck, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { formatPrice } from '../data'
 import { useI18n } from '../i18n'
 import { usePresence } from '../hooks/use-presence'
 import { Toast } from '../components/ui/Toast'
-import { showAlert } from '../utils/telegram'
+import { setupBackButton, showAlert, toggleBackButton } from '../utils/telegram'
 import { CourierOrdersPage, type CourierTab } from './CourierOrdersPage'
 import { CourierProfilePage } from './CourierProfilePage'
+import { HoldButton } from './HoldButton'
+import { OrderDetail } from './OrderDetail'
 import type { CourierOrder } from './api'
 import { createOrderActions, useCourierData, useCourierLocation } from './use-courier'
 
@@ -32,6 +34,8 @@ export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) 
   const [tab, setTab] = useState<CourierTab>('new')
   const [toast, setToast] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<CourierOrder | null>(null)
+  // Tafsilotlar — id bo'yicha: ro'yxat yangilanganda oyna ham yangi holatni ko'rsatadi
+  const [detailId, setDetailId] = useState<string | null>(null)
 
   const { data, error, refreshing, busyId, setBusyId, load } = useCourierData(onNotCourier)
   const { location, retry } = useCourierLocation()
@@ -47,6 +51,22 @@ export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) 
     if (data.active.some((o) => o.id === focusId)) setTab('active')
     else if (data.done.some((o) => o.id === focusId)) setTab('done')
   }
+
+  const detail = detailId
+    ? [...(data?.available ?? []), ...(data?.active ?? []), ...(data?.done ?? [])].find((o) => o.id === detailId) ?? null
+    : null
+
+  // Tafsilot ochiq bo'lsa Telegram'ning «orqaga» tugmasi uni yopadi
+  const detailOpen = detail !== null
+  useEffect(() => {
+    if (!detailOpen) return
+    toggleBackButton(true)
+    const off = setupBackButton(() => setDetailId(null))
+    return () => {
+      off()
+      toggleBackButton(false)
+    }
+  }, [detailOpen])
 
   useEffect(() => {
     if (!toast) return
@@ -70,6 +90,8 @@ export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) 
   const deliver = async (order: CourierOrder) => {
     const result = await actions.deliver(order.id)
     setConfirm(null)
+    // Yetkazildi — tafsilot ham yopiladi, kuryer ro'yxatga qaytadi
+    if (result.kind === 'success') setDetailId(null)
     report(result)
   }
 
@@ -96,6 +118,7 @@ export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) 
               onRetryLocation={retry}
               onTake={take}
               onDeliver={setConfirm}
+              onOpen={(order) => setDetailId(order.id)}
             />
           ) : (
             <CourierProfilePage data={data} photo={photo} onOpenShop={onOpenShop} />
@@ -135,6 +158,14 @@ export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) 
           )
         })}
       </nav>
+
+      <OrderDetail
+        order={detail}
+        busy={detail !== null && busyId === detail.id}
+        onClose={() => setDetailId(null)}
+        onTake={take}
+        onDeliver={setConfirm}
+      />
 
       <DeliverSheet
         order={confirm}
@@ -186,13 +217,19 @@ function DeliverSheet({
           {cash && <b className="text-lg">{formatPrice(shown.total)}</b>}
         </div>
 
-        <div className="mt-5 grid grid-cols-[1fr_1.6fr] gap-2">
-          <button className="crr-btn crr-btn--ghost crr-btn--block" onClick={onCancel} disabled={busy}>
+        {/* Tasodifiy bosilmasin — 3 soniya bosib turiladi, tugma o'ngga to'lib boradi */}
+        <div className="mt-5">
+          <HoldButton
+            label={t('courier.confirmYes')}
+            holdingLabel={(n) => t('courier.holdKeep', { n })}
+            busy={busy}
+            onComplete={() => onConfirm(shown)}
+          />
+          <p className="mt-2 text-center text-xs font-bold" style={{ color: 'var(--faint)' }}>
+            {t('courier.holdHint')}
+          </p>
+          <button className="crr-btn crr-btn--ghost crr-btn--block mt-3" onClick={onCancel} disabled={busy}>
             {t('common.cancel')}
-          </button>
-          <button className="crr-btn crr-btn--primary crr-btn--block" onClick={() => onConfirm(shown)} disabled={busy}>
-            {busy ? <Loader2 size={18} className="animate-spin" /> : <PackageCheck size={18} />}
-            {t('courier.confirmYes')}
           </button>
         </div>
       </div>

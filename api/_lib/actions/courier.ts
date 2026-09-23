@@ -141,11 +141,28 @@ type RawOrder = OrderDoc & {
   assignedAt?: string
   deliveryFee?: number
   products?: {
-    product?: { name?: string; price?: number }
+    product?: {
+      name?: string
+      price?: number
+      images?: string[]
+      thumbs?: string[]
+      variantSources?: string[]
+    }
     quantity?: number
     size?: string | null
     color?: string | null
   }[]
+}
+
+/**
+ * Mahsulotning kichik rasmi — src/utils/product-image.ts → productThumb
+ * bilan bir xil qoida: siqilgan nusxa faqat o'sha asl rasmdan yasalgan
+ * bo'lsa olinadi, aks holda asl rasm.
+ */
+function thumbOf(product: { images?: string[]; thumbs?: string[]; variantSources?: string[] } = {}) {
+  const original = product.images?.[0] || ''
+  const fresh = original && product.variantSources?.[0] === original
+  return (fresh && product.thumbs?.[0]) || original || null
 }
 
 /** Kuryerga kerakli qismi — ichki maydonlar (dispatch xabarlari va h.k.) chiqmaydi. */
@@ -177,6 +194,7 @@ function present(id: string, order: RawOrder, uid: string) {
       quantity: Number(line.quantity) || 1,
       price: Number(line.product?.price) || 0,
       size: line.size || null,
+      image: thumbOf((line.product ?? {}) as Parameters<typeof thumbOf>[0]),
     })),
     total: Number(order.total) || 0,
     paymentMethod: order.paymentMethod || 'Naqd',
