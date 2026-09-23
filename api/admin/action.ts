@@ -16,8 +16,13 @@ import {
 } from '../_lib/actions/linko.js'
 import { linkoPushOrder, linkoPushOrders } from '../_lib/actions/linko-orders.js'
 import { courierDeliver, courierTake } from '../_lib/actions/courier.js'
+import { supportAdminRead, supportClose, supportReply } from '../_lib/actions/support.js'
 
 type Body = Record<string, unknown>
+
+function requireSupportAccess(staff: Staff) {
+  if (!atLeast(staff.role, 'admin')) throw new Error('Murojaatlarga faqat admin javob beradi')
+}
 type Handler = (staff: Staff, body: Body) => Promise<unknown>
 
 /**
@@ -62,6 +67,11 @@ const HANDLERS: Record<string, Handler> = {
   'staff.linkTelegram': staffLinkTelegram,
   'staff.delete': staffDelete,
   'broadcast.send': broadcast,
+
+  // Kuryerlar bilan qo'llab-quvvatlash chati — javobni admin beradi
+  'support.reply': (staff, body) => (requireSupportAccess(staff), supportReply(staff, body)),
+  'support.read': (staff, body) => (requireSupportAccess(staff), supportAdminRead(staff, body)),
+  'support.close': (staff, body) => (requireSupportAccess(staff), supportClose(staff, body)),
 
   // Sozlamalar
   'settings.save': settingsSave,

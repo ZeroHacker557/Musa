@@ -149,9 +149,9 @@ function routeButton(order: OrderDoc) {
  * darhol ochiladi. Hash ishlatiladi, chunki /admin bitta statik faylga
  * qayta yoziladi.
  */
-function panelButtons(orderId: string) {
+export function panelUrl(hashPath: string): string | null {
   const base = process.env.ADMIN_PANEL_URL || ''
-  if (!base) return undefined
+  if (!base) return null
 
   /*
    * ADMIN_PANEL_URL qo'lda sozlanadi, shuning uchun uchta ko'rinishga
@@ -161,8 +161,12 @@ function panelButtons(orderId: string) {
    */
   const root = base.replace(/\/+$/, '')
   const panel = /\/admin$/.test(root) ? root : `${root}/admin`
+  return `${panel}/#/${hashPath}`
+}
 
-  return [{ text: '🖥 Admin paneldan ochish', url: `${panel}/#/orders/${orderId}` }]
+function panelButtons(orderId: string) {
+  const url = panelUrl(`orders/${orderId}`)
+  return url ? [{ text: '🖥 Admin paneldan ochish', url }] : undefined
 }
 
 /**
@@ -205,7 +209,7 @@ export const LOW_STOCK_AT = 5
  * Faqat faol xodimlar va faqat `telegramId` si borlari: panelga email
  * bilan kiradigan admin Telegram'ga ulanmagan bo'lishi mumkin.
  */
-async function adminTargets(): Promise<number[]> {
+export async function adminTargets(): Promise<number[]> {
   const db = await adminDb()
   const snap = await db.collection('staff').where('role', 'in', ['owner', 'admin']).get()
   const targets: number[] = []
@@ -542,7 +546,7 @@ ${orderSummary(orderId, order)}`
  * `MINI_APP_URL` bo'lmasa admin panel manzilidan olinadi: ikkalasi bitta
  * domenda turadi (`.../admin` → `...`).
  */
-function miniAppUrl(): string | null {
+export function miniAppUrl(): string | null {
   const direct = process.env.MINI_APP_URL
   if (direct) return direct.replace(/\/+$/, '')
   const panel = process.env.ADMIN_PANEL_URL

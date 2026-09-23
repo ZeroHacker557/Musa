@@ -1075,3 +1075,120 @@
 }
 .adm-ad-add:hover { border-color: var(--brand-line); background: var(--brand-soft); color: var(--brand-strong); }
 .adm-ad-add.is-busy { cursor: progress; opacity: 0.8; }
+
+/* ====== Qo'llab-quvvatlash chati ======
+   Katta ekranda: chapda murojaatlar, o'ngda chat. Telefonda bittadan:
+   murojaat tanlansa ro'yxat yashirinadi, «←» bilan qaytiladi. */
+.adm-support {
+  display: grid;
+  gap: 1rem;
+  height: calc(100dvh - var(--admin-topbar) - 3rem);
+  min-height: 460px;
+}
+@media (min-width: 1024px) {
+  .adm-support { grid-template-columns: 340px minmax(0, 1fr); }
+}
+@media (max-width: 1023px) {
+  .adm-support.has-chat .adm-support__list { display: none; }
+  .adm-support:not(.has-chat) .adm-support__chat { display: none; }
+}
+.adm-support__list,
+.adm-support__chat {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.adm-support__filters { display: flex; gap: 0.35rem; border-bottom: 1px solid var(--line); padding: 0.75rem; }
+.adm-support__filter {
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.adm-support__filter.active { background: var(--brand-soft); color: var(--brand); }
+.adm-support__threads { flex: 1; overflow-y: auto; padding: 0.4rem; }
+.adm-support__thread {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: var(--r-sm);
+  padding: 0.65rem;
+  transition: background-color 0.15s ease;
+}
+.adm-support__thread:hover { background: var(--surface-2); }
+.adm-support__thread.active { background: var(--brand-soft); }
+.adm-support__avatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--gold-soft);
+  color: var(--gold-strong);
+  font-weight: 800;
+}
+.adm-support__order {
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--surface-3);
+  padding: 0.05rem 0.4rem;
+  color: var(--ink-2);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.adm-support__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.75rem 1rem;
+}
+.adm-support__back {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.adm-support__messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  background: var(--surface-2);
+  padding: 1rem;
+}
+.adm-support__composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  border-top: 1px solid var(--line);
+  padding: 0.75rem;
+}
+.adm-support__composer .adm-input { resize: none; }
+.adm-support__composer .adm-btn { height: 44px; }
+
+.adm-msg {
+  max-width: min(80%, 560px);
+  border-radius: 16px;
+  padding: 0.5rem 0.8rem 0.35rem;
+  box-shadow: var(--shadow-sm);
+}
+.adm-msg.is-mine { align-self: flex-end; border-bottom-right-radius: 5px; background: var(--brand); color: var(--brand-ink); }
+.adm-msg.is-courier {
+  align-self: flex-start;
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 5px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.adm-msg__author { display: block; font-size: 0.7rem; font-weight: 800; opacity: 0.85; }
+.adm-msg__text { margin: 0; font-size: 0.9rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.adm-msg__time { display: flex; justify-content: flex-end; align-items: center; gap: 0.2rem; font-size: 0.66rem; opacity: 0.7; }

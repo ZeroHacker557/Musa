@@ -1,9 +1,12 @@
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore'
+import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { db } from './auth'
 import type { Category, Order, Product, PromoCode, Section } from '../../types/domain'
 import { readPromotion, type Promotion } from '../../utils/promotions'
 import { EMPTY_AD, readSplashAd, type SplashAd } from '../../utils/splash-ad'
+import {
+  readMessage, readThread, type SupportMessage, type SupportThread,
+} from '../../types/support'
 
 /**
  * Firestore'dan jonli ma'lumot.
@@ -444,4 +447,44 @@ export function useSettings() {
   }, [])
 
   return settings
+}
+
+/**
+ * Kuryerlarning qo'llab-quvvatlash murojaatlari — jonli.
+ * Oxirgi yozilgani birinchi. `enabled` — faqat adminga (Rules ham shunday).
+ */
+export function useSupportThreads(enabled: boolean) {
+  const [threads, setThreads] = useState<SupportThread[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!enabled) return
+    return onSnapshot(
+      collection(db, 'support_threads'),
+      (snapshot) => {
+        const list = snapshot.docs.map((d) => readThread(d.id, d.data()))
+        list.sort((a, b) => b.lastAt.localeCompare(a.lastAt))
+        setThreads(list)
+        setLoading(false)
+      },
+      () => setLoading(false),
+    )
+  }, [enabled])
+
+  return { threads: enabled ? threads : [], loading: enabled ? loading : false }
+}
+
+/** Bitta murojaatning xabarlari — jonli, vaqt bo'yicha. */
+export function useSupportMessages(threadId: string | null) {
+  const [messages, setMessages] = useState<SupportMessage[]>([])
+
+  useEffect(() => {
+    if (!threadId) return
+    return onSnapshot(
+      query(collection(db, 'support_threads', threadId, 'messages'), orderBy('at')),
+      (snapshot) => setMessages(snapshot.docs.map((d) => readMessage(d.id, d.data()))),
+    )
+  }, [threadId])
+
+  return threadId ? messages : []
 }

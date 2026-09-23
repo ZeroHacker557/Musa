@@ -4,8 +4,7 @@ import { pushOrderSafe } from './_lib/actions/linko-orders.js'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
 import { bestPromotion, promoPrice, readPromotion } from './_lib/promotions.js'
-
-const ORDER_NUMBER_START = 1000
+import { formatDailyNumber, tashkentDay } from './_lib/order-number.js'
 
 type IncomingItem = {
   productId: number | string
@@ -122,7 +121,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
       const productSnaps = await tx.getAll(...productRefs)
 
-      const counterRef = db.collection('counters').doc('orders')
+      const createdAt = new Date()
+      const orderDay = tashkentDay(createdAt)
+      const counterRef = db.collection('counters').doc(`orders-${orderDay}`)
       const counterSnap = await tx.get(counterRef)
 
       const userRef = db.collection('users').doc(uid)
@@ -283,11 +284,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const total = discountedSubtotal + appliedDelivery
 
       // ── 5. Yozishlar ───────────────────────────────────────
-      const currentCounter = counterSnap.exists
-        ? Number(counterSnap.data()?.value) || ORDER_NUMBER_START
-        : ORDER_NUMBER_START
-      const nextCounter = currentCounter + 1
-      tx.set(counterRef, { value: nextCounter }, { merge: true })
+      const dailyNumber = (counterSnap.exists ? Number(counterSnap.data()?.value) || 0 : 0) + 1
+      const orderNumber = formatDailyNumber(dailyNumber)
+      tx.set(counterRef, { value: dailyNumber, day: orderDay }, { merge: true })
 
       if (promoRef) {
         const usedBy = Array.isArray(promoData?.usedBy) ? promoData.usedBy : []
@@ -304,8 +303,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const orderRef = db.collection('orders').doc()
 
       tx.set(orderRef, {
-        orderNumber: `#${nextCounter}`,
-        createdAt: new Date().toISOString(),
+        orderNumber,
+        orderDay,
+        dailyNumber,
+        createdAt: createdAt.toISOString(),
         products,
         subtotal,
         discount,
@@ -325,7 +326,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       return {
         id: orderRef.id,
-        orderNumber: `#${nextCounter}`,
+        orderNumber,
         total,
         discount,
         deliveryFee: appliedDelivery,

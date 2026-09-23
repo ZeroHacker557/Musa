@@ -139,7 +139,12 @@ type RawOrder = OrderDoc & {
   deliveredAt?: string
   statusUpdatedAt?: string
   assignedAt?: string
+  orderDay?: string
+  subtotal?: number
+  discount?: number
+  promoCode?: string | null
   deliveryFee?: number
+  paymentStatus?: string | null
   products?: {
     product?: {
       name?: string
@@ -198,6 +203,14 @@ function present(id: string, order: RawOrder, uid: string) {
     })),
     total: Number(order.total) || 0,
     paymentMethod: order.paymentMethod || 'Naqd',
+    // Chek uchun — hisob-kitob tarkibi va kim yetkazgani
+    orderDay: order.orderDay || null,
+    subtotal: Number(order.subtotal) || 0,
+    discount: Number(order.discount) || 0,
+    promoCode: order.promoCode || null,
+    deliveryFee: Number(order.deliveryFee) || 0,
+    paymentStatus: order.paymentStatus || null,
+    courierName: order.courierName || null,
   }
 }
 

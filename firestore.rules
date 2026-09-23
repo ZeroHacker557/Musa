@@ -179,6 +179,23 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Qo'llab-quvvatlash chati (kuryer ↔ admin) ──────────
+    // Kuryer mini app'ga Telegram ID si bilan kiradi (uid = Telegram id),
+    // shuning uchun faqat `courierTg` si o'ziniki bo'lgan murojaatni
+    // o'qiydi. Admin hammasini ko'radi. Yozish — faqat server
+    // (/api/courier va /api/admin/action).
+    match /support_threads/{threadId} {
+      allow read: if isAdmin()
+                  || (signedIn() && resource.data.courierTg == int(request.auth.uid));
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if isAdmin()
+                    || (signedIn() && get(/databases/$(database)/documents/support_threads/$(threadId)).data.courierTg == int(request.auth.uid));
+        allow write: if false;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

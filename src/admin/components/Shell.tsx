@@ -1,5 +1,5 @@
 import {
-  BarChart3, BrainCircuit, Boxes, Clapperboard, ExternalLink, FileBarChart, Flame, Layers, LayoutGrid, LogOut, Maximize2,
+  BarChart3, BrainCircuit, Boxes, Clapperboard, ExternalLink, FileBarChart, Flame, Headset, Layers, LayoutGrid, LogOut, Maximize2,
   Megaphone, Menu, Minimize2, Moon, PlugZap, Settings, ShoppingBag, Sun, Tag, Users, UserCog, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -36,6 +36,7 @@ const NAV: NavEntry[] = [
 
   { route: 'customers', label: 'Mijozlar', icon: Users, min: 'admin', section: 'Odamlar' },
   { route: 'broadcast', label: 'Ommaviy xabar', icon: Megaphone, min: 'admin' },
+  { route: 'support', label: 'Qo‘llab-quvvatlash', icon: Headset, min: 'admin' },
   { route: 'staff', label: 'Xodimlar', icon: UserCog, min: 'owner' },
 
   { route: 'settings', label: 'Sozlamalar', icon: Settings, min: 'owner', section: 'Tizim' },
@@ -56,6 +57,7 @@ const TITLES: Record<Route, string> = {
   reports: 'Hisobotlar',
   customers: 'Mijozlar',
   broadcast: 'Ommaviy xabar',
+  support: 'Qo‘llab-quvvatlash',
   staff: 'Xodimlar',
   promocodes: 'Promokodlar',
   settings: 'Sozlamalar',
@@ -69,10 +71,12 @@ type Props = {
   onNavigate: (route: Route) => void
   /** Yangi buyurtmalar soni — yon menyuda nishon bo'lib chiqadi. */
   newOrders?: number
+  /** Kuryerlarning javob kutayotgan xabarlari. */
+  supportUnread?: number
   children: ReactNode
 }
 
-export function Shell({ staff, route, onNavigate, newOrders = 0, children }: Props) {
+export function Shell({ staff, route, onNavigate, newOrders = 0, supportUnread = 0, children }: Props) {
   const [open, setOpen] = useState(false)
   const [theme, setThemeState] = useState<ThemeMode>(getStoredTheme)
 
@@ -133,6 +137,9 @@ export function Shell({ staff, route, onNavigate, newOrders = 0, children }: Pro
                   <span className="truncate">{entry.label}</span>
                   {entry.route === 'orders' && newOrders > 0 && (
                     <span className="adm-nav__badge">{newOrders > 99 ? '99+' : newOrders}</span>
+                  )}
+                  {entry.route === 'support' && supportUnread > 0 && (
+                    <span className="adm-nav__badge">{supportUnread > 99 ? '99+' : supportUnread}</span>
                   )}
                 </button>
               </div>

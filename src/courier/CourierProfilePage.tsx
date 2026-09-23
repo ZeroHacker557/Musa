@@ -1,4 +1,4 @@
-import { Banknote, BadgeCheck, ChevronRight, CreditCard, Languages, PackageCheck, Store, UserRound } from 'lucide-react'
+import { Banknote, BadgeCheck, ChevronRight, CreditCard, Headset, Languages, PackageCheck, Store, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import { formatPrice } from '../data'
 import { useI18n } from '../i18n'
@@ -7,7 +7,7 @@ import { formatOrderDate } from '../utils/date'
 import { getTelegramUser, hapticSelection } from '../utils/telegram'
 import { updateUserProfile } from '../lib/firebase'
 import { auth } from '../lib/auth'
-import type { CourierOverview } from './api'
+import type { CourierOrder, CourierOverview } from './api'
 
 type Period = 'today' | 'week' | 'month'
 
@@ -15,9 +15,16 @@ type Props = {
   data: CourierOverview | null
   photo?: string
   onOpenShop: () => void
+  /** Tarixdagi buyurtma — chek va tafsilotlar. */
+  onOpenOrder: (order: CourierOrder) => void
+  /** Qo'llab-quvvatlash chati va unda o'qilmagan javoblar. */
+  onOpenSupport: () => void
+  supportUnread: number
 }
 
-export function CourierProfilePage({ data, photo, onOpenShop }: Props) {
+export function CourierProfilePage({
+  data, photo, onOpenShop, onOpenOrder, onOpenSupport, supportUnread,
+}: Props) {
   const { t, lang, setLang } = useI18n()
   const [period, setPeriod] = useState<Period>('today')
   const tgUser = getTelegramUser()
@@ -92,6 +99,18 @@ export function CourierProfilePage({ data, photo, onOpenShop }: Props) {
 
       {/* Sozlamalar */}
       <section className="mx-5 mt-6 grid gap-2 sm:mx-10">
+        <button className="crr-option crr-option--support" onClick={onOpenSupport}>
+          <span className="crr-option__icon"><Headset size={19} /></span>
+          <span className="min-w-0 flex-1 text-left">
+            <b className="block text-sm" style={{ color: 'var(--ink)' }}>{t('support.title')}</b>
+            <span className="block text-xs" style={{ color: 'var(--muted)' }}>{t('support.optionSub')}</span>
+          </span>
+          {supportUnread > 0 ? (
+            <span className="crr-count crr-count--hot">{supportUnread}</span>
+          ) : (
+            <ChevronRight size={18} style={{ color: 'var(--muted)' }} />
+          )}
+        </button>
         <button className="crr-option" onClick={toggleLang}>
           <span className="crr-option__icon"><Languages size={19} /></span>
           <span className="min-w-0 flex-1 text-left">
@@ -125,6 +144,7 @@ export function CourierProfilePage({ data, photo, onOpenShop }: Props) {
               const cash = order.paymentMethod !== 'Karta'
               return (
                 <li key={order.id}>
+                  <button className="crr-history__row" onClick={() => onOpenOrder(order)}>
                   <span className={'crr-history__icon ' + (cash ? 'is-cash' : 'is-card')}>
                     {cash ? <Banknote size={16} /> : <CreditCard size={16} />}
                   </span>
@@ -137,6 +157,8 @@ export function CourierProfilePage({ data, photo, onOpenShop }: Props) {
                     </span>
                   </span>
                   <b className="shrink-0 text-sm" style={{ color: 'var(--ink)' }}>{formatPrice(order.total)}</b>
+                  <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--faint)' }} />
+                  </button>
                 </li>
               )
             })}

@@ -23,7 +23,7 @@ function order(
 ): CourierOrder {
   return {
     id,
-    number: `#${n}`,
+    number: '#' + String(n - 1030).padStart(4, '0'),
     status: 'Qabul qilindi',
     createdAt: minutesAgo(minutes),
     takenAt: null,
@@ -47,6 +47,13 @@ function order(
     ],
     total,
     paymentMethod: pay,
+    orderDay: new Date().toISOString().slice(0, 10),
+    subtotal: total - 15000,
+    discount: 0,
+    promoCode: null,
+    deliveryFee: 15000,
+    paymentStatus: pay === 'Karta' ? 'Tolangan' : null,
+    courierName: 'Komiljon Karimov',
     ...extra,
   }
 }
@@ -108,4 +115,9 @@ export async function demoDeliver(id: string) {
   active = active.filter((o) => o.id !== id)
   done = [{ ...found, status: 'Yetkazildi', deliveredAt: new Date().toISOString() }, ...done]
   return { outcome: 'done' as const }
+}
+
+/** Chat uchun: tanlangan buyurtmaning raqami va sanasi (serverda buni api o'zi topadi). */
+export function demoOrderById(id: string): CourierOrder | undefined {
+  return [...available, ...active, ...done].find((o) => o.id === id)
 }

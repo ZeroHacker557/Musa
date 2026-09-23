@@ -27,6 +27,8 @@ type OrderProduct = {
 
 type OrderDoc = {
   orderNumber?: string
+  /** Toshkent sanasi — chek raqami har kuni #0001 dan boshlanadi. */
+  orderDay?: string
   status?: string
   userId?: number
   total?: number
@@ -209,7 +211,10 @@ export async function pushOrder(orderId: string, order: OrderDoc): Promise<Resul
       delivery_man: { linko_id: settings.deliveryManId },
       ...(settings.priceListId ? { price_list: { linko_id: settings.priceListId } } : {}),
       ...(settings.currencyId ? { linko_currency_id: settings.currencyId } : {}),
-      service_order_number: text(order.orderNumber) || orderId,
+      // Chek raqami har kuni #0001 dan boshlanadi — Linko'da sana bilan
+      service_order_number: order.orderDay
+        ? `${text(order.orderNumber)} · ${text(order.orderDay).split('-').reverse().join('.')}`
+        : text(order.orderNumber) || orderId,
       products: lines,
     }]
 

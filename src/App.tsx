@@ -130,6 +130,7 @@ function App() {
           <Suspense fallback={<PageFallback />}>
             <CourierApp
               focusId={courier.focusId}
+              supportId={courier.supportId}
               photo={shop.userProfile?.photo_url}
               onOpenShop={courier.openShop}
               onNotCourier={courier.dropCourier}

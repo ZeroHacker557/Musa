@@ -9,12 +9,16 @@ import { CourierOrdersPage, type CourierTab } from './CourierOrdersPage'
 import { CourierProfilePage } from './CourierProfilePage'
 import { HoldButton } from './HoldButton'
 import { OrderDetail } from './OrderDetail'
+import { SupportScreen } from './SupportScreen'
+import { useMyThreads } from './support'
 import type { CourierOrder } from './api'
 import { createOrderActions, useCourierData, useCourierLocation } from './use-courier'
 
 type Props = {
   /** Bot xabaridagi «Ilovada ochish» — shu buyurtma ajratib ko'rsatiladi. */
   focusId: string | null
+  /** Bot xabaridagi «Chatni ochish» — shu murojaat ochiladi. */
+  supportId: string | null
   photo?: string
   onOpenShop: () => void
   /** Server «kuryer emassiz» desa — ilova do'konga qaytadi. */
@@ -28,7 +32,7 @@ type Props = {
  * chiqadi. Ikkita bo'lim: buyurtmalar (olish, marshrut, yetkazish) va
  * profil (statistika, tarix, do'konga o'tish).
  */
-export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) {
+export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier }: Props) {
   const { t } = useI18n()
   const [page, setPage] = useState<'orders' | 'profile'>('orders')
   const [tab, setTab] = useState<CourierTab>('new')
@@ -36,9 +40,20 @@ export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) 
   const [confirm, setConfirm] = useState<CourierOrder | null>(null)
   // Tafsilotlar — id bo'yicha: ro'yxat yangilanganda oyna ham yangi holatni ko'rsatadi
   const [detailId, setDetailId] = useState<string | null>(null)
+  // Qo'llab-quvvatlash: `key` har ochilishda o'zgaradi — oyna ro'yxatdan boshlanadi
+  const [support, setSupport] = useState({ open: supportId !== null, threadId: supportId, key: 0 })
 
   const { data, error, refreshing, busyId, setBusyId, load } = useCourierData(onNotCourier)
   const { location, retry } = useCourierLocation()
+  const { threads, ready: threadsReady } = useMyThreads(data?.profile.telegramId ?? null)
+  const supportUnread = threads.reduce((sum, thread) => sum + thread.unreadCourier, 0)
+
+  // Murojaat uchun tanlanadigan buyurtmalar — takrorlanmasdan
+  const supportOrders = (() => {
+    const seen = new Set<string>()
+    return [...(data?.active ?? []), ...(data?.available ?? []), ...(data?.done ?? []), ...(data?.recent ?? [])]
+      .filter((order) => !seen.has(order.id) && seen.add(order.id))
+  })()
   const actions = createOrderActions(t, () => load(), setBusyId)
 
   /*
@@ -53,7 +68,8 @@ export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) 
   }
 
   const detail = detailId
-    ? [...(data?.available ?? []), ...(data?.active ?? []), ...(data?.done ?? [])].find((o) => o.id === detailId) ?? null
+    ? [...(data?.available ?? []), ...(data?.active ?? []), ...(data?.done ?? []), ...(data?.recent ?? [])]
+        .find((o) => o.id === detailId) ?? null
     : null
 
   // Tafsilot ochiq bo'lsa Telegram'ning «orqaga» tugmasi uni yopadi
@@ -121,7 +137,14 @@ export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) 
               onOpen={(order) => setDetailId(order.id)}
             />
           ) : (
-            <CourierProfilePage data={data} photo={photo} onOpenShop={onOpenShop} />
+            <CourierProfilePage
+              data={data}
+              photo={photo}
+              onOpenShop={onOpenShop}
+              onOpenOrder={(order) => setDetailId(order.id)}
+              supportUnread={supportUnread}
+              onOpenSupport={() => setSupport((s) => ({ open: true, threadId: null, key: s.key + 1 }))}
+            />
           )}
         </div>
       </div>
@@ -129,7 +152,7 @@ export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) 
       <nav className="bottom-nav">
         {([
           { id: 'orders', label: t('courier.navOrders'), icon: ClipboardList, badge: data?.available.length ?? 0 },
-          { id: 'profile', label: t('courier.navProfile'), icon: UserRound, badge: 0 },
+          { id: 'profile', label: t('courier.navProfile'), icon: UserRound, badge: supportUnread },
         ] as const).map(({ id, label, icon: Icon, badge }) => {
           const active = page === id
           return (
@@ -158,6 +181,16 @@ export function CourierApp({ focusId, photo, onOpenShop, onNotCourier }: Props) 
           )
         })}
       </nav>
+
+      <SupportScreen
+        key={support.key}
+        open={support.open}
+        initialThreadId={support.threadId}
+        threads={threads}
+        threadsReady={threadsReady}
+        orders={supportOrders}
+        onClose={() => setSupport((s) => ({ ...s, open: false }))}
+      />
 
       <OrderDetail
         order={detail}

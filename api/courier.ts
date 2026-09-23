@@ -2,10 +2,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { adminAuth } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
 import { courierDeliver, courierOverview, courierTake } from './_lib/actions/courier.js'
+import { supportCourierRead, supportOpen, supportSend } from './_lib/actions/support.js'
 import { courierByTelegram } from './_lib/courier-staff.js'
 
 /**
- * POST /api/courier   { action: "overview" | "take" | "deliver", orderId? }
+ * POST /api/courier   { action: "overview" | "take" | "deliver" | "support.*", … }
  * Authorization: Bearer <Firebase ID token>
  *
  * Mini app'dagi kuryer sahifasi. Kuryer ilovaga Telegram orqali kiradi
@@ -38,6 +39,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'overview') result = await courierOverview(courier)
     else if (action === 'take') result = await courierTake(courier, body)
     else if (action === 'deliver') result = await courierDeliver(courier, body)
+    // Qo'llab-quvvatlash chati — o'qish ilovada jonli, yozish shu yerda
+    else if (action === 'support.open') result = await supportOpen(courier, body)
+    else if (action === 'support.send') result = await supportSend(courier, body)
+    else if (action === 'support.read') result = await supportCourierRead(courier, body)
     else return fail(res, 400, `Noma’lum amal: ${action || '(bo‘sh)'}`)
 
     return res.status(200).json({ ok: true, ...result })

@@ -9,6 +9,7 @@ import { usePresence } from '../hooks/use-presence'
 import type { CourierOrder } from './api'
 import { clock, telHref, timeAgo } from './format'
 import { NavigateButton } from './NavigateButton'
+import { CourierReceipt } from './CourierReceipt'
 
 type Props = {
   order: CourierOrder | null
@@ -107,39 +108,48 @@ export function OrderDetail({ order, busy, onClose, onTake, onDeliver }: Props) 
           </div>
         </section>
 
-        {/* Mahsulotlar — rasmlar bilan */}
-        <section className="crr-block">
-          <p className="crr-block__title">
-            {t('courier.products')} <span style={{ color: 'var(--faint)' }}>· {t('courier.items', { count })}</span>
-          </p>
-          <ul className="crr-products">
-            {shown.items.map((item, i) => (
-              <li key={i}>
-                <ItemImage src={item.image} />
-                <span className="min-w-0 flex-1">
-                  <b className="crr-products__name">{item.name}</b>
-                  <span className="block text-xs" style={{ color: 'var(--muted)' }}>
-                    {item.size ? `${item.size} · ` : ''}{formatPrice(item.price)}
-                  </span>
-                </span>
-                <span className="shrink-0 text-right">
-                  <span className="crr-qty">× {item.quantity}</span>
-                  <b className="mt-1 block text-sm" style={{ color: 'var(--ink)' }}>{formatPrice(item.price * item.quantity)}</b>
-                </span>
-              </li>
-            ))}
-          </ul>
+        {/* Yetkazilgan — to'liq chek (mahsulotlar rasm bilan uning ichida) */}
+        {status === 'done' && (
+          <section className="mt-3.5">
+            <CourierReceipt order={shown} />
+          </section>
+        )}
 
-          <div className="crr-total">
-            <span>{t('courier.total')}</span>
-            <b>{formatPrice(shown.total)}</b>
-          </div>
-          <div className={'crr-pay mt-3 ' + (cash ? 'crr-pay--cash' : 'crr-pay--card')}>
-            {cash ? <Banknote size={18} /> : <CreditCard size={18} />}
-            <span className="min-w-0 flex-1 text-xs font-bold">{cash ? t('courier.cashCollect') : t('courier.paidCard')}</span>
-            <b className="text-base">{formatPrice(shown.total)}</b>
-          </div>
-        </section>
+        {/* Mahsulotlar — rasmlar bilan */}
+        {status !== 'done' && (
+          <section className="crr-block">
+            <p className="crr-block__title">
+              {t('courier.products')} <span style={{ color: 'var(--faint)' }}>· {t('courier.items', { count })}</span>
+            </p>
+            <ul className="crr-products">
+              {shown.items.map((item, i) => (
+                <li key={i}>
+                  <ItemImage src={item.image} />
+                  <span className="min-w-0 flex-1">
+                    <b className="crr-products__name">{item.name}</b>
+                    <span className="block text-xs" style={{ color: 'var(--muted)' }}>
+                      {item.size ? `${item.size} · ` : ''}{formatPrice(item.price)}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="crr-qty">× {item.quantity}</span>
+                    <b className="mt-1 block text-sm" style={{ color: 'var(--ink)' }}>{formatPrice(item.price * item.quantity)}</b>
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="crr-total">
+              <span>{t('courier.total')}</span>
+              <b>{formatPrice(shown.total)}</b>
+            </div>
+            <div className={'crr-pay mt-3 ' + (cash ? 'crr-pay--cash' : 'crr-pay--card')}>
+              {cash ? <Banknote size={18} /> : <CreditCard size={18} />}
+              <span className="min-w-0 flex-1 text-xs font-bold">{cash ? t('courier.cashCollect') : t('courier.paidCard')}</span>
+              <b className="text-base">{formatPrice(shown.total)}</b>
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Amal — pastda doim ko'rinib turadi */}

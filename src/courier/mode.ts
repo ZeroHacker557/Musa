@@ -23,10 +23,10 @@ function write(key: string, value: string | null) {
   }
 }
 
-/** `?courier=<id>` — bot xabaridagi «Ilovada ochish» tugmasi. */
-function focusFromUrl(): string | null {
+/** Bot xabaridagi tugmalar: `?courier=<buyurtma>` va `?support=<murojaat>`. */
+function fromUrl(key: 'courier' | 'support'): string | null {
   try {
-    return new URLSearchParams(location.search).get('courier')
+    return new URLSearchParams(location.search).get(key)
   } catch {
     return null
   }
@@ -43,9 +43,10 @@ function focusFromUrl(): string | null {
  * Bot havolasi bilan ochilsa esa doim kuryer sahifasi chiqadi.
  */
 export function useCourierMode(profile: { courier?: boolean } | null) {
-  const [focusId] = useState(focusFromUrl)
+  const [focusId] = useState(() => fromUrl('courier'))
+  const [supportId] = useState(() => fromUrl('support'))
   const [mode, setMode] = useState<'courier' | 'shop'>(() =>
-    focusId ? 'courier' : read(MODE_KEY) === 'shop' ? 'shop' : 'courier',
+    focusId || supportId ? 'courier' : read(MODE_KEY) === 'shop' ? 'shop' : 'courier',
   )
 
   // Server shu seansda «kuryer emassiz» degan bo'lsa
@@ -83,6 +84,7 @@ export function useCourierMode(profile: { courier?: boolean } | null) {
     isCourier,
     active: isCourier && mode === 'courier',
     focusId,
+    supportId,
     openShop,
     openCourier,
     dropCourier,

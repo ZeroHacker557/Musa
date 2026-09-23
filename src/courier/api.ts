@@ -23,6 +23,14 @@ export type CourierOrder = {
   items: { name: string; quantity: number; price: number; size: string | null; image: string | null }[]
   total: number
   paymentMethod: string
+  /** Toshkent sanasi — chek raqami har kuni #0001 dan boshlanadi. */
+  orderDay: string | null
+  subtotal: number
+  discount: number
+  promoCode: string | null
+  deliveryFee: number
+  paymentStatus: string | null
+  courierName: string | null
 }
 
 export type CourierBucket = { delivered: number; cash: number; card: number }

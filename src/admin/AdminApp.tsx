@@ -5,7 +5,7 @@ import { getInitData, isInTelegram } from './lib/telegram'
 import { withRetry } from './lib/retry'
 import { logout, watchUser, type Staff } from './lib/auth'
 import { useRoute } from './lib/router'
-import { useOrders } from './lib/live'
+import { useOrders, useSupportThreads } from './lib/live'
 import { Shell } from './components/Shell'
 import { ConnectionError } from './components/ConnectionError'
 import { LoginPage } from './pages/LoginPage'
@@ -22,6 +22,7 @@ import { ReportsPage } from './pages/ReportsPage'
 import { PromocodesPage } from './pages/PromocodesPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { BroadcastPage } from './pages/BroadcastPage'
+import { SupportPage } from './pages/SupportPage'
 import { StaffPage } from './pages/StaffPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { can } from './lib/auth'
@@ -176,6 +177,16 @@ function AdminPanel({
   const courierId = staff.role === 'courier' ? staff.uid : undefined
   const { orders } = useOrders(courierId)
   const newOrders = useMemo(() => orders.filter((o) => o.status === 'Yangi').length, [orders])
+  // Kuryerlarning javob kutayotgan xabarlari — menyuda nishon
+  const { threads: supportThreads } = useSupportThreads(can(staff.role, 'admin'))
+  const supportUnread = supportThreads.reduce((sum, thread) => sum + thread.unreadAdmin, 0)
+
+  // Yangi murojaat xabari kelganda ham ovoz
+  const lastSupport = useRef<number | null>(null)
+  useEffect(() => {
+    if (lastSupport.current !== null && supportUnread > lastSupport.current) playNewOrderChime()
+    lastSupport.current = supportUnread
+  }, [supportUnread])
 
   /*
    * Yangi buyurtma kelganda ovoz.
@@ -200,7 +211,7 @@ function AdminPanel({
   }, [])
 
   return (
-    <Shell staff={staff} route={route} onNavigate={navigate} newOrders={newOrders}>
+    <Shell staff={staff} route={route} onNavigate={navigate} newOrders={newOrders} supportUnread={supportUnread}>
       {route === 'dashboard' && <DashboardPage courierId={courierId} />}
       {route === 'orders' && <OrdersPage staff={staff} focusId={param} />}
 
@@ -216,6 +227,7 @@ function AdminPanel({
 
       {route === 'customers' && (can(staff.role, 'admin') ? <CustomersPage /> : <NoAccess />)}
       {route === 'broadcast' && (can(staff.role, 'admin') ? <BroadcastPage /> : <NoAccess />)}
+      {route === 'support' && (can(staff.role, 'admin') ? <SupportPage focusId={param} navigate={navigate} /> : <NoAccess />)}
 
       {/* Faqat ega */}
       {route === 'staff' && (staff.role === 'owner' ? <StaffPage me={staff} /> : <NoAccess />)}
