@@ -102,6 +102,7 @@ export function demoOverview(): Promise<CourierOverview> {
         { number: '#0013', at: minutesAgo(60), stars: 5, tags: ['fast', 'polite'], comment: 'Juda tez olib keldi, rahmat!' },
         { number: '#0011', at: minutesAgo(95), stars: 4, tags: ['careful'], comment: '' },
       ],
+      location: { at: new Date(Date.now() - 20 * 60_000).toISOString(), source: 'app', liveUntil: null },
       cash: {
         held: {
           amount: done.filter((o) => o.cashStatus === 'held').reduce((s, o) => s + o.total, 0),

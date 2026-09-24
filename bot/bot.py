@@ -9,7 +9,7 @@ import hmac
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import aiohttp
 from aiogram import Bot, Dispatcher, F
@@ -978,6 +978,89 @@ async def handle_panel_button(message: Message):
     if not can_open_panel(message.from_user.id):
         return
     await message.answer(PANEL_TEXT, reply_markup=panel_kb())
+
+
+# ─── Kuryer: jonli joylashuv ─────────────────────────────────
+#
+# Kuryer botga bir marta «Jonli joylashuv» yuboradi — keyin Telegram uni
+# FONDA o'zi yangilab turadi (mini app yopiq, ekran o'chiq bo'lsa ham).
+# Har yangilanish `edited_message` bo'lib keladi. Biz uni admin xaritasi
+# (courier_locations) va yo'ldagi buyurtmalar mijozlari uchun
+# (order_tracking) yozamiz. Firestore'ni ortiqcha yuklamaslik uchun bitta
+# kuryerdan ko'pi bilan har 8 soniyada bir marta yoziladi.
+
+LIVE_FOREVER = 0x7FFFFFFF          # «Men o'chirgunimcha»
+LOCATION_MIN_INTERVAL = 8          # soniya
+_last_location_write: dict[str, float] = {}
+
+SHARE_LIVE_HELP = (
+    "📍 <b>Jonli joylashuvni qanday yoqish kerak</b>\n\n"
+    "1. Shu chatda pastdagi 📎 tugmasini bosing\n"
+    "2. «Joylashuv» (Location) ni tanlang\n"
+    "3. «Jonli joylashuvni ulashish» → <b>«Men o‘chirgunimcha»</b>\n\n"
+    "Shundan keyin ilova yopiq bo‘lsa ham admin sizni xaritada ko‘radi, "
+    "yo‘ldagi buyurtmangiz mijozi esa kuryer qayerdaligini kuzatib boradi.\n\n"
+    "<i>Smena tugaganda xabardagi «Ulashishni to‘xtatish» ni bosing.</i>"
+)
+
+
+async def handle_courier_location(message: Message, edited: bool):
+    courier = db.get_courier_by_telegram(message.from_user.id)
+    if not courier:
+        return  # Mijoz yoki begona — bu yerda ishlov berilmaydi
+
+    loc = message.location
+    now = time.time()
+    last = _last_location_write.get(courier["uid"], 0)
+    if edited and now - last < LOCATION_MIN_INTERVAL:
+        return
+    _last_location_write[courier["uid"]] = now
+
+    live_until = None
+    if loc.live_period and loc.live_period < LIVE_FOREVER:
+        sent_at = message.date.timestamp() if message.date else now
+        live_until = datetime.fromtimestamp(sent_at + loc.live_period, timezone.utc).isoformat()
+
+    try:
+        tracked = await asyncio.to_thread(
+            db.save_courier_location, courier, loc.latitude, loc.longitude,
+            loc.heading, loc.horizontal_accuracy, live_until,
+        )
+    except Exception as e:
+        logger.warning(f"[LOCATION] {courier['uid']} yozilmadi: {e}")
+        return
+
+    if edited:
+        return
+    if loc.live_period:
+        await message.answer(
+            "✅ <b>Jonli joylashuv ulandi!</b>\n"
+            "Admin sizni xaritada ko‘radi"
+            + (f", {tracked} ta yo‘ldagi buyurtma mijozi ham kuzatib boradi." if tracked else ".")
+            + "\n\n<i>Smena tugaganda xabardagi «Ulashishni to‘xtatish» ni bosing.</i>"
+        )
+    else:
+        await message.answer(
+            "📍 Joylashuv saqlandi, lekin bu <b>bir martalik</b>.\n\n" + SHARE_LIVE_HELP
+        )
+
+
+@dp.message(F.location)
+async def on_location(message: Message):
+    await handle_courier_location(message, edited=False)
+
+
+@dp.edited_message(F.location)
+async def on_location_update(message: Message):
+    await handle_courier_location(message, edited=True)
+
+
+@dp.message(Command("joylashuv"))
+async def cmd_location_help(message: Message):
+    if not db.get_courier_by_telegram(message.from_user.id):
+        await message.answer("🛵 Bu buyruq faqat <b>kuryerlar</b> uchun.")
+        return
+    await message.answer(SHARE_LIVE_HELP)
 
 
 # ─── Kuryer: /bugun ──────────────────────────────────────────

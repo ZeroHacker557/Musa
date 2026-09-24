@@ -529,6 +529,13 @@ export const uz = {
   'courier.cashStatusConfirmed': 'Qabul qilindi',
   'courier.cashStatusRejected': 'Rad etildi',
   'courier.reviewsTitle': 'Mijozlar fikri',
+  'courier.liveOn': 'Jonli joylashuv yoqilgan · {ago}',
+  'courier.liveTitle': 'Jonli joylashuvni yoqing',
+  'courier.liveText': 'Shunda ilova yopiq bo‘lsa ham admin sizni xaritada ko‘radi, mijoz esa kuryer qayerdaligini kuzatadi.',
+  'courier.liveStep1': 'Botni oching va 📎 ni bosing',
+  'courier.liveStep2': '«Joylashuv» → «Jonli joylashuvni ulashish»',
+  'courier.liveStep3': '«Men o‘chirgunimcha» ni tanlang',
+  'courier.liveOpenBot': 'Botni ochish',
 
   // ── Kuryer yo'lda (mijoz ilovasi) ──
   'delivery.onWayTitle': 'Kuryer yo‘lda',
@@ -538,6 +545,12 @@ export const uz = {
   'delivery.minutesLeft': '~{n} daqiqa',
   'delivery.almostThere': 'Hozir yetib keladi',
   'delivery.call': 'Kuryerga qo‘ng‘iroq',
+  'delivery.live': 'jonli',
+  'delivery.follow': 'Kuryerni kuzatish',
+  'delivery.updated': 'Jonli · {s} oldin yangilandi',
+  'delivery.stale': 'Kuryer joylashuvi biroz eskirgan',
+  'delivery.noLocation': 'Kuryer joylashuvi hali kelmadi — tez orada xaritada paydo bo‘ladi',
+  'delivery.receipt': 'Buyurtma cheki',
 
   // ── Kuryerni baholash ──
   'rating.title': 'Buyurtmangiz yetkazildi!',

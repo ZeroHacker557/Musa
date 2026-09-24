@@ -38,6 +38,9 @@ const CourierApp = lazy(() =>
   import('./courier/CourierApp').then((m) => ({ default: m.CourierApp })),
 )
 
+// «Kuryer qayerda» xaritasi — faqat mijoz uni ochganda yuklanadi
+const LiveTrackSheet = lazy(() => import('./components/order/LiveTrackSheet'))
+
 // Xarita kutubxonasi (~150 KB) faqat manzil sahifasi ochilganda yuklanadi (P-01)
 const AddressesPage = lazy(() =>
   import('./pages/AddressesPage').then((m) => ({ default: m.AddressesPage })),
@@ -62,6 +65,8 @@ function PageFallback() {
 function App() {
   const shop = useShopStore()
   const { lang, setLang } = useI18n()
+  // «Kuryer qayerda» — ochiq xarita (buyurtma id si)
+  const [trackOrderId, setTrackOrderId] = useState<string | null>(null)
   // Admin panelda kuryer qilib qo'shilganlarga — kuryer sahifasi
   const courier = useCourierMode(shop.userProfile)
 
@@ -86,8 +91,12 @@ function App() {
   }, [shop.loading])
 
   // Telegram BackButton — Android'ning tizim tugmasi ham shu bilan ishlaydi
-  // Kuryer sahifasi orqaga tugmasini o'zi boshqaradi (tafsilotlar oynasi)
-  useEffect(() => (courier.active ? undefined : setupBackButton(shop.goBack)), [courier.active, shop.goBack])
+  // Kuryer sahifasi orqaga tugmasini o'zi boshqaradi (tafsilotlar oynasi).
+  // Do'konda «Kuryer qayerda» xaritasi ochiq bo'lsa — avval uni yopadi.
+  useEffect(() => {
+    if (courier.active) return undefined
+    return setupBackButton(trackOrderId ? () => setTrackOrderId(null) : shop.goBack)
+  }, [courier.active, shop.goBack, trackOrderId])
 
   // Chap-o'ngga surish bilan asosiy sahifalar orasida yurish.
   // Oyna ochiq bo'lsa o'chiriladi — savat yoki qidiruv ustida surish
@@ -95,7 +104,10 @@ function App() {
   // Kuryer sahifasida do'kon sahifalari ko'rinmaydi — surish va orqaga
   // tugmasi ularni ko'rinmas holda almashtirib yurmasin
   useSwipeNav(shop.page, shop.navigate, !courier.active && !shop.isCartOpen && !shop.isSearchOpen)
-  useEffect(() => toggleBackButton(!courier.active && shop.canGoBack), [courier.active, shop.canGoBack])
+  useEffect(
+    () => toggleBackButton(!courier.active && (shop.canGoBack || trackOrderId !== null)),
+    [courier.active, shop.canGoBack, trackOrderId],
+  )
 
   // Profilda saqlangan til — botda yoki boshqa qurilmada tanlangani.
   // Serverdagi qiymat o'zgarsa ilova ham o'sha tilga o'tadi, lekin bir
@@ -213,8 +225,26 @@ function App() {
         {/* «Kuryer yo'lda» — pastda, menyu ustida. To'liq ekranli sahifalarda,
             savat ochiq yoki savat taklifi turganda ko'rinmaydi. */}
         {!FULLSCREEN_PAGES.includes(shop.page) && !shop.isCartOpen && !shop.cartPrompt && (
-          <DeliveryTracker orders={trackedOrders} onOpen={shop.openReceipt} />
+          <DeliveryTracker orders={trackedOrders} onOpen={(order) => setTrackOrderId(order.id)} />
         )}
+
+        {/* «Kuryer qayerda» — jonli xarita */}
+        {trackOrderId && (() => {
+          const tracked = trackedOrders.find((o) => o.id === trackOrderId)
+          if (!tracked) return null
+          return (
+            <Suspense fallback={null}>
+              <LiveTrackSheet
+                order={tracked}
+                onClose={() => setTrackOrderId(null)}
+                onReceipt={(order) => {
+                  setTrackOrderId(null)
+                  shop.openReceipt(order)
+                }}
+              />
+            </Suspense>
+          )
+        })()}
 
         {/* Kuryerni baholash — reklama va manzil taklifi yopilgach */}
         <CourierRatingSheet

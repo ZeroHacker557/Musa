@@ -5,6 +5,7 @@ import {
 import { userLang, type Lang } from '../i18n.js'
 import { restoreStock } from '../stock.js'
 import { pushOrderSafe } from './linko-orders.js'
+import { clearOrderTracking } from './location.js'
 import type { Staff } from '../admin-auth.js'
 
 const STATUSES = [
@@ -405,6 +406,9 @@ export async function applyStatusEffects(
 
   // Linko'dagi buyurtma holati ham yangilanadi (sozlamada yoqilgan bo'lsa)
   await pushOrderSafe(orderId, { ...order, status })
+
+  // Buyurtma yo'lda emas — mijoz endi kuryerning joyini ko'rmasin
+  if (status !== 'Yetkazilmoqda') await clearOrderTracking(orderId)
 
   // Kuryer ilovalari ro'yxatni darhol yangilasin
   await bumpOrdersSignal()

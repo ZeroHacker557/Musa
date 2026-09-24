@@ -1,5 +1,5 @@
 import { Banknote, ClipboardList, CreditCard, PackageCheck, UserRound } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatPrice } from '../data'
 import { useI18n } from '../i18n'
 import { usePresence } from '../hooks/use-presence'
@@ -11,7 +11,7 @@ import { HoldButton } from './HoldButton'
 import { OrderDetail } from './OrderDetail'
 import { SupportScreen } from './SupportScreen'
 import { useMyThreads } from './support'
-import { handOverCash, reportProblem, setShift, type CourierOrder, type ProblemCode } from './api'
+import { handOverCash, reportProblem, sendLocation, setShift, type CourierOrder, type ProblemCode } from './api'
 import { confirmAction } from './format'
 import { createOrderActions, useCourierData, useCourierLocation } from './use-courier'
 import type { TranslationKey } from '../i18n'
@@ -71,6 +71,23 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
   const [shiftOverride, setShiftOverride] = useState<boolean | null>(null)
   const [shiftBusy, setShiftBusy] = useState(false)
   const onShift = shiftOverride ?? data?.profile.onShift ?? false
+  /*
+   * Ilova ochiq va smena yoqilgan — joylashuv serverga ham boradi.
+   * Asosiy manba baribir Telegram'ning jonli joylashuvi (ilova yopiq
+   * bo'lsa ham ishlaydi); bu — qo'shimcha, masalan u yoqilmagan bo'lsa.
+   */
+  const lastSent = useRef(0)
+  const livePoint = location.status === 'ok' ? location.point : null
+  useEffect(() => {
+    if (!onShift || !livePoint) return
+    if (Date.now() - lastSent.current < 25_000) return
+    lastSent.current = Date.now()
+    sendLocation(livePoint).catch(() => {
+      // Keyingi o'qishda qayta urinadi
+      lastSent.current = 0
+    })
+  }, [onShift, livePoint])
+
   const toggleShift = async () => {
     const next = !onShift
     setShiftOverride(next)

@@ -1,10 +1,12 @@
-import { Car, MapPin, Phone, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Car, MapPin, Phone, Radio, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../../i18n'
+import { TRACKING_FRESH_MS, liveMinutes, useOrderTracking } from '../../lib/tracking'
 import type { Order } from '../../types/domain'
 
 type Props = {
   orders: Order[]
+  /** Bosilganda — «Kuryer qayerda» jonli xaritasi. */
   onOpen: (order: Order) => void
 }
 
@@ -42,6 +44,13 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
     return () => clearInterval(timer)
   }, [order])
 
+  // Kuryerning jonli joyi (bo'lsa) — daqiqalar vaqt emas, masofadan hisoblanadi
+  const home = useMemo(() => {
+    const loc = order?.customer?.location
+    return loc && Number.isFinite(loc.lat) ? { lat: loc.lat, lng: loc.lng } : null
+  }, [order?.customer?.location])
+  const tracking = useOrderTracking(order?.id ?? null, home)
+
   // «×» — shu holat uchun yashiriladi; kuryer yetib kelsa yana chiqadi
   const stateKey = order ? `${order.id}:${order.arrivedAt ? 'arrived' : 'way'}` : ''
   const [hidden, setHidden] = useState(readHidden)
@@ -59,7 +68,10 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
   const arrived = Boolean(order.arrivedAt)
   const start = Date.parse(order.takenAt || '')
   const end = Date.parse(order.etaAt || '')
-  const minutesLeft = Number.isFinite(end) ? Math.ceil((end - now) / 60_000) : null
+  const live = tracking !== null && home !== null && now - Date.parse(tracking.at) < TRACKING_FRESH_MS
+  const minutesLeft = live
+    ? liveMinutes(tracking, home)
+    : Number.isFinite(end) ? Math.ceil((end - now) / 60_000) : null
 
   // Mashina yo'lning qayerida: olingandan beri o'tgan vaqt / taxminiy vaqt
   let progress = 0.35
@@ -95,7 +107,12 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
         </span>
 
         <span className="dlv__text">
-          <b className="dlv__title">{title}</b>
+          <b className="dlv__title">
+            {title}
+            {live && !arrived && (
+              <span className="dlv__live"><Radio size={11} /> {t('delivery.live')}</span>
+            )}
+          </b>
           <span className="dlv__sub">
             {subtitle}
             {order.courierName ? ` · ${order.courierName}` : ''} · {order.orderNumber}

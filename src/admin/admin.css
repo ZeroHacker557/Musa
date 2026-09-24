@@ -1211,3 +1211,164 @@
   background: var(--surface-2);
   padding: 0.6rem 0.75rem;
 }
+
+/* ====== Kuryerlar xaritasi ======
+   Katta ekranda: chapda kuryerlar ro'yxati, o'ngda xarita. Telefonda
+   xarita tepada, ro'yxat pastda. */
+.amap {
+  display: grid;
+  gap: 1rem;
+  height: calc(100dvh - var(--admin-topbar) - 3rem);
+  min-height: 520px;
+}
+@media (min-width: 1024px) {
+  .amap { grid-template-columns: 320px minmax(0, 1fr); }
+}
+@media (max-width: 1023px) {
+  .amap { height: auto; grid-template-rows: 60vh auto; }
+  .amap__map { order: -1; }
+}
+.amap__side { display: flex; min-height: 0; flex-direction: column; overflow: hidden; padding: 0; }
+.amap__summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+.amap__summary span { padding: 0.75rem 0.25rem; color: var(--muted); font-size: 0.72rem; font-weight: 700; }
+.amap__summary b { display: block; color: var(--ink); font-size: 1.2rem; font-weight: 800; }
+.amap__list { flex: 1; overflow-y: auto; padding: 0.4rem; }
+.amap__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: var(--r-sm);
+  padding: 0.6rem;
+  transition: background-color 0.15s ease;
+}
+.amap__item:hover:not(:disabled) { background: var(--surface-2); }
+.amap__item:disabled { opacity: 0.6; cursor: default; }
+.amap__dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--c);
+  color: #fff;
+  font-weight: 800;
+}
+.amap__dot::after {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  content: "";
+}
+.amap__dot.is-fresh::after { background: #22c55e; }
+.amap__dot.is-recent::after { background: #f5b301; }
+.amap__dot.is-lost { filter: grayscale(0.9); opacity: 0.7; }
+.amap__dot.is-lost::after { background: #9aa5a0; }
+.amap__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  border-top: 1px solid var(--line);
+  padding: 0.65rem 0.85rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.amap__legend i { display: inline-block; width: 9px; height: 9px; margin-right: 0.3rem; border-radius: 50%; }
+.amap__legend .is-fresh { background: #22c55e; }
+.amap__legend .is-recent { background: #f5b301; }
+.amap__legend .is-lost { background: #9aa5a0; }
+.amap__map { position: relative; min-height: 0; overflow: hidden; padding: 0; }
+.amap__map .leaflet-container { height: 100%; width: 100%; font: inherit; }
+.amap__fit {
+  position: absolute;
+  right: 12px;
+  bottom: 24px;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-md);
+}
+
+/* Kuryer belgisi: rangli doira, bosh harf; yangiligiga qarab yashil/sariq/kulrang halqa */
+.amap-courier {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--c);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.3);
+}
+.amap-courier span { position: relative; z-index: 1; }
+.amap-courier.is-fresh::before {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 3px solid var(--c);
+  content: "";
+  animation: amapPulse 1.8s ease-out infinite;
+}
+.amap-courier.is-recent { box-shadow: 0 0 0 3px #f5b301, 0 3px 10px rgb(0 0 0 / 0.3); }
+.amap-courier.is-lost { filter: grayscale(1); opacity: 0.65; }
+/* Harakat yo'nalishi */
+.amap-courier__arrow {
+  position: absolute;
+  inset: -12px;
+  pointer-events: none;
+}
+.amap-courier__arrow::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  border-right: 6px solid transparent;
+  border-bottom: 9px solid var(--c);
+  border-left: 6px solid transparent;
+  transform: translateX(-50%);
+  content: "";
+}
+@keyframes amapPulse {
+  from { opacity: 0.8; transform: scale(0.85); }
+  to { opacity: 0; transform: scale(1.5); }
+}
+
+/* Buyurtma belgisi — tomchi shaklidagi raqamli pin */
+.amap-order {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  border: 2px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  background: var(--c);
+  color: #fff;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.25);
+  transform: translate(-50%, -115%) rotate(-45deg);
+}
+.amap-order span { font-size: 11px; font-weight: 800; transform: rotate(45deg); }
+.amap-order.is-waiting { min-width: 34px; height: 34px; }
+.amap-order.is-waiting span { font-size: 9px; }

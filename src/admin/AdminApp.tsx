@@ -1,5 +1,5 @@
 import { Loader2, ShieldAlert } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { AdminApiError, apiGet, apiPost } from './lib/api'
 import { getInitData, isInTelegram } from './lib/telegram'
 import { withRetry } from './lib/retry'
@@ -24,6 +24,9 @@ import { CustomersPage } from './pages/CustomersPage'
 import { BroadcastPage } from './pages/BroadcastPage'
 import { SupportPage } from './pages/SupportPage'
 import { CashPage } from './pages/CashPage'
+
+// Xarita kutubxonasi og'ir (~150 KB) — faqat shu bo'lim ochilganda yuklanadi
+const MapPage = lazy(() => import('./pages/MapPage'))
 import { StaffPage } from './pages/StaffPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { can } from './lib/auth'
@@ -218,6 +221,11 @@ function AdminPanel({
     <Shell staff={staff} route={route} onNavigate={navigate} newOrders={newOrders} supportUnread={supportUnread} cashPending={cashPending}>
       {route === 'dashboard' && <DashboardPage courierId={courierId} />}
       {route === 'orders' && <OrdersPage staff={staff} focusId={param} />}
+      {route === 'map' && (can(staff.role, 'admin') ? (
+        <Suspense fallback={<div className="adm-skeleton h-96" />}>
+          <MapPage me={staff} />
+        </Suspense>
+      ) : <NoAccess />)}
 
       {/* Katalog — kuryerga yopiq */}
       {route === 'products' && (can(staff.role, 'admin') ? <ProductsPage /> : <NoAccess />)}

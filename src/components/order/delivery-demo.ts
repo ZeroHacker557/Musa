@@ -15,7 +15,7 @@ export function demoOrders(arrived: boolean): Order[] {
     paymentMethod: 'Naqd' as const,
     customer: {
       name: 'Dilnoza', phone: '+998901234567', address: 'Chilonzor 9-kvartal, 3-uy',
-      location: null, comment: '', paymentMethod: 'Naqd' as const, recipientName: '', recipientPhone: '',
+      location: { lat: 41.2858, lng: 69.2034 }, comment: '', paymentMethod: 'Naqd' as const, recipientName: '', recipientPhone: '',
     },
     courierId: 'c1',
     courierName: 'Komiljon',

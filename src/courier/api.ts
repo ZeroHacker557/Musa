@@ -71,6 +71,8 @@ export type CourierOverview = {
   }
   reviews: CourierReview[]
   cash: CourierCash
+  /** Oxirgi joylashuv: `live` — Telegram jonli ulashishi, `app` — ochiq ilova. */
+  location: { at: string | null; source: 'live' | 'app' | null; liveUntil: string | null }
   available: CourierOrder[]
   active: CourierOrder[]
   done: CourierOrder[]
@@ -123,6 +125,12 @@ export async function reportProblem(
 ): Promise<{ threadId: string; customerNotified: boolean }> {
   if (DEMO) return (await import('./demo')).demoProblem(orderId, code)
   return apiPost('/api/courier', { action: 'problem', orderId, code })
+}
+
+/** Ochiq ilova joylashuvi — admin xaritasi va mijoz kuzatuvi uchun. */
+export async function sendLocation(point: { lat: number; lng: number }): Promise<void> {
+  if (DEMO) return
+  await apiPost('/api/courier', { action: 'location', ...point })
 }
 
 export async function handOverCash(): Promise<{ amount: number; count: number }> {

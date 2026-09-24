@@ -578,13 +578,66 @@ def get_courier_by_telegram(telegram_id: int):
         )
         for doc in docs:
             data = doc.to_dict() or {}
-            if data.get("role") != "courier" or data.get("active") is False:
+            # Kuryer yoki «kuryer sifatida ham ishlaydi» belgili ega/admin
+            # (server bilan bir xil: api/_lib/courier-staff.ts → canDeliver)
+            delivers = data.get("role") == "courier" or data.get("canDeliver") is True
+            if not delivers or data.get("active") is False:
                 return None
             data["uid"] = doc.id
             return data
     except Exception as e:
         print(f"[ERR] get_courier_by_telegram: {e}")
     return None
+
+
+def save_courier_location(courier: dict, lat: float, lng: float, heading=None,
+                          accuracy=None, live_until: str | None = None) -> int:
+    """
+    Telegram «Jonli joylashuv»ini yozadi — api/_lib/actions/location.ts
+    dagi saveCourierLocation bilan bir xil shaklda:
+
+      courier_locations/{uid}  — admin xaritasi
+      order_tracking/{orderId} — yo'ldagi har buyurtma mijozi uchun
+
+    Qaytaradi: nechta buyurtma kuzatuvi yangilandi.
+    """
+    uid = courier["uid"]
+    at = datetime.now(timezone.utc).isoformat()
+    name = courier.get("name") or "Kuryer"
+    db.collection("courier_locations").document(uid).set({
+        "uid": uid,
+        "name": name,
+        "telegramId": courier.get("telegramId"),
+        "lat": lat,
+        "lng": lng,
+        "accuracy": accuracy,
+        "heading": heading,
+        "speed": None,
+        "source": "live",
+        "at": at,
+        "liveUntil": live_until,
+    }, merge=True)
+
+    tracked = 0
+    batch = db.batch()
+    for doc in db.collection("orders").where("courierId", "==", uid).stream():
+        order = doc.to_dict() or {}
+        if order.get("status") != "Yetkazilmoqda" or not order.get("userId"):
+            continue
+        batch.set(db.collection("order_tracking").document(doc.id), {
+            "userId": order.get("userId"),
+            "courierUid": uid,
+            "courierName": name,
+            "lat": lat,
+            "lng": lng,
+            "heading": heading,
+            "source": "live",
+            "at": at,
+        })
+        tracked += 1
+    if tracked:
+        batch.commit()
+    return tracked
 
 
 def send_notification(user_id: int, title: str, body: str, type: str = 'system', order_id: str | None = None):

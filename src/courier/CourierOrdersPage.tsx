@@ -1,13 +1,15 @@
 import {
   Banknote, BellOff, CheckCircle2, ChevronRight, CreditCard, DoorOpen, LocateFixed, LocateOff, Loader2, MapPin,
-  MessageSquareText, Navigation, PackageCheck, Phone, RotateCw, Route, UserRound,
+  MessageSquareText, Navigation, PackageCheck, Phone, Radio, RotateCw, Route, Send, UserRound,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatPrice } from '../data'
 import { useI18n } from '../i18n'
 import { PageTitle } from '../components/layout/PageTitle'
 import type { CourierOrder, CourierOverview } from './api'
 import { clock, openExternal, telHref, timeAgo } from './format'
+import { BOT_URL } from '../config/brand'
+import { getTelegram } from '../utils/telegram'
 import { NavigateButton } from './NavigateButton'
 import {
   GOOGLE_MAX_STOPS, formatKm, googleMultiRoute, planRoute, yandexMultiRoute,
@@ -146,6 +148,9 @@ export function CourierOrdersPage({
 
       {tab !== 'done' && <LocationBar location={location} onRetry={onRetryLocation} />}
 
+      {/* Smenada — Telegram jonli joylashuvi holati */}
+      {data && onShift && <LiveShare location={data.location} />}
+
       {/* Dam olayotganda — yangi buyurtma xabarlari kelmaydi */}
       {data && !onShift && tab === 'new' && (
         <div className="crr-offshift mx-5 mt-3 sm:mx-10">
@@ -252,6 +257,60 @@ export function CourierOrdersPage({
         )}
       </section>
     </>
+  )
+}
+
+/**
+ * Telegram «Jonli joylashuv»i yoqilganmi.
+ *
+ * Yoqilgan bo'lsa — bir qatorli yashil holat. Yo'q bo'lsa — qanday
+ * yoqishni ko'rsatadigan karta: ilova yopiq bo'lsa ham admin va mijoz
+ * kuryerni ko'rishi faqat shu orqali mumkin (mini app fonda ishlamaydi).
+ */
+function LiveShare({ location }: { location: CourierOverview['location'] }) {
+  const { t } = useI18n()
+  // «Hozir» holatda turadi — render toza bo'lsin, har 30 soniyada yangilanadi
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const at = Date.parse(location.at || '')
+  const until = Date.parse(location.liveUntil || '')
+  const live = location.source === 'live'
+    && Number.isFinite(at) && now - at < 3 * 60_000
+    && (!location.liveUntil || (Number.isFinite(until) && until > now))
+
+  if (live) {
+    return (
+      <p className="crr-live crr-live--on mx-5 mt-3 sm:mx-10">
+        <Radio size={15} /> {t('courier.liveOn', { ago: timeAgo(location.at, t) })}
+      </p>
+    )
+  }
+
+  const openBot = () => {
+    const tg = getTelegram()
+    if (tg?.openTelegramLink) tg.openTelegramLink(BOT_URL)
+    else window.open(BOT_URL, '_blank', 'noopener')
+  }
+
+  return (
+    <div className="crr-live mx-5 mt-3 sm:mx-10">
+      <b className="flex items-center gap-2 text-sm" style={{ color: 'var(--ink)' }}>
+        <Radio size={16} style={{ color: 'var(--royal)' }} /> {t('courier.liveTitle')}
+      </b>
+      <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>{t('courier.liveText')}</p>
+      <ol className="crr-live__steps">
+        <li>{t('courier.liveStep1')}</li>
+        <li>{t('courier.liveStep2')}</li>
+        <li>{t('courier.liveStep3')}</li>
+      </ol>
+      <button className="crr-btn crr-btn--ghost crr-btn--block mt-2" onClick={openBot}>
+        <Send size={16} /> {t('courier.liveOpenBot')}
+      </button>
+    </div>
   )
 }
 

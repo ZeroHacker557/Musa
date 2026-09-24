@@ -100,17 +100,68 @@ export function buildReport(orders: AdminOrder[], products: ProductRow[], period
     .map(([name, c]) => ({ name, units: c.units, revenue: c.revenue, orders: c.orders.size, share: (c.revenue / goods) * 100 }))
     .sort((a, b) => b.revenue - a.revenue)
 
-  // Kuryerlar — faqat yetkazilganlar
-  const byCourier = new Map<string, { name: string; delivered: number; cash: number; card: number }>()
-  for (const o of delivered) {
+  /*
+   * Kuryerlar — samaradorlik.
+   *
+   *   O'rtacha vaqt — «Olaman» dan «Yetkazdim» gacha (daqiqa)
+   *   Vaqtida       — mijozga aytilgan taxminiy vaqtdan kechikmagan
+   *                   (5 daqiqa bardosh bilan); vaqti bor buyurtmalar ichidan
+   *   Reyting       — mijozlar bahosi (1–5)
+   *   Muammo        — kuryer «Muammo bormi?» tugmasini bosgan buyurtmalar
+   */
+  const LATE_GRACE = 5 * 60_000
+  type CourierRow = {
+    name: string; delivered: number; cash: number; card: number
+    minutes: number[]; withEta: number; onTime: number; arrived: number
+    stars: number[]; problems: number
+  }
+  const byCourier = new Map<string, CourierRow>()
+  const rowOf = (o: AdminOrder) => {
     const key = o.courierId || 'none'
-    const row = byCourier.get(key) ?? { name: o.courierName || (o.courierId ? 'Kuryer' : 'Biriktirilmagan'), delivered: 0, cash: 0, card: 0 }
+    const row = byCourier.get(key) ?? {
+      name: o.courierName || (o.courierId ? 'Kuryer' : 'Biriktirilmagan'),
+      delivered: 0, cash: 0, card: 0, minutes: [], withEta: 0, onTime: 0, arrived: 0, stars: [], problems: 0,
+    }
+    byCourier.set(key, row)
+    return row
+  }
+  for (const o of delivered) {
+    const row = rowOf(o)
     row.delivered++
     if (o.paymentMethod === 'Karta') row.card += Number(o.total) || 0
     else row.cash += Number(o.total) || 0
-    byCourier.set(key, row)
+
+    const taken = Date.parse(o.takenAt || '')
+    const done = Date.parse(o.deliveredAt || '')
+    if (Number.isFinite(taken) && Number.isFinite(done) && done > taken) row.minutes.push((done - taken) / 60_000)
+    const eta = Date.parse(o.etaAt || '')
+    if (Number.isFinite(eta) && Number.isFinite(done)) {
+      row.withEta++
+      if (done <= eta + LATE_GRACE) row.onTime++
+    }
+    if (o.arrivedAt) row.arrived++
+    if (o.courierRating?.stars) row.stars.push(o.courierRating.stars)
   }
-  const couriers = [...byCourier.values()].sort((a, b) => b.delivered - a.delivered)
+  // Muammolar — yetkazilmaganlar (masalan rad etilgan) ham hisobga kiradi
+  for (const o of inPeriod) if (o.courierId && o.problems?.length) rowOf(o).problems += o.problems.length
+
+  const avg = (list: number[]) => (list.length ? list.reduce((a, b) => a + b, 0) / list.length : null)
+  const couriers = [...byCourier.values()]
+    .filter((c) => c.delivered > 0 || c.problems > 0)
+    .map((c) => ({
+      name: c.name,
+      delivered: c.delivered,
+      cash: c.cash,
+      card: c.card,
+      avgMinutes: avg(c.minutes),
+      onTimeRate: c.withEta ? (c.onTime / c.withEta) * 100 : null,
+      late: c.withEta - c.onTime,
+      arrivedRate: c.delivered ? (c.arrived / c.delivered) * 100 : null,
+      rating: avg(c.stars),
+      ratings: c.stars.length,
+      problems: c.problems,
+    }))
+    .sort((a, b) => b.delivered - a.delivered)
 
   const payments = (['Naqd', 'Karta'] as const).map((method) => {
     const list = valid.filter((o) => (o.paymentMethod || 'Naqd') === method)
@@ -210,10 +261,26 @@ export function reportSheets(r: Report): SheetSpec[] {
     {
       name: 'Kuryerlar',
       title: title('kuryerlar bo‘yicha (yetkazilganlar)'),
-      headers: ['Kuryer', 'Yetkazdi', 'Naqd olingan (so‘m)', 'Karta (so‘m)', 'Jami (so‘m)'],
-      widths: [26, 11, 20, 16, 16],
-      styles: ['text', 'number', 'money', 'money', 'money'],
-      rows: r.couriers.map((c) => [c.name, c.delivered, c.cash, c.card, c.cash + c.card]),
+      headers: [
+        'Kuryer', 'Yetkazdi', 'O‘rtacha vaqt (daq)', 'Vaqtida, %', 'Kechikdi', '«Yetib keldim», %',
+        'Reyting', 'Baholar', 'Muammolar', 'Naqd olingan (so‘m)', 'Karta (so‘m)', 'Jami (so‘m)',
+      ],
+      widths: [24, 10, 17, 11, 10, 16, 9, 9, 11, 19, 15, 15],
+      styles: ['text', 'number', 'number', 'percent', 'number', 'percent', 'text', 'number', 'number', 'money', 'money', 'money'],
+      rows: r.couriers.map((c) => [
+        c.name,
+        c.delivered,
+        c.avgMinutes === null ? '—' : Math.round(c.avgMinutes),
+        c.onTimeRate === null ? '—' : pct(c.onTimeRate),
+        c.late,
+        c.arrivedRate === null ? '—' : pct(c.arrivedRate),
+        c.rating === null ? '—' : c.rating.toFixed(1),
+        c.ratings,
+        c.problems,
+        c.cash,
+        c.card,
+        c.cash + c.card,
+      ]),
     },
     {
       name: 'To‘lov turlari',

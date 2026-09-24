@@ -517,6 +517,13 @@ export const ru: Record<TranslationKey, string> = {
   'courier.cashStatusConfirmed': 'Принято',
   'courier.cashStatusRejected': 'Отклонено',
   'courier.reviewsTitle': 'Отзывы клиентов',
+  'courier.liveOn': 'Трансляция геопозиции включена · {ago}',
+  'courier.liveTitle': 'Включите трансляцию геопозиции',
+  'courier.liveText': 'Тогда даже при закрытом приложении админ видит вас на карте, а клиент — где курьер.',
+  'courier.liveStep1': 'Откройте бота и нажмите 📎',
+  'courier.liveStep2': '«Геопозиция» → «Транслировать геопозицию»',
+  'courier.liveStep3': 'Выберите «Пока не выключу»',
+  'courier.liveOpenBot': 'Открыть бота',
 
   // ── Курьер в пути (приложение клиента) ──
   'delivery.onWayTitle': 'Курьер в пути',
@@ -526,6 +533,12 @@ export const ru: Record<TranslationKey, string> = {
   'delivery.minutesLeft': '~{n} мин',
   'delivery.almostThere': 'Сейчас будет',
   'delivery.call': 'Позвонить курьеру',
+  'delivery.live': 'онлайн',
+  'delivery.follow': 'Следить за курьером',
+  'delivery.updated': 'Онлайн · обновлено {s} назад',
+  'delivery.stale': 'Геопозиция курьера немного устарела',
+  'delivery.noLocation': 'Геопозиция курьера ещё не пришла — скоро появится на карте',
+  'delivery.receipt': 'Чек заказа',
 
   // ── Оценка курьера ──
   'rating.title': 'Заказ доставлен!',

@@ -5,6 +5,7 @@ import { supportOpen } from './support.js'
 import { escapeHtml, sendMessage } from '../telegram.js'
 import { userLang } from '../i18n.js'
 import { cashSummary } from './cash.js'
+import { locationStatus, seedOrderTracking } from './location.js'
 import { canDeliver } from '../courier-staff.js'
 
 /**
@@ -130,6 +131,8 @@ export async function courierTake(staff: Staff, body: Body) {
   })
 
   if (outcome === 'claimed' && order) {
+    // Mijoz «Kuryer qayerda» xaritasida kuryerni darhol ko'rsin
+    await seedOrderTracking(orderId, staff, order.userId)
     await applyStatusEffects(
       orderId,
       { ...order, courierId: staff.uid, courierName: staff.name, etaMinutes: eta },
@@ -386,6 +389,8 @@ export async function courierOverview(staff: Staff) {
         comment: String(r.rating!.comment || ''),
       })),
     cash: await cashSummary(staff.uid, mineOrders),
+    // Telegram jonli joylashuvi yoqilganmi — ilova eslatma ko'rsatadi
+    location: await locationStatus(staff.uid),
     available,
     active,
     done,
@@ -413,8 +418,25 @@ export async function courierShift(staff: Staff, body: Body) {
     { onShift: on, shiftSince: new Date().toISOString() },
     { merge: true },
   )
+
+  // Smena boshlandi, jonli joylashuv esa yoqilmagan — bot qanday qilishni eslatadi
+  if (on && staff.telegramId) {
+    const loc = await locationStatus(staff.uid)
+    const live = loc.source === 'live' && Date.now() - Date.parse(loc.at || '') < 5 * 60_000
+    if (!live) await sendMessage(staff.telegramId, SHARE_LIVE_TEXT).catch(() => undefined)
+  }
   return { onShift: on }
 }
+
+/** Jonli joylashuvni yoqish yo'riqnomasi (bot ham /joylashuv da shuni beradi). */
+const SHARE_LIVE_TEXT =
+  '📍 <b>Smena boshlandi!</b>\n\n' +
+  'Admin va mijozlar sizni xaritada ko‘rishi uchun shu chatga <b>jonli joylashuv</b> yuboring — ' +
+  'ilova yopiq bo‘lsa ham Telegram uni o‘zi yangilab turadi:\n\n' +
+  '1. Pastdagi 📎 tugmasini bosing\n' +
+  '2. «Joylashuv» (Location) ni tanlang\n' +
+  '3. «Jonli joylashuvni ulashish» → <b>«Men o‘chirgunimcha»</b>\n\n' +
+  '<i>Smena tugaganda xabardagi «Ulashishni to‘xtatish» ni bosing.</i>'
 
 /* ─── «Yetib keldim» ────────────────────────────────────────── */
 

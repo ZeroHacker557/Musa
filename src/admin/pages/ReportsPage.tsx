@@ -160,9 +160,20 @@ export function ReportsPage() {
               empty="Bu davrda sotuv yo‘q"
             />
             <Table
-              title="Kuryerlar (yetkazilganlar)"
-              headers={['Kuryer', 'Yetkazdi', 'Naqd', 'Karta']}
-              rows={report.couriers.map((c) => [c.name, String(c.delivered), formatPrice(c.cash), formatPrice(c.card)])}
+              wide
+              title="Kuryerlar samaradorligi"
+              hint="Vaqt — «Olaman» dan «Yetkazdim» gacha. Vaqtida — mijozga aytilgan vaqtdan kechikmagan (5 daqiqa bardosh bilan)."
+              headers={['Kuryer', 'Yetkazdi', 'O‘rt. vaqt', 'Vaqtida', 'Reyting', 'Muammo', 'Naqd', 'Karta']}
+              rows={report.couriers.map((c) => [
+                c.name,
+                String(c.delivered),
+                c.avgMinutes === null ? '—' : `${Math.round(c.avgMinutes)} daq`,
+                c.onTimeRate === null ? '—' : `${Math.round(c.onTimeRate)}%${c.late ? ` · ${c.late} kech` : ''}`,
+                c.rating === null ? '—' : `★ ${c.rating.toFixed(1)} (${c.ratings})`,
+                c.problems ? `⚠️ ${c.problems}` : '—',
+                formatPrice(c.cash),
+                formatPrice(c.card),
+              ])}
               empty="Bu davrda yetkazilgan buyurtma yo‘q"
             />
             <Table
@@ -213,10 +224,19 @@ function Stat({ label, value, icon: Icon, tone, hint, delta }: {
   )
 }
 
-function Table({ title, headers, rows, empty }: { title: string; headers: string[]; rows: string[][]; empty: string }) {
+function Table({ title, headers, rows, empty, wide = false, hint }: {
+  title: string
+  headers: string[]
+  rows: string[][]
+  empty: string
+  /** Ustunlari ko'p — ikki ustunli joyni to'liq egallaydi. */
+  wide?: boolean
+  hint?: string
+}) {
   return (
-    <section className="adm-card min-w-0 overflow-hidden">
+    <section className={'adm-card min-w-0 overflow-hidden ' + (wide ? 'xl:col-span-2' : '')}>
       <h2 className="px-4 pt-4 text-sm font-extrabold">{title}</h2>
+      {hint && <p className="px-4 pt-1 text-xs" style={{ color: 'var(--muted)' }}>{hint}</p>}
       {rows.length ? (
         <div className="adm-table-wrap mt-3">
           <table className="adm-table">

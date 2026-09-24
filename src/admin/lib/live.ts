@@ -549,3 +549,53 @@ export function useCashHandovers(enabled = true) {
 
   return { handovers: enabled ? handovers : [], loading: enabled ? loading : false }
 }
+
+/** Kuryerlarning oxirgi joylashuvi — admin xaritasi (api/_lib/actions/location.ts). */
+export type CourierLocationRow = {
+  uid: string
+  name: string
+  lat: number
+  lng: number
+  heading: number | null
+  accuracy: number | null
+  /** `live` — Telegram jonli ulashishi (ilova yopiq bo'lsa ham), `app` — ochiq ilova. */
+  source: 'live' | 'app'
+  at: string
+  liveUntil: string | null
+}
+
+export function useCourierLocations(enabled = true) {
+  const [rows, setRows] = useState<CourierLocationRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!enabled) return
+    return onSnapshot(
+      collection(db, 'courier_locations'),
+      (snapshot) => {
+        setRows(
+          snapshot.docs
+            .map((d) => {
+              const data = d.data()
+              return {
+                uid: d.id,
+                name: String(data.name || 'Kuryer'),
+                lat: Number(data.lat),
+                lng: Number(data.lng),
+                heading: Number.isFinite(Number(data.heading)) && data.heading !== null ? Number(data.heading) : null,
+                accuracy: Number.isFinite(Number(data.accuracy)) && data.accuracy !== null ? Number(data.accuracy) : null,
+                source: data.source === 'live' ? 'live' : 'app',
+                at: String(data.at || ''),
+                liveUntil: data.liveUntil ? String(data.liveUntil) : null,
+              } as CourierLocationRow
+            })
+            .filter((r) => Number.isFinite(r.lat) && Number.isFinite(r.lng)),
+        )
+        setLoading(false)
+      },
+      () => setLoading(false),
+    )
+  }, [enabled])
+
+  return { rows: enabled ? rows : [], loading: enabled ? loading : false }
+}

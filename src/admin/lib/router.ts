@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 export type Route =
   | 'dashboard'
   | 'orders'
+  | 'map'
   | 'products'
   | 'categories'
   | 'sections'
@@ -30,6 +31,7 @@ export type Route =
 export const ROUTES: Route[] = [
   'dashboard',
   'orders',
+  'map',
   'products',
   'categories',
   'sections',

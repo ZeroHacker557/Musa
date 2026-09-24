@@ -14,8 +14,11 @@ import type { Point } from './route'
  * ro'yxat eskirib qolmasin.
  */
 const POLL_MS = 60_000
-/** Joylashuv shu oraliqda qayta o'qiladi — kuryer yurib boradi. */
-const LOCATION_MS = 90_000
+/**
+ * Joylashuv shu oraliqda qayta o'qiladi — kuryer yurib boradi. Smenada
+ * u serverga ham ketadi (admin xaritasi, mijoz kuzatuvi).
+ */
+const LOCATION_MS = 30_000
 
 export type Feedback = { kind: 'success' | 'error'; text: string }
 

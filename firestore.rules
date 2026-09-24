@@ -212,6 +212,21 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Kuryerlarning jonli joylashuvi — admin xaritasi ─────
+    match /courier_locations/{staffUid} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ── «Kuryer qayerda» — mijoz faqat O'Z buyurtmasini ko'radi ──
+    // Server faqat «Yetkazilmoqda» holatida yozadi va buyurtma
+    // yopilishi bilan o'chiradi.
+    match /order_tracking/{orderId} {
+      allow read: if isAdmin()
+                  || (signedIn() && resource.data.userId == int(request.auth.uid));
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
