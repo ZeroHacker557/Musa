@@ -614,6 +614,8 @@ export function useCashHandovers(enabled = true) {
 export type CourierLocationRow = {
   uid: string
   name: string
+  /** Kuryer telefoni — xaritadan qo'ng'iroq qilish uchun. */
+  phone: string | null
   lat: number
   lng: number
   heading: number | null
@@ -640,6 +642,7 @@ export function useCourierLocations(enabled = true) {
               return {
                 uid: d.id,
                 name: String(data.name || 'Kuryer'),
+                phone: data.phone ? String(data.phone) : null,
                 lat: Number(data.lat),
                 lng: Number(data.lng),
                 heading: Number.isFinite(Number(data.heading)) && data.heading !== null ? Number(data.heading) : null,

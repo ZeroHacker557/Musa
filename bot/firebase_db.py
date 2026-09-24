@@ -673,6 +673,8 @@ def save_courier_location(courier: dict, lat: float, lng: float, heading=None,
         "uid": uid,
         "name": name,
         "telegramId": courier.get("telegramId"),
+        # Admin xaritasida qo'ng'iroq tugmasi (server bilan bir xil)
+        "phone": courier.get("phone"),
         "lat": lat,
         "lng": lng,
         "accuracy": accuracy,

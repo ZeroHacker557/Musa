@@ -1276,6 +1276,29 @@
   transition: background-color 0.15s ease;
 }
 .amap__courier:not(.is-on) .amap__item:hover { background: var(--surface-2); }
+/* Kuryer qatori: tanlash tugmasi + qo'ng'iroq */
+.amap__row { display: flex; align-items: center; padding-right: 0.5rem; }
+.amap__row .amap__item { min-width: 0; flex: 1; }
+.amap__phone {
+  display: block;
+  color: var(--ink-2);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.amap__call {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--c, var(--brand)) 14%, transparent);
+  color: var(--c, var(--brand));
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.amap__call:hover { background: var(--c, var(--brand)); color: #fff; }
+.amap__call:active { transform: scale(0.9); }
 .amap__dot {
   position: relative;
   display: grid;
@@ -1403,14 +1426,14 @@
 /* Tanlangan kuryer — xarita ustida kim ko'rsatilayotgani */
 .amap__banner {
   position: absolute;
-  top: 12px;
-  left: 50%;
+  top: 10px;
+  /* Chapda — kattalashtirish tugmalaridan keyin; telefonda ham sig'sin */
+  left: 58px;
   z-index: 500;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  width: min(calc(100% - 7rem), 420px);
-  transform: translateX(-50%);
+  gap: 0.5rem;
+  width: min(calc(100% - 70px), 440px);
   border-left: 4px solid var(--c);
   border-radius: 12px;
   background: var(--surface);
@@ -1429,14 +1452,24 @@
   font-size: 0.85rem;
   font-weight: 800;
 }
+.amap__banner-sub {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .amap__banner-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 50%;
   background: var(--surface-2);
-  padding: 0.35rem 0.65rem;
   color: var(--ink);
-  font-size: 0.78rem;
-  font-weight: 800;
 }
 
 /* Kuryer belgisi: rangli doira + bosh harf, ostida ism; burchakda yangilik nuqtasi */

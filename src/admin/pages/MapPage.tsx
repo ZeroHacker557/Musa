@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { Bike, ChevronRight, Clock, Layers, LocateFixed, MapPinned, Radio, Smartphone } from 'lucide-react'
+import { Bike, ChevronRight, Clock, Layers, LocateFixed, MapPinned, Phone, Radio, Smartphone, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import { useCourierLocations, useOrders, useStaff, type AdminOrder, type CourierLocationRow } from '../lib/live'
@@ -44,6 +44,15 @@ const pointOf = (o: AdminOrder): Point | null => {
   const loc = o.customer?.location
   return loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng) ? { lat: loc.lat, lng: loc.lng } : null
 }
+
+/** «+998905551234» → «+998 90 555 12 34»; boshqa ko'rinish o'zgarmaydi. */
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  const m = /^998(\d{2})(\d{3})(\d{2})(\d{2})$/.exec(digits)
+  return m ? `+998 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : phone
+}
+
+const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`
 
 const escape = (text: string) =>
   text.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!)
@@ -124,6 +133,7 @@ type CourierView = {
   state: Freshness
   stops: AdminOrder[]
   onShift: boolean | undefined
+  phone: string | null
 }
 
 /**
@@ -173,6 +183,7 @@ export default function MapPage({ me }: { me: Staff }) {
     const order = [...byId.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name))
     return order.map(([uid, row], i) => {
       const plan = planRoute(row.orders, pointOf, row.loc ? { lat: row.loc.lat, lng: row.loc.lng } : null)
+      const person = staff.find((s) => s.uid === uid)
       return {
         uid,
         name: row.name,
@@ -180,7 +191,9 @@ export default function MapPage({ me }: { me: Staff }) {
         loc: row.loc,
         state: row.loc ? freshness(row.loc.at, now) : ('lost' as Freshness),
         stops: plan.stops.map((s) => s.item),
-        onShift: staff.find((s) => s.uid === uid)?.onShift,
+        onShift: person?.onShift,
+        // Joylashuv hujjatida (server/bot yozadi), xodimlar ro'yxatida yoki buyurtmada
+        phone: row.loc?.phone || person?.phone || row.orders.find((o) => o.courierPhone)?.courierPhone || null,
       }
     }).sort((a, b) => {
       const rank = { fresh: 0, recent: 1, lost: 2 }
@@ -261,10 +274,12 @@ export default function MapPage({ me }: { me: Staff }) {
                 const on = c.uid === selected
                 return (
                   <li key={c.uid} className={'amap__courier ' + (on ? 'is-on' : '')} style={{ ['--c' as string]: c.color }}>
+                    <div className="amap__row">
                     <button className="amap__item" onClick={() => choose(c.uid)} aria-expanded={on}>
                       <span className={'amap__dot is-' + c.state}>{c.name.charAt(0).toUpperCase()}</span>
                       <span className="min-w-0 flex-1 text-left">
                         <b className="block truncate text-sm">{c.name}</b>
+                        {c.phone && <span className="amap__phone">{formatPhone(c.phone)}</span>}
                         <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--muted)' }}>
                           {c.loc ? (
                             <>
@@ -280,6 +295,12 @@ export default function MapPage({ me }: { me: Staff }) {
                       </span>
                       <ChevronRight size={16} className="amap__chev" />
                     </button>
+                    {c.phone && (
+                      <a className="amap__call" href={telHref(c.phone)} title={`Qo‘ng‘iroq: ${formatPhone(c.phone)}`} aria-label={`${c.name}ga qo‘ng‘iroq`}>
+                        <Phone size={16} />
+                      </a>
+                    )}
+                    </div>
 
                     {on && (
                       <ol className="amap__stops">
@@ -414,6 +435,7 @@ export default function MapPage({ me }: { me: Staff }) {
             >
               <Popup>
                 <b>{c.name}</b> · {FRESH_TEXT[c.state]}<br />
+                {c.phone && <><a href={telHref(c.phone)}>📞 {formatPhone(c.phone)}</a><br /></>}
                 {c.loc.source === 'live' ? '📡 Telegram jonli joylashuvi' : '📱 Ilova'} · {ago(c.loc.at, now)}<br />
                 {c.stops.length
                   ? `🛵 Yo‘lda: ${c.stops.map((o) => datedNumber(o.orderNumber, o.orderDay)).join(', ')}`
@@ -428,11 +450,25 @@ export default function MapPage({ me }: { me: Staff }) {
             <span className="amap__banner-dot">{chosen.name.charAt(0).toUpperCase()}</span>
             <span className="min-w-0 flex-1">
               <b className="block truncate text-sm">{chosen.name}</b>
-              <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                {chosen.stops.length ? `${chosen.stops.length} ta manzil, yaqinlik tartibida` : 'Yo‘lda buyurtma yo‘q'}
+              <span className="amap__banner-sub">
+                {chosen.phone
+                  ? formatPhone(chosen.phone)
+                  : chosen.stops.length ? `${chosen.stops.length} ta manzil` : 'yo‘lda buyurtma yo‘q'}
               </span>
             </span>
-            <button className="amap__banner-close" onClick={() => choose(null)}>Hammasi</button>
+            {chosen.phone && (
+              <a className="amap__call" href={telHref(chosen.phone)} aria-label={`${chosen.name}ga qo‘ng‘iroq`}>
+                <Phone size={16} />
+              </a>
+            )}
+            <button
+              className="amap__banner-close"
+              onClick={() => choose(null)}
+              title="Hammasini ko‘rsatish"
+              aria-label="Hammasini ko‘rsatish"
+            >
+              <X size={16} />
+            </button>
           </div>
         )}
 

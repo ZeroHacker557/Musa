@@ -179,7 +179,7 @@ async function onShift(uid: string): Promise<boolean> {
  * yaqinda kelgan bo'lsa, ilova nuqtasi yozilmaydi.
  */
 export async function saveCourierLocation(
-  staff: Pick<Staff, 'uid' | 'name' | 'telegramId'>,
+  staff: Pick<Staff, 'uid' | 'name' | 'telegramId'> & { phone?: string | null },
   point: LocationPoint,
   source: LocationSource,
   liveUntil: string | null = null,
@@ -202,6 +202,8 @@ export async function saveCourierLocation(
     uid: staff.uid,
     name: staff.name,
     telegramId: staff.telegramId ?? null,
+    // Admin xaritasida qo'ng'iroq tugmasi — oddiy admin `staff` ni o'qiy olmaydi
+    phone: staff.phone ?? null,
     lat: point.lat,
     lng: point.lng,
     accuracy: point.accuracy ?? null,
