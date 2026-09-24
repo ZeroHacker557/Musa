@@ -1,8 +1,8 @@
-import { Check, ChevronLeft, CreditCard, Home, Wallet } from 'lucide-react'
+import { Check, ChevronLeft, CreditCard, Home, RotateCcw, Wallet } from 'lucide-react'
 import { formatPrice } from '../data'
 import { BRAND } from '../config/brand'
 import { productThumb } from '../utils/product-image'
-import { formatDateTime } from '../utils/date'
+import { formatDateTime, formatTime } from '../utils/date'
 import { BrandLogo } from '../components/brand/BrandLogo'
 import { PageTitle } from '../components/layout/PageTitle'
 import { useT, type TranslationKey } from '../i18n'
@@ -12,6 +12,21 @@ type Props = {
   order: Order
   onBack: () => void
   onHome: () => void
+  onReorder: (order: Order) => void
+}
+
+/** Holat chizig'i — bekor qilinmagan buyurtma qaysi bosqichda. */
+const STEPS: { status: Order['status']; label: TranslationKey }[] = [
+  { status: 'Yangi', label: 'receipt.stepNew' },
+  { status: 'Qabul qilindi', label: 'receipt.stepAccepted' },
+  { status: 'Yetkazilmoqda', label: 'receipt.stepOnWay' },
+  { status: 'Yetkazildi', label: 'receipt.stepDone' },
+]
+
+/** Bosqich vaqti — bilinadiganlari (yaratilgan, olingan, yetkazilgan). */
+function stepTime(order: Order, index: number): string {
+  const at = index === 0 ? order.createdAt : index === 2 ? order.takenAt : index === 3 ? order.deliveredAt : null
+  return at ? formatTime(at) : ''
 }
 
 /**
@@ -22,7 +37,7 @@ type Props = {
  * Chop etish uchun emas, telefonda ko'rish uchun: kerak bo'lsa mijoz
  * skrinshot olib yuboradi.
  */
-export function ReceiptPage({ order, onBack, onHome }: Props) {
+export function ReceiptPage({ order, onBack, onHome, onReorder }: Props) {
   const t = useT()
 
   const lines = order.products || []
@@ -70,6 +85,25 @@ export function ReceiptPage({ order, onBack, onHome }: Props) {
                 </p>
               </div>
             </div>
+
+            {/* Holat chizig'i — ixcham: 4 nuqta va chiziq, joriy bosqich lipillaydi */}
+            {!cancelled && (() => {
+              const current = Math.max(0, STEPS.findIndex((s) => s.status === order.status))
+              return (
+                <ol className="rcpt-steps" style={{ ['--p' as string]: String(delivered ? 1 : current / (STEPS.length - 1)) }}>
+                  {STEPS.map((step, i) => (
+                    <li
+                      key={step.status}
+                      className={'rcpt-steps__item ' + (i < current || delivered ? 'is-done' : i === current ? 'is-now' : '')}
+                    >
+                      <span className="rcpt-steps__dot">{(i < current || delivered) && <Check size={10} strokeWidth={4} />}</span>
+                      <span className="rcpt-steps__label">{t(step.label)}</span>
+                      <span className="rcpt-steps__time">{stepTime(order, i)}</span>
+                    </li>
+                  ))}
+                </ol>
+              )
+            })()}
 
             {/* Mahsulotlar */}
             <div className="rcpt__items">
@@ -165,6 +199,11 @@ export function ReceiptPage({ order, onBack, onHome }: Props) {
           <Home size={18} />
           {t('receipt.home')}
         </button>
+        {(delivered || cancelled) && (
+          <button onClick={() => onReorder(order)} className="reorder-link mx-auto mt-3">
+            <RotateCcw size={14} /> {t('orders.reorder')}
+          </button>
+        )}
       </div>
     </>
   )

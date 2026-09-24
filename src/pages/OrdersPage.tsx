@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, ExternalLink, MapPin, Radio, ShoppingBag } from 'lucide-react'
+import { ChevronRight, ExternalLink, MapPin, Radio, RotateCcw, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '../data'
 import { openBotDeepLink } from '../utils/telegram'
 import { formatOrderDate } from '../utils/date'
@@ -39,13 +39,15 @@ type Props = {
   onOpenReceipt: (order: Order) => void
   /** «Xaritadan ochish» — yetkazish manzili, yo'lda bo'lsa kuryer ham. */
   onOpenMap: (order: Order) => void
+  /** «Qayta buyurtma» — mahsulotlar savatga solinadi. */
+  onReorder: (order: Order) => void
   onBack: () => void
 }
 
 /** Mijoz faqat shu statuslardagi buyurtmani bekor qila oladi. */
 export function OrdersPage({
   orders, ordersReady, authReady, isAuthenticated, onSearch, onFavorites,
-  onGoToCatalog, onOpenReceipt, onOpenMap, onBack,
+  onGoToCatalog, onOpenReceipt, onOpenMap, onReorder, onBack,
 }: Props) {
   const t = useT()
   const [active, setActive] = useState('all')
@@ -155,6 +157,18 @@ export function OrdersPage({
                   style={{ borderColor: 'var(--line-soft)' }}
                 >
                   <p className="text-[11px] font-bold" style={{ color: 'var(--faint)' }}>{order.orderNumber}</p>
+                  {/* Yopilgan buyurtma — bir bosishda yana savatga */}
+                  {(order.status === 'Yetkazildi' || order.status === 'Bekor qilingan' || order.status === 'Rad etildi') && (
+                    <button
+                      className="reorder-chip"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onReorder(order)
+                      }}
+                    >
+                      <RotateCcw size={12} /> {t('orders.reorder')}
+                    </button>
+                  )}
                   <div className="flex items-center text-xs font-bold" style={{ color: 'var(--brand)' }}>
                     {t('orders.details')}
                     <ChevronRight size={14} className="ml-1" />

@@ -1,4 +1,4 @@
-import { Banknote, ClipboardList, CreditCard, PackageCheck, UserRound } from 'lucide-react'
+import { Banknote, Bell, ClipboardList, CreditCard, Loader2, PackageCheck, UserRound, WifiOff } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { formatPrice } from '../data'
 import { useI18n } from '../i18n'
@@ -15,6 +15,7 @@ import { useMyThreads } from './support'
 import { handOverCash, reportProblem, sendLocation, setShift, type CourierOrder, type ProblemCode } from './api'
 import { confirmAction } from './format'
 import { createOrderActions, useCourierData, useCourierLocation } from './use-courier'
+import { playChime, unlockChime } from './chime'
 import type { TranslationKey } from '../i18n'
 
 type Props = {
@@ -52,7 +53,7 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
     key: number
   }>({ open: supportId !== null, threadId: supportId, order: null, key: 0 })
 
-  const { data, error: loadError, refreshing, busyId, setBusyId, load } = useCourierData(onNotCourier)
+  const { data, error: loadError, refreshing, busyId, setBusyId, load, online, queued } = useCourierData(onNotCourier)
   // Xato kuryerning tilida (server kod beradi — api/_lib/errors.ts)
   const error = loadError ? apiErrorText(loadError, t, 'error.courierGeneric') : null
   const { location, retry } = useCourierLocation()
@@ -90,6 +91,40 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
       lastSent.current = 0
     })
   }, [onShift, livePoint])
+
+  /*
+   * Yangi buyurtma keldi (17-band): tepadan banner, ovoz va titrash.
+   * Ilova ochiq turganda Telegram xabarini kutmasdan. Birinchi
+   * yuklanishdagi buyurtmalar «yangi» hisoblanmaydi. Faqat smenada.
+   */
+  const [knownIds, setKnownIds] = useState<string[] | null>(null)
+  const [seenData, setSeenData] = useState<typeof data>(null)
+  const [incoming, setIncoming] = useState<{ order: CourierOrder; more: number; n: number } | null>(null)
+  if (data && data !== seenData) {
+    setSeenData(data)
+    const ids = data.available.map((o) => o.id)
+    if (knownIds === null) setKnownIds(ids)
+    else {
+      const fresh = data.available.filter((o) => !knownIds.includes(o.id))
+      if (fresh.length) {
+        setKnownIds([...knownIds, ...fresh.map((o) => o.id)])
+        if (onShift) setIncoming((prev) => ({ order: fresh[0], more: fresh.length - 1, n: (prev?.n ?? 0) + 1 }))
+      }
+    }
+  }
+  useEffect(() => {
+    if (!incoming) return
+    playChime()
+    hapticSuccess()
+    const timer = setTimeout(() => setIncoming(null), 7000)
+    return () => clearTimeout(timer)
+  }, [incoming])
+  // Brauzer ovozni faqat birinchi tegishdan keyin ruxsat beradi
+  useEffect(() => {
+    const unlock = () => unlockChime()
+    document.addEventListener('pointerdown', unlock, { once: true })
+    return () => document.removeEventListener('pointerdown', unlock)
+  }, [])
 
   const toggleShift = async () => {
     const next = !onShift
@@ -219,6 +254,42 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
   return (
     <>
       <Toast message={toast} onClose={() => setToast(null)} />
+
+      {/* Internet uzildi — amallar navbatda (19-band) */}
+      {(!online || queued > 0) && (
+        <div className={'crr-net ' + (online ? 'is-syncing' : '')} role="status">
+          {online ? <Loader2 size={14} className="animate-spin" /> : <WifiOff size={14} />}
+          <span>
+            {online
+              ? t('courier.syncing', { n: queued })
+              : queued ? t('courier.offlineQueued', { n: queued }) : t('courier.offline')}
+          </span>
+        </div>
+      )}
+
+      {/* Yangi buyurtma banneri (17-band) */}
+      {incoming && (
+        <button
+          key={incoming.n}
+          className="crr-incoming"
+          onClick={() => {
+            setPage('orders')
+            setTab('new')
+            setDetailId(incoming.order.id)
+            setIncoming(null)
+          }}
+        >
+          <span className="crr-incoming__icon"><Bell size={20} /></span>
+          <span className="min-w-0 flex-1 text-left">
+            <b className="block text-sm">
+              {t('courier.newOrderTitle', { number: incoming.order.number })}
+              {incoming.more > 0 ? ` · +${incoming.more}` : ''}
+            </b>
+            <span className="block truncate text-xs">{incoming.order.customer.address || '—'}</span>
+          </span>
+          <span className="crr-incoming__cta">{t('courier.newOrderOpen')}</span>
+        </button>
+      )}
 
       <div className="page-wrapper crr-wrapper">
         <div className="page-animate" key={page}>

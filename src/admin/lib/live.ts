@@ -666,3 +666,39 @@ export function useCourierLocations(enabled = true) {
 
   return { rows: enabled ? rows : [], loading: enabled ? loading : false }
 }
+
+export type OrderHistoryEntry = {
+  id: string
+  at: string
+  from: string | null
+  to: string
+  by: { name?: string; role?: string } | null
+}
+
+/** Buyurtma holati tarixi — kim, qachon, nimadan nimaga (orders/{id}/history). */
+export function useOrderHistory(orderId: string | null) {
+  const [entries, setEntries] = useState<OrderHistoryEntry[]>([])
+
+  useEffect(() => {
+    if (!orderId) return
+    return onSnapshot(
+      query(collection(db, 'orders', orderId, 'history'), orderBy('at')),
+      (snapshot) =>
+        setEntries(
+          snapshot.docs.map((d) => {
+            const data = d.data()
+            return {
+              id: d.id,
+              at: String(data.at || ''),
+              from: data.from ? String(data.from) : null,
+              to: String(data.to || ''),
+              by: data.by && typeof data.by === 'object' ? (data.by as OrderHistoryEntry['by']) : null,
+            }
+          }),
+        ),
+      (err) => console.error('[admin] buyurtma tarixi o‘qilmadi:', err),
+    )
+  }, [orderId])
+
+  return orderId ? entries : []
+}

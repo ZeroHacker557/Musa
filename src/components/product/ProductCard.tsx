@@ -1,4 +1,7 @@
 import { Heart, Minus, Plus, ShoppingCart, Star } from 'lucide-react'
+import { flyToCart } from '../../utils/fly-to-cart'
+import { heartBurst } from '../../utils/burst'
+import { markHero } from '../../utils/view-transition'
 import { useState } from 'react'
 import { formatPrice } from '../../data'
 import { productThumb } from '../../utils/product-image'
@@ -19,10 +22,17 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
   const weight = product.sizes?.[0]
 
   return (
-    <article className={'product-card group ' + (compact ? 'compact' : '')}>
+    // data-fly-source — savatga uchadigan rasm shu kartadan olinadi;
+    // data-product-id — orqaga qaytishda rasm shu kartaga qaytib kiradi
+    <article className={'product-card group ' + (compact ? 'compact' : '')} data-fly-source data-product-id={product.id}>
       <button
         className={'product-card-like ' + (favourite ? 'liked' : '')}
-        onClick={(e) => { e.stopPropagation(); onToggleLike(product.id) }}
+        onClick={(e) => {
+          e.stopPropagation()
+          // Qo'shilayotganda — yurakchalar sochiladi (olib tashlashda emas)
+          if (!favourite) heartBurst(e.currentTarget)
+          onToggleLike(product.id)
+        }}
         aria-label={t('favorites.title')}
         aria-pressed={favourite}
       >
@@ -35,7 +45,14 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
         <span className="product-card-badge">{product.discount}</span>
       ) : null}
 
-      <button className="product-card-body" onClick={() => onOpen(product)}>
+      <button
+        className="product-card-body"
+        onClick={(e) => {
+          // Rasm shu yerdan mahsulot sahifasiga kattalashib o'tadi
+          markHero(e.currentTarget.querySelector('.product-card-image'))
+          onOpen(product)
+        }}
+      >
         <div className={'product-card-image ' + (soldOut ? 'sold-out' : '')}>
           {imgSrc && !imgError ? (
             <ProductImage src={imgSrc} alt={product.name} onError={() => setImgError(true)} />
@@ -82,7 +99,7 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
             <button
               type="button"
               disabled={soldOut}
-              onClick={(e) => { e.stopPropagation(); onChangeQty(product, 1) }}
+              onClick={(e) => { e.stopPropagation(); flyToCart(e.currentTarget); onChangeQty(product, 1) }}
               aria-label={t('cart.increase')}
             >
               <Plus size={16} />
@@ -92,7 +109,7 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
           <button
             className="add-button"
             disabled={soldOut}
-            onClick={(e) => { e.stopPropagation(); onAddToCart(product) }}
+            onClick={(e) => { e.stopPropagation(); flyToCart(e.currentTarget); onAddToCart(product) }}
             aria-label={soldOut ? t('product.soldOut') : t('product.addToCart')}
           >
             <ShoppingCart size={18} />

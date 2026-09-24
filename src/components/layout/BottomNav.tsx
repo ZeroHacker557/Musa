@@ -52,7 +52,8 @@ export function BottomNav({ page, onNavigate, onOpenCart, cartOpen, cartCount, o
             aria-current={active ? 'page' : undefined}
             className={'nav-item ' + (active ? 'active' : '')}
           >
-            <span className="relative">
+            {/* data-cart-target — savatga qo'shilgan mahsulot shu belgiga uchadi */}
+            <span className="relative" {...(isCart ? { 'data-cart-target': '' } : {})}>
               <Icon size={23} fill={active ? 'currentColor' : 'none'} />
               {/* Son ikonka ustida: savatda — nechta mahsulot, buyurtmalarda —
                   nechta buyurtmaning holati o'zgargan */}

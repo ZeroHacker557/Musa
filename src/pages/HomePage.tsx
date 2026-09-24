@@ -14,6 +14,7 @@ import { categoryIcon } from '../utils/category-icons'
 import { MAIN_LINES, categoryLabel, isMainLine } from '../config/categories'
 import { useMemo, useRef } from 'react'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
+import { useReveal } from '../hooks/use-reveal'
 import { useI18n, useT, type TranslationKey } from '../i18n'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
 
@@ -60,6 +61,8 @@ export function HomePage({
     [products],
   )
   useAutoScroll(popularRef, { speed: 11, enabled: popular.length > 2 })
+  // Bo'limlar scroll qilinganda suzib chiqadi — mahsulotlar kelgach yangilari ham
+  useReveal([loading, popular.length, categories.length])
 
   return (
     <>
@@ -166,7 +169,7 @@ export function HomePage({
           Foto qo'yish uchun: MAIN_LINES dagi `image` maydonini to'ldiring
           (src/config/categories.ts) — gradient o'rniga rasm ko'rinadi. */}
       <section className="px-5 pt-8 sm:px-10">
-        <h2 className="section-title mb-4">{t('home.lines')}</h2>
+        <h2 className="section-title mb-4" data-reveal>{t('home.lines')}</h2>
         <div className="line-grid">
           {MAIN_LINES.map((line, index) => {
             const Icon = categoryIcon(line.icon, line.name)
@@ -175,11 +178,11 @@ export function HomePage({
                 key={line.name}
                 onClick={() => onOpenCategory(line.name)}
                 className={'line-card' + (index === 0 ? ' line-card--wide' : '')}
-                style={
-                  line.image
-                    ? { backgroundImage: `url(${line.image})` }
-                    : { backgroundImage: line.gradient }
-                }
+                data-reveal
+                style={{
+                  ...(line.image ? { backgroundImage: `url(${line.image})` } : { backgroundImage: line.gradient }),
+                  ['--d' as string]: `${index * 90}ms`,
+                }}
               >
                 {!line.image && (
                   <Icon className="line-card__icon" size={index === 0 ? 128 : 104} aria-hidden="true" />
@@ -194,7 +197,7 @@ export function HomePage({
       {/* Kategoriyalar — bazadan, bosilganda katalog filtrlanadi.
           Yo'nalishlar yuqorida kartada turibdi, bu yerda takrorlanmaydi. */}
       {categories.some((c) => !isMainLine(c.name)) && (
-        <section className="mt-5">
+        <section className="mt-5" data-reveal>
           <div ref={stripRef} className="category-strip category-strip--compact scrollbar-none">
             {categories.filter((c) => !isMainLine(c.name)).map((category) => {
               const Icon = categoryIcon(category.icon, category.name)
@@ -219,6 +222,7 @@ export function HomePage({
       <section
         className="mx-5 mt-6 grid grid-cols-2 rounded-2xl border p-3 sm:mx-10 sm:grid-cols-4"
         style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}
+        data-reveal
       >
         {benefits.map(([Icon, titleKey, subKey]) => (
           <button
@@ -245,7 +249,7 @@ export function HomePage({
       {/* Mashhur mahsulotlar — faqat admin belgilaganlar */}
       {(loading || popular.length > 0 || products.length === 0) && (
       <section className="px-5 pb-32 pt-8 sm:px-10">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" data-reveal>
           <h2 className="section-title">{t('home.popular')}</h2>
           <button
             onClick={() => onNavigate('catalog')}
@@ -260,8 +264,10 @@ export function HomePage({
           <ProductRowSkeleton />
         ) : popular.length > 0 ? (
           <div ref={popularRef} className="mt-5 flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-            {popular.map((product) => (
-              <ProductCard key={product.id} product={product} compact {...productActions} />
+            {popular.map((product, index) => (
+              <div key={product.id} className="shrink-0" data-reveal style={{ ['--d' as string]: `${Math.min(index, 5) * 70}ms` }}>
+                <ProductCard product={product} compact {...productActions} />
+              </div>
             ))}
           </div>
         ) : (

@@ -1,5 +1,5 @@
 import {
-  Bike, ChevronDown, Loader2, MapPin, Phone, Printer, Search, ShoppingBag, X,
+  Bike, ChevronDown, Columns3, List, Loader2, MapPin, Phone, Printer, Search, ShoppingBag, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -14,6 +14,19 @@ import { useToast } from '../components/Toast'
 import { DateFilter } from '../components/DateFilter'
 import { dayKey, inRange, type Range } from '../lib/date-range'
 import { Receipt } from '../components/Receipt'
+import { OrderTimeline } from '../components/OrderTimeline'
+import { OrdersBoard } from '../components/OrdersBoard'
+
+type View = 'list' | 'board'
+const VIEW_KEY = 'musa-admin:orders-view'
+
+function readView(): View {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'board' ? 'board' : 'list'
+  } catch {
+    return 'list'
+  }
+}
 
 const ALL_STATUSES: OrderStatus[] = [
   'Yangi',
@@ -81,6 +94,17 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
   }
   const [busyId, setBusyId] = useState<string | null>(null)
   const { show, node: toast } = useToast()
+  // Ro'yxat yoki kanban doska — admin tanlovi eslab qolinadi (kuryerga doska yo'q)
+  const [viewPick, setViewPick] = useState<View>(readView)
+  const view: View = staff.role === 'courier' ? 'list' : viewPick
+  const pickView = (next: View) => {
+    setViewPick(next)
+    try {
+      localStorage.setItem(VIEW_KEY, next)
+    } catch {
+      // saqlanmasa ham shu seansda ishlaydi
+    }
+  }
 
   const allowed = staff.role === 'courier' ? COURIER_STATUSES : ALL_STATUSES
   // Kuryerlar ro'yxati faqat egaga ochiq (Firestore Rules) — admin uchun
@@ -127,7 +151,8 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return inPeriod.filter((order) => {
-      if (filter !== 'all' && order.status !== filter) return false
+      // Doskada holat — ustun, filtr kerak emas
+      if (view === 'list' && filter !== 'all' && order.status !== filter) return false
       if (!needle) return true
       // «0005 23.09» ham topilsin — raqam har kuni takrorlanadi
       const dated = order.orderDay ? `${order.orderNumber} ${shortDay(order.orderDay)}`.toLowerCase() : ''
@@ -138,7 +163,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
         (order.customer?.phone || '').toLowerCase().includes(needle)
       )
     })
-  }, [inPeriod, filter, query])
+  }, [inPeriod, filter, query, view])
 
   const changeStatus = async (order: AdminOrder, status: OrderStatus) => {
     if (order.status === status || busyId) return
@@ -215,7 +240,20 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
         <DateFilter value={range} onChange={setRange} counts={dayCounts} />
       </div>
 
+      {/* Ko'rinish: ro'yxat yoki kanban doska */}
+      {staff.role !== 'courier' && (
+        <div className="adm-view-toggle mt-3" role="tablist">
+          <button role="tab" aria-selected={view === 'list'} className={view === 'list' ? 'is-on' : ''} onClick={() => pickView('list')}>
+            <List size={15} /> Ro‘yxat
+          </button>
+          <button role="tab" aria-selected={view === 'board'} className={view === 'board' ? 'is-on' : ''} onClick={() => pickView('board')}>
+            <Columns3 size={15} /> Doska
+          </button>
+        </div>
+      )}
+
       {/* Holat filtrlari */}
+      {view === 'list' && (
       <div className="scrollbar-none mt-3 flex gap-2 overflow-x-auto pb-1">
         {(['all', ...ALL_STATUSES] as Filter[]).map((key) => (
           <button
@@ -233,6 +271,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
           </button>
         ))}
       </div>
+      )}
 
       {loading ? (
         <div className="mt-4 flex flex-col gap-2">
@@ -240,6 +279,13 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
             <div key={i} className="adm-skeleton h-16" />
           ))}
         </div>
+      ) : view === 'board' ? (
+        <OrdersBoard
+          orders={visible}
+          busyId={busyId}
+          onOpen={setOpenId}
+          onMove={(order, status) => void changeStatus(order, status)}
+        />
       ) : visible.length === 0 ? (
         <div className="adm-card adm-empty mt-4">
           <ShoppingBag size={30} />
@@ -553,6 +599,8 @@ function OrderDrawer({
               {order.paymentStatus ? ` • ${order.paymentStatus}` : ''}
             </p>
           </section>
+
+          <OrderTimeline order={order} />
 
           <button
             className="adm-btn adm-btn--ghost w-full"

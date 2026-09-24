@@ -1,7 +1,7 @@
 import {
-  Clock, Package, ShoppingBag, TrendingUp, Users, Wallet,
+  Clock, Package, ShoppingBag, TrendingDown, TrendingUp, Users, Wallet,
 } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { datedNumber } from '../../utils/order-label'
 import { formatPrice } from '../../data'
 import { useCustomers, useOrders, useProducts, type AdminOrder } from '../lib/live'
@@ -15,24 +15,85 @@ function dayKey(iso: string): string {
   return (iso || '').slice(0, 10)
 }
 
+/**
+ * Raqam sanab o'sadi (0 → qiymat, keyin eski → yangi). Qiymat jonli
+ * o'zgarsa (yangi buyurtma) — ko'zga tashlanadi. «Harakatni kamaytirish»
+ * yoqilgan bo'lsa — darhol.
+ */
+function useCountUp(target: number, duration = 800): number {
+  const [shown, setShown] = useState(0)
+  const from = useRef(0)
+  useEffect(() => {
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+    const start = performance.now()
+    const begin = from.current
+    let frame = 0
+    const step = (now: number) => {
+      const k = reduce ? 1 : Math.min(1, (now - start) / duration)
+      const eased = 1 - (1 - k) ** 3
+      const value = begin + (target - begin) * eased
+      setShown(value)
+      from.current = value
+      if (k < 1) frame = requestAnimationFrame(step)
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [target, duration])
+  return shown
+}
+
+/** 7 kunlik kichik egri chiziq — karta burchagida. */
+function Sparkline({ values, color }: { values: number[]; color: string }) {
+  const max = Math.max(1, ...values)
+  const w = 84
+  const h = 28
+  const pts = values.map((v, i) => [(i / Math.max(1, values.length - 1)) * w, h - 3 - (v / max) * (h - 6)])
+  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  return (
+    <svg className="adm-spark" viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true">
+      <path d={`${line} L${w},${h} L0,${h} Z`} fill={color} opacity="0.12" />
+      <path className="adm-spark__line" d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {pts.length > 0 && <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="2.6" fill={color} />}
+    </svg>
+  )
+}
+
 function StatCard({
-  label, value, icon: Icon, tone, delay,
+  label, value, format = (n) => String(Math.round(n)), icon: Icon, tone, delay, delta, spark,
 }: {
   label: string
-  value: string
+  value: number
+  format?: (n: number) => string
   icon: typeof ShoppingBag
   tone: { fg: string; bg: string }
   delay: number
+  /** Kechagi kunga nisbatan, foiz (null — solishtirib bo'lmaydi). */
+  delta?: number | null
+  spark?: number[]
 }) {
+  const shown = useCountUp(value)
   return (
     <div className="adm-card adm-stat" style={{ animationDelay: `${delay}ms` }}>
       <span className="adm-stat__icon" style={{ background: tone.bg, color: tone.fg }}>
         <Icon size={18} />
       </span>
+      {spark && <Sparkline values={spark} color={tone.fg} />}
       <p className="adm-stat__label">{label}</p>
-      <p className="adm-stat__value">{value}</p>
+      <p className="adm-stat__value">{format(shown)}</p>
+      {delta !== undefined && delta !== null && (
+        <p className={'adm-stat__delta ' + (delta >= 0 ? 'is-up' : 'is-down')}>
+          {delta >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+          {delta >= 0 ? '+' : ''}{delta}% <span>kechagidan</span>
+        </p>
+      )}
     </div>
   )
+}
+
+/** Kechagidan o'zgarish, foiz. Kecha 0 bo'lsa — solishtirilmaydi. */
+function change(now: number, before: number): number | null {
+  if (!before) return null
+  return Math.round(((now - before) / before) * 100)
 }
 
 export function DashboardPage({ courierId }: { courierId?: string }) {
@@ -50,8 +111,18 @@ export function DashboardPage({ courierId }: { courierId?: string }) {
       .filter((o) => REVENUE_STATUSES.has(o.status))
       .reduce((sum, o) => sum + (Number(o.total) || 0), 0)
 
+    // Kecha — «kechagidan +12%» uchun
+    const yesterdayDate = new Date()
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+    const yesterday = yesterdayDate.toISOString().slice(0, 10)
+    const yesterdayOrders = orders.filter((o) => dayKey(o.createdAt) === yesterday)
+    const yesterdayRevenue = yesterdayOrders
+      .filter((o) => REVENUE_STATUSES.has(o.status))
+      .reduce((sum, o) => sum + (Number(o.total) || 0), 0)
+
     // Oxirgi 14 kunlik tushum — grafik uchun
     const days: { label: string; value: number }[] = []
+    const dayCounts: number[] = []
     for (let i = 13; i >= 0; i--) {
       const date = new Date()
       date.setDate(date.getDate() - i)
@@ -60,6 +131,7 @@ export function DashboardPage({ courierId }: { courierId?: string }) {
         .filter((o) => dayKey(o.createdAt) === key)
         .reduce((sum, o) => sum + (Number(o.total) || 0), 0)
       days.push({ label: key.slice(8), value })
+      dayCounts.push(orders.filter((o) => dayKey(o.createdAt) === key).length)
     }
 
     // Eng ko'p sotilgan mahsulotlar
@@ -79,6 +151,10 @@ export function DashboardPage({ courierId }: { courierId?: string }) {
       revenue,
       todayRevenue,
       todayCount: todayOrders.length,
+      revenueDelta: change(todayRevenue, yesterdayRevenue),
+      countDelta: change(todayOrders.length, yesterdayOrders.length),
+      revenueSpark: days.slice(-7).map((d) => d.value),
+      countSpark: dayCounts.slice(-7),
       total: orders.length,
       pending: orders.filter((o) => o.status === 'Yangi').length,
       inProgress: orders.filter(
@@ -107,42 +183,48 @@ export function DashboardPage({ courierId }: { courierId?: string }) {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
           label="Bugungi tushum"
-          value={formatPrice(stats.todayRevenue)}
+          value={stats.todayRevenue}
+          format={(n) => formatPrice(Math.round(n))}
           icon={Wallet}
           tone={{ fg: 'var(--brand)', bg: 'var(--brand-soft)' }}
           delay={0}
+          delta={stats.revenueDelta}
+          spark={stats.revenueSpark}
         />
         <StatCard
           label="Bugungi buyurtmalar"
-          value={String(stats.todayCount)}
+          value={stats.todayCount}
           icon={ShoppingBag}
           tone={{ fg: 'var(--royal)', bg: 'var(--royal-soft)' }}
           delay={40}
+          delta={stats.countDelta}
+          spark={stats.countSpark}
         />
         <StatCard
           label="Yangi — javob kutmoqda"
-          value={String(stats.pending)}
+          value={stats.pending}
           icon={Clock}
           tone={{ fg: 'var(--warning)', bg: 'var(--warning-soft)' }}
           delay={80}
         />
         <StatCard
           label="Tushum · 30 kun"
-          value={formatPrice(stats.revenue)}
+          value={stats.revenue}
+          format={(n) => formatPrice(Math.round(n))}
           icon={TrendingUp}
           tone={{ fg: 'var(--brand)', bg: 'var(--brand-soft)' }}
           delay={120}
         />
         <StatCard
           label="Mijozlar"
-          value={String(customers.length)}
+          value={customers.length}
           icon={Users}
           tone={{ fg: 'var(--info)', bg: 'var(--info-soft)' }}
           delay={160}
         />
         <StatCard
           label="Mahsulotlar"
-          value={String(products.length)}
+          value={products.length}
           icon={Package}
           tone={{ fg: 'var(--gold)', bg: 'var(--gold-soft)' }}
           delay={200}

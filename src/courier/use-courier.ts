@@ -6,6 +6,7 @@ import { ApiError } from '../lib/api'
 import type { TranslationKey } from '../i18n'
 import { getTelegram, hapticError, hapticSuccess, requestLocation } from '../utils/telegram'
 import { DEMO, arriveOrder, deliverOrder, fetchOverview, takeOrder, type CourierOverview } from './api'
+import { enqueue, flushQueue, isNetworkError, readQueue } from './offline-queue'
 import type { Point } from './route'
 
 /**
@@ -38,6 +39,10 @@ export function useCourierData(onNotCourier: () => void) {
   const [error, setError] = useState<unknown>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  /** Internet bormi — brauzer hodisalari va so'rov natijasidan. */
+  const [online, setOnline] = useState(() => navigator.onLine !== false)
+  /** Internet kutayotgan amallar (offline-queue.ts). */
+  const [queued, setQueued] = useState(() => readQueue().length)
   const notCourier = useRef(onNotCourier)
   useEffect(() => {
     notCourier.current = onNotCourier
@@ -46,14 +51,18 @@ export function useCourierData(onNotCourier: () => void) {
   const load = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true)
     try {
+      // Aloqa bor — avval navbatdagi amallar yuboriladi, keyin ro'yxat
+      if (readQueue().length) await flushQueue()
       const next = await fetchOverview()
       setData(next)
       setError(null)
+      setOnline(true)
     } catch (e) {
       if (e instanceof ApiError && e.code === 'NOT_COURIER') {
         notCourier.current()
         return
       }
+      if (isNetworkError(e)) setOnline(false)
       setError(e)
     } finally {
       if (manual) setRefreshing(false)
@@ -70,6 +79,16 @@ export function useCourierData(onNotCourier: () => void) {
       if (document.visibilityState === 'visible') void load()
     }
     document.addEventListener('visibilitychange', onVisible)
+    // Internet qaytdi — navbat yuboriladi va ro'yxat yangilanadi
+    const onOnline = () => {
+      setOnline(true)
+      void load()
+    }
+    const onOffline = () => setOnline(false)
+    const onQueue = () => setQueued(readQueue().length)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+    window.addEventListener('musa:queue', onQueue)
     // Telegram oynasi yig'ilib, qayta ochilganda
     const tg = getTelegram()
     tg?.onEvent?.('activated', onVisible)
@@ -104,11 +123,14 @@ export function useCourierData(onNotCourier: () => void) {
       clearInterval(timer)
       stopSignal()
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
+      window.removeEventListener('musa:queue', onQueue)
       tg?.offEvent?.('activated', onVisible)
     }
   }, [load])
 
-  return { data, error, refreshing, busyId, setBusyId, load }
+  return { data, error, refreshing, busyId, setBusyId, load, online, queued }
 }
 
 export type OrderActions = {
@@ -130,6 +152,8 @@ export function createOrderActions(
     good: string[],
     /** Muvaffaqiyat matni amalga qarab farq qiladi («Yetib keldim»). */
     doneKey: TranslationKey = 'courier.outcomeDone',
+    /** Internet bo'lmasa navbatga olinadigan amal (offline-queue.ts). */
+    queueAs?: 'deliver' | 'arrive',
   ): Promise<Feedback> => {
     setBusyId(id)
     try {
@@ -153,6 +177,12 @@ export function createOrderActions(
         }),
       }
     } catch (e) {
+      // Internet yo'q — amal yo'qolmaydi, ulanganda o'zi yuboriladi
+      if (queueAs && isNetworkError(e)) {
+        enqueue({ kind: queueAs, orderId: id })
+        hapticSuccess()
+        return { kind: 'success', text: t('courier.queued') }
+      }
       hapticError()
       return { kind: 'error', text: apiErrorText(e, t, 'error.courierGeneric') }
     } finally {
@@ -163,8 +193,8 @@ export function createOrderActions(
 
   return {
     take: (id, point) => run(id, () => takeOrder(id, point ?? null), ['claimed', 'already']),
-    deliver: (id) => run(id, () => deliverOrder(id), ['done', 'already']),
-    arrive: (id) => run(id, () => arriveOrder(id), ['done', 'already'], 'courier.outcomeArrived'),
+    deliver: (id) => run(id, () => deliverOrder(id), ['done', 'already'], 'courier.outcomeDone', 'deliver'),
+    arrive: (id) => run(id, () => arriveOrder(id), ['done', 'already'], 'courier.outcomeArrived', 'arrive'),
   }
 }
 

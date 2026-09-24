@@ -12,8 +12,9 @@ import { clock, openExternal, telHref, timeAgo } from './format'
 import { BOT_URL } from '../config/brand'
 import { getTelegram } from '../utils/telegram'
 import { NavigateButton } from './NavigateButton'
+import { SwipeActions } from './SwipeActions'
 import {
-  GOOGLE_MAX_STOPS, formatKm, googleMultiRoute, planRoute, yandexMultiRoute,
+  GOOGLE_MAX_STOPS, formatKm, googleMultiRoute, planRoute, yandexMultiRoute, yandexRouteTo,
   type Point, type RouteStop,
 } from './route'
 import type { LocationState } from './use-courier'
@@ -205,10 +206,27 @@ export function CourierOrdersPage({
         {data && tab === 'active' && (
           <>
             {activePlan.stops.length > 0 && <RouteCard stops={activePlan.stops} totalKm={activePlan.totalKm} lang={lang} />}
+            {activePlan.stops.length > 0 && <p className="crr-swipe-hint">{t('courier.swipeHint')}</p>}
             <StopList
               stops={activePlan.stops}
               empty={[t('courier.emptyActive'), t('courier.emptyActiveText')]}
               render={(stop, index) => (
+                /* Surish: → navigatsiya (Yandex), ← «Yetib keldim» (20-band) */
+                <SwipeActions
+                  key={stop.item.id}
+                  left={stop.item.customer.location ? {
+                    label: t('courier.swipeNav'),
+                    icon: Navigation,
+                    color: 'var(--info, #2563eb)',
+                    onTrigger: () => openExternal(yandexRouteTo(stop.item.customer.location!)),
+                  } : undefined}
+                  right={!stop.item.arrivedAt ? {
+                    label: t('courier.swipeArrive'),
+                    icon: MapPin,
+                    color: 'var(--gold, #d99b0f)',
+                    onTrigger: () => onArrive(stop.item),
+                  } : undefined}
+                >
                 <OrderCard
                   key={stop.item.id}
                   order={stop.item}
@@ -240,6 +258,7 @@ export function CourierOrdersPage({
                     </div>
                   }
                 />
+                </SwipeActions>
               )}
             />
           </>

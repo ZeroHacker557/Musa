@@ -49,3 +49,11 @@ export function formatOrderDate(value?: string): string {
   const d = new Date(ms)
   return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${d.getFullYear()} • ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
+
+/** "14:05" — bo'sh yoki noto'g'ri qiymatda bo'sh qator. */
+export function formatTime(value?: string | null): string {
+  const ms = parseDate(value ?? undefined)
+  if (!ms) return ''
+  const d = new Date(ms)
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}

@@ -5,7 +5,7 @@ export function CartButton({ count, onClick }: { count: number; onClick?: () => 
   const t = useT()
 
   return (
-    <button onClick={onClick} aria-label={t('cart.title')} className="icon-button relative">
+    <button onClick={onClick} aria-label={t('cart.title')} className="icon-button relative" data-cart-target>
       <ShoppingCart strokeWidth={2.25} />
       {/* Bo'sh savatda "0" ko'rsatilmaydi (D-05) */}
       {count > 0 && (

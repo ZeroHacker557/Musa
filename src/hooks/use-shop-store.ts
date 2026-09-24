@@ -13,6 +13,7 @@ import { useI18n } from '../i18n'
 import type { AppPage, CartRow, Category, Order, OrderForm, Product, Section, UserProfile, Notification } from '../types/domain'
 import { hapticError, hapticFeedback, hapticSuccess, initTelegram } from '../utils/telegram'
 import { applyTheme, getStoredTheme, storeTheme, type ThemeMode } from '../utils/theme'
+import { heroTransition } from '../utils/view-transition'
 import { useT } from '../i18n'
 
 /** Pastki menyudagi asosiy sahifalar — ularga o'tganda tarix tozalanadi. */
@@ -187,6 +188,13 @@ export function useShopStore() {
    */
   const [ordersReady, setOrdersReady] = useState(false)
   const [checkoutDone, setCheckoutDone] = useState(false)
+  const checkoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** «Buyurtma qabul qilindi» oynasi — kutmasdan yopiladi. */
+  const dismissCheckout = useCallback(() => {
+    if (checkoutTimer.current) clearTimeout(checkoutTimer.current)
+    checkoutTimer.current = null
+    setCheckoutDone(false)
+  }, [])
   const [isSubmitting, setSubmitting] = useState(false)
   const [authReady, setAuthReady] = useState(false)
   const [theme, setThemeState] = useState<ThemeMode>(getStoredTheme)
@@ -548,6 +556,7 @@ export function useShopStore() {
       setCartOpen(false)
       return
     }
+    const back = () => {
     scrollMemory.current[page] = window.scrollY
     setHistory((h) => {
       // Qaytilgan sahifa mijoz qolgan joyidan ochiladi
@@ -560,7 +569,12 @@ export function useShopStore() {
       setPage(target)
       return h.slice(0, -1)
     })
-  }, [isSearchOpen, isCartOpen, page])
+    }
+    if (page === 'detail' && selectedProduct) {
+      const target = history.length ? history[history.length - 1] : 'home'
+      heroTransition(back, { scrollTop: scrollMemory.current[target] ?? 0, backTo: selectedProduct.id })
+    } else back()
+  }, [isSearchOpen, isCartOpen, page, history, selectedProduct])
 
   /** Buyurtma cheki — «Buyurtmalarim» dagi kartochka bosilganda. */
   const openReceipt = useCallback((order: Order) => {
@@ -574,15 +588,17 @@ export function useShopStore() {
   }, [page, rememberScroll])
 
   const openProduct = useCallback((product: Product) => {
-    setSelectedProduct(product)
-    setCartOpen(false)
-    setPage((current) => {
-      setHistory((h) => [...h.slice(-19), current])
-      return 'detail'
-    })
     // Katalogdagi joy eslab qolinadi, mahsulot esa rasmdan — tepadan — ochiladi
     rememberScroll(page)
     hapticFeedback('light')
+    heroTransition(() => {
+      setSelectedProduct(product)
+      setCartOpen(false)
+      setPage((current) => {
+        setHistory((h) => [...h.slice(-19), current])
+        return 'detail'
+      })
+    }, { scrollTop: 0 })
   }, [page, rememberScroll])
 
   const toggleLike = useCallback((id: number) => {
@@ -673,6 +689,47 @@ export function useShopStore() {
    */
   const dismissCartPrompt = useCallback(() => setCartPrompt(null), [])
 
+  /**
+   * «Qayta buyurtma» — eski buyurtmadagi mahsulotlar savatga solinadi.
+   *
+   * Narx va mavjudlik KATALOGDAN olinadi (buyurtmadagi eski narx emas):
+   * o'chirilgan yoki tugagan mahsulot o'tkazib yuboriladi va mijozga
+   * aytiladi. Savat darhol ochiladi — ikki bosishda rasmiylashtirish.
+   */
+  const reorder = useCallback((order: Order) => {
+    let added = 0
+    let skipped = 0
+    const next: CartItems = {}
+    for (const line of order.products || []) {
+      const product = products.find((p) => p.id === line.product?.id)
+      if (!product || product.stock === 0) {
+        skipped++
+        continue
+      }
+      const size = line.size || product.sizes?.[0]
+      const color = line.color || product.color
+      const key = `${product.id}_${size || 'nosize'}_${color || 'nocolor'}`
+      const quantity = Math.max(1, Number(line.quantity) || 1)
+      next[key] = { quantity: (next[key]?.quantity ?? 0) + quantity, size, color }
+      added++
+    }
+    if (!added) {
+      hapticError()
+      notify(t('orders.reorderNone'))
+      return
+    }
+    setCartItems((current) => {
+      const merged = { ...current }
+      for (const [key, item] of Object.entries(next)) {
+        merged[key] = { ...item, quantity: (current[key]?.quantity ?? 0) + item.quantity }
+      }
+      return merged
+    })
+    hapticSuccess()
+    notify(skipped ? t('orders.reorderPartial', { added, skipped }) : t('orders.reorderDone', { count: added }))
+    setCartOpen(true)
+  }, [products, notify, t])
+
   // Savat ochildi — unda o'z «Buyurtma berish» tugmasi bor, taklif endi ortiqcha
   const openCart = useCallback(() => {
     setCartOpen(true)
@@ -755,7 +812,9 @@ export function useShopStore() {
     setCheckoutDone(true)
     hapticSuccess()
     notify(t('checkout.success'))
-    setTimeout(() => setCheckoutDone(false), 4000)
+    // O'zi yopiladi, lekin tugma bosilsa — darhol (dismissCheckout)
+    if (checkoutTimer.current) clearTimeout(checkoutTimer.current)
+    checkoutTimer.current = setTimeout(() => setCheckoutDone(false), 6000)
 
     return true
   }, [isSubmitting, orderForm, cartProducts, notify, t])
@@ -782,7 +841,7 @@ export function useShopStore() {
     cartItems, cartCount, cartTotal, cartProducts,
     likedIds, selectedProduct,
     isSearchOpen, isCartOpen, query, searchResults, toast, cartPrompt,
-    myOrders, ordersReady, checkoutDone, isSubmitting, authReady, isAuthenticated, orderForm, userProfile,
+    myOrders, ordersReady, checkoutDone, dismissCheckout, reorder, isSubmitting, authReady, isAuthenticated, orderForm, userProfile,
     notifications, unreadNotificationsCount, unseenOrdersCount,
     catalogCategory, catalogSection, openCategory,
     theme, setTheme, toggleTheme,

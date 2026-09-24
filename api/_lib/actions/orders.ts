@@ -1,6 +1,6 @@
 import { adminDb } from '../firebase-admin.js'
 import {
-  editMessage, escapeHtml, replaceButtons, sendMessage, sendRows, setKeyboard, type AnyButton,
+  deleteMessage, editMessage, escapeHtml, replaceButtons, sendMessage, sendRows, setKeyboard, type AnyButton,
 } from '../telegram.js'
 import { userLang, type Lang } from '../i18n.js'
 import { restoreStock } from '../stock.js'
@@ -65,6 +65,56 @@ const STATUS_NAME: Record<Lang, Record<Status, string>> = {
     'Bekor qilingan': 'Отменён',
     'Rad etildi': 'Отклонён',
   },
+}
+
+/* ─── Bitta «jonli» holat xabari ─────────────────────────────── */
+
+const STEP_NAMES: Record<Lang, string> = {
+  uz: 'Qabul · Tayyorlanmoqda · Yo‘lda · Yetkazildi',
+  ru: 'Принят · Готовится · В пути · Доставлен',
+}
+const STEP_OF: Partial<Record<Status, number>> = {
+  'Yangi': 0, 'Qabul qilindi': 1, 'Yetkazilmoqda': 2, 'Yetkazildi': 3,
+}
+
+/** 🟢━━🟢━━🟢━━⚪ — buyurtma qaysi bosqichda. Bekor qilinganda chiziq yo'q. */
+function progressBar(status: Status, lang: Lang): string {
+  const step = STEP_OF[status]
+  if (step === undefined) return ''
+  const dots = [0, 1, 2, 3].map((i) => (i <= step ? '🟢' : '⚪')).join('━━')
+  return `\n\n${dots}\n<i>${STEP_NAMES[lang]}</i>`
+}
+
+/**
+ * Mijozga holat xabari — chatda doim BITTA.
+ *
+ * Har o'zgarishda yangi xabar yuboriladi (mijozga bildirishnoma keladi —
+ * tahrirda Telegram ovoz chiqarmaydi), avvalgisi esa o'chiriladi. Shunda
+ * chat «qabul qilindi / yo'lga chiqdi / yetkazildi» xabarlariga to'lib
+ * ketmaydi, oxirgi holat esa progress chizig'i bilan ko'rinadi.
+ *
+ * Oldingi xabar raqami `dispatch/{orderId}.customerMessage` da — bu
+ * to'plam faqat xodimlarga ochiq.
+ */
+export async function sendLiveStatus(
+  orderId: string,
+  userId: number,
+  status: Status,
+  lang: Lang,
+  body: string,
+): Promise<boolean> {
+  const db = await adminDb()
+  const ref = db.collection('dispatch').doc(orderId)
+  const result = await sendMessage(userId, body + progressBar(status, lang))
+  if (!result.ok) return false
+  try {
+    const prev = ((await ref.get()).data() || {}).customerMessage as { chatId?: number; messageId?: number } | undefined
+    if (prev?.messageId && prev.messageId !== result.messageId) await deleteMessage(prev.chatId ?? userId, prev.messageId)
+    await ref.set({ customerMessage: { chatId: userId, messageId: result.messageId } }, { merge: true })
+  } catch (error) {
+    console.error('[orders] eski holat xabari o‘chirilmadi:', error)
+  }
+  return true
 }
 
 const NOTIF_STATUS_TITLE: Record<Lang, string> = {
@@ -449,11 +499,14 @@ export async function applyStatusEffects(
       // bir marta sanaydi (src/hooks/use-shop-store.ts)
       orderId,
     })
-    const result = await sendMessage(
+    // Bitta jonli xabar: yangisi keladi, eskisi o'chadi (27-band)
+    notified = await sendLiveStatus(
+      orderId,
       order.userId,
+      status,
+      lang,
       CUSTOMER_TEXT[lang][status](escapeHtml(label)) + courierLine(order, status, lang),
     )
-    notified = result.ok
 
     // Yetkazildi — baho so'raladi (kuryerli buyurtmada ilovadagi bitta oyna)
     if (status === 'Yetkazildi') await sendRatingPrompt(orderId, order)

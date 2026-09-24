@@ -1,6 +1,6 @@
 import { adminDb } from '../firebase-admin.js'
 import type { Staff } from '../admin-auth.js'
-import { applyStatusEffects, bumpOrdersSignal, type OrderDoc } from './orders.js'
+import { applyStatusEffects, bumpOrdersSignal, sendLiveStatus, type OrderDoc } from './orders.js'
 import { supportOpen } from './support.js'
 import { escapeHtml, sendMessage } from '../telegram.js'
 import { userLang } from '../i18n.js'
@@ -526,7 +526,8 @@ export async function courierArrived(staff: Staff, body: Body) {
         type: 'order',
         orderId,
       })
-      await sendMessage(order.userId, ARRIVED_TEXT[lang](escapeHtml(label)))
+      // Jonli holat xabari yangilanadi (hali «Yo'lda» bosqichi, sarlavha — eshik oldida)
+      await sendLiveStatus(orderId, order.userId, 'Yetkazilmoqda', lang, ARRIVED_TEXT[lang](escapeHtml(label)))
     } catch (error) {
       console.error('[courier] «yetib keldim» xabari ketmadi:', error)
     }

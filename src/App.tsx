@@ -220,7 +220,16 @@ function App() {
             onDismiss={shop.dismissCartPrompt}
           />
         )}
-        {shop.checkoutDone && <CheckoutSuccess onViewOrders={() => shop.navigate('orders')} />}
+        {shop.checkoutDone && (
+          <CheckoutSuccess
+            onViewOrders={() => {
+              // Oyna darhol yopiladi — ilgari 4 soniyalik taymerni kutib turardi
+              shop.dismissCheckout()
+              shop.navigate('orders')
+            }}
+            onClose={shop.dismissCheckout}
+          />
+        )}
 
         {/* «Kuryer yo'lda» — pastda, menyu ustida. To'liq ekranli sahifalarda,
             savat ochiq yoki savat taklifi turganda ko'rinmaydi. */}
@@ -331,6 +340,7 @@ function App() {
                 onGoToCatalog={goToCatalog}
                 onOpenReceipt={shop.openReceipt}
                 onOpenMap={(order) => setTrackOrderId(order.id)}
+                onReorder={shop.reorder}
                 onBack={shop.goBack}
               />
             </div>
@@ -424,6 +434,7 @@ function App() {
                 order={shop.selectedOrder}
                 onBack={shop.goBack}
                 onHome={() => shop.navigate('home')}
+                onReorder={shop.reorder}
               />
             </div>
           )}

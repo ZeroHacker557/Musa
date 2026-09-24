@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { flyToCart } from '../utils/fly-to-cart'
+import { heartBurst } from '../utils/burst'
 import { PromoTimer } from '../components/promo/PromoTimer'
 import { productOriginal, productPhoto, productThumb } from '../utils/product-image'
 import { createPortal } from 'react-dom'
@@ -98,6 +100,8 @@ export function ProductDetailPage({
 
   const handleAddToCart = () => {
     if (soldOut) return
+    // Katta rasm tepadagi savat belgisiga uchadi
+    flyToCart(document.querySelector('.pd-hero'))
     for (let i = 0; i < count; i++) onAddToCart(product, selectedSize, selectedColor)
     setCount(1)
   }
@@ -111,7 +115,10 @@ export function ProductDetailPage({
         <PageTitle as="h2" className="text-lg font-bold">{t('product.title')}</PageTitle>
         <div className="ml-auto flex gap-1">
           <button
-            onClick={() => onToggleLike(product.id)}
+            onClick={(e) => {
+              if (!favourite) heartBurst(e.currentTarget)
+              onToggleLike(product.id)
+            }}
             className="icon-button"
             style={{ color: favourite ? 'var(--brand)' : 'var(--ink)' }}
             aria-label={t('favorites.title')}
@@ -141,8 +148,10 @@ export function ProductDetailPage({
           * kesib qo'yadi. `inset-0` esa aniq quti beradi, `object-contain`
           * shu qutiga to'liq sig'diradi.
           */}
+        {/* pd-hero — kartadagi rasm shu yerga kattalashib o'tadi (view-transition.ts) */}
         <div
-          className="relative mx-auto h-[280px] w-full overflow-hidden rounded-2xl border sm:h-[380px]"
+          data-fly-source
+          className="pd-hero relative mx-auto h-[280px] w-full overflow-hidden rounded-2xl border sm:h-[380px]"
           style={{
             // Shaffof PNG'lar uchun fon yuzaning o'zi; ramka chegara bilan beriladi
             background: 'var(--surface)',

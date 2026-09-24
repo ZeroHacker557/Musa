@@ -156,6 +156,24 @@ export async function editMessage(
   }
 }
 
+/**
+ * Xabarni o'chiradi (bot o'z xabarini 48 soat ichida o'chira oladi).
+ * Xato tashlamaydi — o'chmasa ham hech narsa buzilmaydi.
+ */
+export async function deleteMessage(chatId: number | string, messageId: number): Promise<boolean> {
+  try {
+    const response = await fetch(`${API}${token()}/deleteMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+    })
+    const json = (await response.json()) as { ok: boolean }
+    return json.ok
+  } catch {
+    return false
+  }
+}
+
 /** HTML'ga xavfsiz qo'shish uchun matnni tozalaydi. */
 export function escapeHtml(value: unknown): string {
   return String(value ?? '')
