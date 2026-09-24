@@ -25,6 +25,10 @@ export type AdminOrder = Order & {
   courierId?: string | null
   courierName?: string | null
   statusUpdatedAt?: string
+  /** Naqd pul: kuryerda / topshirilgan / kassa qabul qilgan. */
+  cashStatus?: 'held' | 'pending' | 'settled'
+  /** Kuryer bosgan muammo tugmalari. */
+  problems?: { code: string; at: string }[]
 }
 
 /**
@@ -293,6 +297,11 @@ export type StaffRow = {
   webAccess?: boolean
   /** Ega/admin kuryer sifatida ham ishlaydi. */
   canDeliver?: boolean
+  /** Smena: «Ishdaman» — yangi buyurtma xabarlari keladi. */
+  onShift?: boolean
+  /** Mijozlar bahosi yig'indisi va soni. */
+  ratingSum?: number
+  ratingCount?: number
 }
 
 /**
@@ -487,4 +496,56 @@ export function useSupportMessages(threadId: string | null) {
   }, [threadId])
 
   return threadId ? messages : []
+}
+
+/** Kuryerlar kassasi — naqd pulni topshirishlar (api/_lib/actions/cash.ts). */
+export type CashHandoverRow = {
+  id: string
+  courierUid: string
+  courierName: string
+  orderIds: string[]
+  orderNumbers: string[]
+  amount: number
+  status: 'pending' | 'confirmed' | 'rejected'
+  createdAt: string
+  decidedAt: string | null
+  decidedBy: string | null
+  note: string | null
+}
+
+/** `enabled` — faqat adminga: Rules kassani boshqa rolga bermaydi. */
+export function useCashHandovers(enabled = true) {
+  const [handovers, setHandovers] = useState<CashHandoverRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!enabled) return
+    return onSnapshot(
+      collection(db, 'cash_handovers'),
+      (snapshot) => {
+        const rows = snapshot.docs.map((d) => {
+          const data = d.data()
+          return {
+            id: d.id,
+            courierUid: String(data.courierUid || ''),
+            courierName: String(data.courierName || 'Kuryer'),
+            orderIds: Array.isArray(data.orderIds) ? data.orderIds.map(String) : [],
+            orderNumbers: Array.isArray(data.orderNumbers) ? data.orderNumbers.map(String) : [],
+            amount: Number(data.amount) || 0,
+            status: data.status === 'confirmed' || data.status === 'rejected' ? data.status : 'pending',
+            createdAt: String(data.createdAt || ''),
+            decidedAt: data.decidedAt ? String(data.decidedAt) : null,
+            decidedBy: data.decidedBy ? String(data.decidedBy) : null,
+            note: data.note ? String(data.note) : null,
+          } as CashHandoverRow
+        })
+        rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        setHandovers(rows)
+        setLoading(false)
+      },
+      () => setLoading(false),
+    )
+  }, [enabled])
+
+  return { handovers: enabled ? handovers : [], loading: enabled ? loading : false }
 }

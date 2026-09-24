@@ -114,6 +114,8 @@ export type OrderDoc = {
   dispatchMessages?: DispatchMessage[]
   dispatchText?: string
   groupText?: string
+  /** Kuryer olganda hisoblangan taxminiy yetib kelish vaqti, daqiqa. */
+  etaMinutes?: number | null
   customer?: {
     name?: string
     phone?: string
@@ -391,7 +393,10 @@ export async function applyStatusEffects(
       // bir marta sanaydi (src/hooks/use-shop-store.ts)
       orderId,
     })
-    const result = await sendMessage(order.userId, CUSTOMER_TEXT[lang][status](escapeHtml(label)))
+    const result = await sendMessage(
+      order.userId,
+      CUSTOMER_TEXT[lang][status](escapeHtml(label)) + courierLine(order, status, lang),
+    )
     notified = result.ok
 
     // Yetkazildi — mahsulotlarni baholashni so'raymiz (javobni bot qabul qiladi)
@@ -401,7 +406,42 @@ export async function applyStatusEffects(
   // Linko'dagi buyurtma holati ham yangilanadi (sozlamada yoqilgan bo'lsa)
   await pushOrderSafe(orderId, { ...order, status })
 
+  // Kuryer ilovalari ro'yxatni darhol yangilasin
+  await bumpOrdersSignal()
+
   return { notified }
+}
+
+/**
+ * «Yo'lga chiqdi» xabariga kuryer ismi va taxminiy vaqt.
+ * Vaqt faqat kuryer olganda joylashuvi ma'lum bo'lsa hisoblanadi.
+ */
+function courierLine(order: OrderDoc, status: Status, lang: Lang): string {
+  if (status !== 'Yetkazilmoqda' || !order.courierName) return ''
+  const name = escapeHtml(order.courierName)
+  const eta = Number(order.etaMinutes) || 0
+  if (lang === 'ru') return `\n🛵 Курьер: ${name}` + (eta ? ` · примерно через ${eta} мин` : '')
+  return `\n🛵 Kuryer: ${name}` + (eta ? ` · taxminan ${eta} daqiqada yetib keladi` : '')
+}
+
+/**
+ * Kuryer ilovalari uchun «buyurtmalar o'zgardi» belgisi.
+ *
+ * Kuryer buyurtmalarni Firestore'dan bevosita o'qiy olmaydi (Rules
+ * faqat adminga beradi), shuning uchun ro'yxatni server orqali oladi.
+ * Bu hujjatda hech qanday ma'lumot yo'q — faqat vaqt. Ilova unga
+ * obuna bo'lib, o'zgarishi bilan ro'yxatni qayta so'raydi: yangi
+ * buyurtma bir-ikki soniyada ko'rinadi.
+ *
+ * Xato tashlamaydi.
+ */
+export async function bumpOrdersSignal(): Promise<void> {
+  try {
+    const db = await adminDb()
+    await db.collection('signals').doc('orders').set({ at: new Date().toISOString() }, { merge: true })
+  } catch (error) {
+    console.error('[orders] signal yozilmadi:', error)
+  }
 }
 
 /**
@@ -436,6 +476,7 @@ export async function orderAssign(staff: Staff, body: Record<string, unknown>) {
     { courierId, courierName: courier.name ?? null, assignedAt: new Date().toISOString() },
     { merge: true },
   )
+  await bumpOrdersSignal()
 
   let notified = false
   if (courier.telegramId) {
@@ -565,6 +606,18 @@ function openInAppButton(orderId: string): AnyButton | null {
   return { text: '📱 Ilovada ochish', web_app: { url: `${base}/?courier=${encodeURIComponent(orderId)}` } }
 }
 
+/** Hech bir kuryer smenada emas — adminlarga bir qatorli ogohlantirish. */
+async function warnNoShift(label: string): Promise<void> {
+  try {
+    const text =
+      `⚠️ <b>Hech bir kuryer ishda emas</b>\n${escapeHtml(label)} barcha kuryerlarga yuborildi. ` +
+      'Kuryerlar ilovada «Ishdaman» ni yoqishi kerak.'
+    for (const target of await adminTargets()) await sendMessage(target, text)
+  } catch (error) {
+    console.error('[orders] smena ogohlantirishi ketmadi:', error)
+  }
+}
+
 /**
  * Buyurtmani kuryerlarga yetkazadi.
  *
@@ -613,9 +666,23 @@ export async function dispatchToCouriers(orderId: string, order: OrderDoc): Prom
         db.collection('staff').where('role', '==', 'courier').get(),
         db.collection('staff').where('canDeliver', '==', true).get(),
       ])
+      const all: number[] = []
+      const onShift: number[] = []
       for (const doc of [...byRole.docs, ...byFlag.docs]) {
-        const data = doc.data() as { telegramId?: number; active?: boolean }
-        if (data.active !== false && data.telegramId) couriers.push(data.telegramId)
+        const data = doc.data() as { telegramId?: number; active?: boolean; onShift?: boolean }
+        if (data.active === false || !data.telegramId) continue
+        all.push(data.telegramId)
+        if (data.onShift === true) onShift.push(data.telegramId)
+      }
+      /*
+       * Smena: xabar faqat «Ishdaman» deb turganlarga. Hech kim ishda
+       * bo'lmasa — buyurtma yo'qolmasin, hammaga ketadi va adminlar
+       * ogohlantiriladi.
+       */
+      if (onShift.length) couriers.push(...onShift)
+      else {
+        couriers.push(...all)
+        await warnNoShift(order.orderNumber || `#${orderId.slice(0, 6)}`)
       }
     }
 

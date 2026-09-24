@@ -4,9 +4,10 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { formatPrice } from '../data'
-import { useI18n } from '../i18n'
+import { useI18n, type TranslationKey } from '../i18n'
 import { usePresence } from '../hooks/use-presence'
-import type { CourierOrder } from './api'
+import type { CourierOrder, ProblemCode } from './api'
+import { ArriveButton } from './CourierOrdersPage'
 import { clock, telHref, timeAgo } from './format'
 import { NavigateButton } from './NavigateButton'
 import { CourierReceipt } from './CourierReceipt'
@@ -19,7 +20,16 @@ type Props = {
   onDeliver: (order: CourierOrder) => void
   /** Aynan shu buyurtma bo'yicha qo'llab-quvvatlashga yozish. */
   onSupport: (order: CourierOrder) => void
+  onArrive: (order: CourierOrder) => void
+  /** Tez muammo tugmasi — chatga tayyor matn, kerak bo'lsa mijozga xabar. */
+  onProblem: (order: CourierOrder, code: ProblemCode) => void
 }
+
+const PROBLEM_BUTTONS: { code: ProblemCode; icon: string; key: TranslationKey }[] = [
+  { code: 'no_answer', icon: '📵', key: 'courier.problemNoAnswer' },
+  { code: 'no_address', icon: '🗺', key: 'courier.problemNoAddress' },
+  { code: 'refused', icon: '✋', key: 'courier.problemRefused' },
+]
 
 /**
  * Buyurtma tafsilotlari — to'liq ekran.
@@ -28,7 +38,7 @@ type Props = {
  * nimani olishini ko'rib tekshiradi. Ro'yxatdagi kartochka esa ixcham
  * qoladi — u yerda manzil, masofa va summa kifoya.
  */
-export function OrderDetail({ order, busy, onClose, onTake, onDeliver, onSupport }: Props) {
+export function OrderDetail({ order, busy, onClose, onTake, onDeliver, onSupport, onArrive, onProblem }: Props) {
   const { t } = useI18n()
   const { mounted, leaving } = usePresence(order !== null, 240)
   // Yopilish animatsiyasi paytida ham oxirgi buyurtma ko'rinib tursin
@@ -110,6 +120,29 @@ export function OrderDetail({ order, busy, onClose, onTake, onDeliver, onSupport
           </div>
         </section>
 
+        {/* Tez muammo tugmalari — bir bosishda adminga, kerak bo'lsa mijozga ham */}
+        {status !== 'done' && (
+          <section className="crr-block">
+            <p className="crr-block__title">{t('courier.problemTitle')}</p>
+            <div className="crr-problems">
+              {PROBLEM_BUTTONS.map((p) => {
+                const reported = shown.problems.includes(p.code)
+                return (
+                  <button
+                    key={p.code}
+                    className={'crr-problem ' + (reported ? 'is-reported' : '')}
+                    onClick={() => onProblem(shown, p.code)}
+                  >
+                    <span className="crr-problem__icon" aria-hidden="true">{p.icon}</span>
+                    <span className="min-w-0 flex-1 text-left">{t(p.key)}</span>
+                    {reported && <CheckCircle2 size={15} />}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
         {/* Muammo bo'lsa — shu buyurtma bo'yicha admin bilan yozishish */}
         <button className="crr-option crr-option--support mt-3.5 w-full" onClick={() => onSupport(shown)}>
           <span className="crr-option__icon"><Headset size={19} /></span>
@@ -173,10 +206,13 @@ export function OrderDetail({ order, busy, onClose, onTake, onDeliver, onSupport
               {t('courier.take')}
             </button>
           ) : (
-            <button className="crr-btn crr-btn--primary crr-btn--block" disabled={busy} onClick={() => onDeliver(shown)}>
-              <PackageCheck size={18} />
-              {t('courier.deliver')}
-            </button>
+            <div className="grid grid-cols-[1fr_1.4fr] gap-2">
+              <ArriveButton order={shown} busy={busy} onArrive={onArrive} />
+              <button className="crr-btn crr-btn--primary crr-btn--block" disabled={busy} onClick={() => onDeliver(shown)}>
+                <PackageCheck size={18} />
+                {t('courier.deliver')}
+              </button>
+            </div>
           )}
         </footer>
       )}

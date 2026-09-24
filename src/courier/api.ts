@@ -31,12 +31,46 @@ export type CourierOrder = {
   deliveryFee: number
   paymentStatus: string | null
   courierName: string | null
+  /** «Yetib keldim» bosilgan vaqt — mijozga xabar ketgan. */
+  arrivedAt: string | null
+  etaAt: string | null
+  /** Naqd pul: kuryerda / topshirilgan / kassa qabul qilgan. */
+  cashStatus: 'held' | 'pending' | 'settled' | null
+  /** Bosilgan muammo tugmalari (kod). */
+  problems: string[]
 }
+
+export type CashHandover = {
+  id: string
+  amount: number
+  count: number
+  status: 'pending' | 'confirmed' | 'rejected'
+  createdAt: string
+  decidedAt: string | null
+  note: string | null
+}
+
+export type CourierCash = {
+  held: { amount: number; count: number }
+  pending: { amount: number; count: number }
+  handovers: CashHandover[]
+}
+
+export type CourierReview = { number: string; at: string | null; stars: number; tags: string[]; comment: string }
 
 export type CourierBucket = { delivered: number; cash: number; card: number }
 
 export type CourierOverview = {
-  profile: { name: string; phone: string | null; telegramId: number | null }
+  profile: {
+    name: string
+    phone: string | null
+    telegramId: number | null
+    /** Smena: «Ishdaman» — yangi buyurtma xabarlari keladi. */
+    onShift: boolean
+    rating: { count: number; average: number | null }
+  }
+  reviews: CourierReview[]
+  cash: CourierCash
   available: CourierOrder[]
   active: CourierOrder[]
   done: CourierOrder[]
@@ -47,6 +81,7 @@ export type CourierOverview = {
 
 export type TakeOutcome = 'claimed' | 'already' | 'taken' | 'closed' | 'not_found'
 export type DeliverOutcome = 'done' | 'already' | 'not_yours' | 'closed' | 'not_found'
+export type ProblemCode = 'no_answer' | 'no_address' | 'refused'
 
 /**
  * Faqat `vite dev` da: `?courierDemo` bilan kuryer sahifasini soxta
@@ -59,9 +94,40 @@ export async function fetchOverview(): Promise<CourierOverview> {
   return apiPost<CourierOverview>('/api/courier', { action: 'overview' })
 }
 
-export async function takeOrder(orderId: string): Promise<{ outcome: TakeOutcome; courierName: string | null }> {
+/**
+ * Buyurtmani olish. Joylashuv berilsa, server mijozga «taxminan 15
+ * daqiqada» deb yozadi.
+ */
+export async function takeOrder(
+  orderId: string,
+  point: { lat: number; lng: number } | null = null,
+): Promise<{ outcome: TakeOutcome; courierName: string | null; etaMinutes?: number | null }> {
   if (DEMO) return (await import('./demo')).demoTake(orderId)
-  return apiPost('/api/courier', { action: 'take', orderId })
+  return apiPost('/api/courier', { action: 'take', orderId, ...(point ?? {}) })
+}
+
+/** «Yetib keldim» — mijozga «Kuryer eshik oldida» xabari. */
+export async function arriveOrder(orderId: string): Promise<{ outcome: string }> {
+  if (DEMO) return (await import('./demo')).demoArrive(orderId)
+  return apiPost('/api/courier', { action: 'arrived', orderId })
+}
+
+export async function setShift(on: boolean): Promise<{ onShift: boolean }> {
+  if (DEMO) return (await import('./demo')).demoShift(on)
+  return apiPost('/api/courier', { action: 'shift', on })
+}
+
+export async function reportProblem(
+  orderId: string,
+  code: ProblemCode,
+): Promise<{ threadId: string; customerNotified: boolean }> {
+  if (DEMO) return (await import('./demo')).demoProblem(orderId, code)
+  return apiPost('/api/courier', { action: 'problem', orderId, code })
+}
+
+export async function handOverCash(): Promise<{ amount: number; count: number }> {
+  if (DEMO) return (await import('./demo')).demoHandover()
+  return apiPost('/api/courier', { action: 'cash.handover' })
 }
 
 export async function deliverOrder(orderId: string): Promise<{ outcome: DeliverOutcome }> {

@@ -4,15 +4,17 @@ import { formatPrice } from '../data'
 import { useI18n } from '../i18n'
 import { usePresence } from '../hooks/use-presence'
 import { Toast } from '../components/ui/Toast'
-import { setupBackButton, showAlert, toggleBackButton } from '../utils/telegram'
+import { hapticError, hapticSuccess, setupBackButton, showAlert, toggleBackButton } from '../utils/telegram'
 import { CourierOrdersPage, type CourierTab } from './CourierOrdersPage'
 import { CourierProfilePage } from './CourierProfilePage'
 import { HoldButton } from './HoldButton'
 import { OrderDetail } from './OrderDetail'
 import { SupportScreen } from './SupportScreen'
 import { useMyThreads } from './support'
-import type { CourierOrder } from './api'
+import { handOverCash, reportProblem, setShift, type CourierOrder, type ProblemCode } from './api'
+import { confirmAction } from './format'
 import { createOrderActions, useCourierData, useCourierLocation } from './use-courier'
+import type { TranslationKey } from '../i18n'
 
 type Props = {
   /** Bot xabaridagi «Ilovada ochish» — shu buyurtma ajratib ko'rsatiladi. */
@@ -63,6 +65,31 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
   const actions = createOrderActions(t, () => load(), setBusyId)
 
   /*
+   * Smena. Bosilishi bilan almashadi (kutib o'tirmaydi), server rad
+   * etsa — ortga qaytadi. Ro'yxat kelgach serverdagi qiymat asosiy.
+   */
+  const [shiftOverride, setShiftOverride] = useState<boolean | null>(null)
+  const [shiftBusy, setShiftBusy] = useState(false)
+  const onShift = shiftOverride ?? data?.profile.onShift ?? false
+  const toggleShift = async () => {
+    const next = !onShift
+    setShiftOverride(next)
+    setShiftBusy(true)
+    try {
+      await setShift(next)
+      hapticSuccess()
+      setToast(t(next ? 'courier.shiftStarted' : 'courier.shiftEnded'))
+      await load()
+    } catch (e) {
+      hapticError()
+      showAlert(e instanceof Error ? e.message : 'Xato')
+    } finally {
+      setShiftOverride(null)
+      setShiftBusy(false)
+    }
+  }
+
+  /*
    * Havola bilan ochilgan buyurtma qaysi bo'limda bo'lsa, o'sha ochiladi.
    * Faqat bir marta — keyin kuryer bo'limlarni o'zi almashtiradi.
    */
@@ -104,10 +131,60 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
   }
 
   const take = async (order: CourierOrder) => {
-    const result = await actions.take(order.id)
+    // Joylashuv ma'lum bo'lsa — mijozga «taxminan 15 daqiqada» yoziladi
+    const result = await actions.take(order.id, location.status === 'ok' ? location.point : null)
     report(result)
     // Olingan buyurtma «Yo'lda» ga o'tadi — kuryer darhol marshrutni ko'rsin
     if (result.kind === 'success') setTab('active')
+  }
+
+  const arrive = async (order: CourierOrder) => {
+    if (!(await confirmAction(t('courier.arrivedConfirm')))) return
+    report(await actions.arrive(order.id))
+  }
+
+  /** Muammo tugmasi: tasdiq → chatga tayyor matn → shu buyurtma chati ochiladi. */
+  const PROBLEM_KEYS: Record<ProblemCode, TranslationKey> = {
+    no_answer: 'courier.problemNoAnswer',
+    no_address: 'courier.problemNoAddress',
+    refused: 'courier.problemRefused',
+  }
+  const problem = async (order: CourierOrder, code: ProblemCode) => {
+    const ok = await confirmAction(t('courier.problemConfirm', { problem: t(PROBLEM_KEYS[code]) }))
+    if (!ok) return
+    setBusyId(order.id)
+    try {
+      const result = await reportProblem(order.id, code)
+      hapticSuccess()
+      setToast(t(result.customerNotified ? 'courier.problemSentCustomer' : 'courier.problemSent'))
+      setSupport((s) => ({ open: true, threadId: result.threadId, order, key: s.key + 1 }))
+      void load()
+    } catch (e) {
+      hapticError()
+      showAlert(e instanceof Error ? e.message : 'Xato')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const [cashBusy, setCashBusy] = useState(false)
+  const handover = async () => {
+    const held = data?.cash.held
+    if (!held?.count) return
+    const ok = await confirmAction(t('courier.cashConfirm', { amount: formatPrice(held.amount), count: held.count }))
+    if (!ok) return
+    setCashBusy(true)
+    try {
+      await handOverCash()
+      hapticSuccess()
+      setToast(t('courier.cashSent'))
+      await load()
+    } catch (e) {
+      hapticError()
+      showAlert(e instanceof Error ? e.message : 'Xato')
+    } finally {
+      setCashBusy(false)
+    }
   }
 
   // Oyna javob kelguncha ochiq turadi — tugmada aylanuvchi belgi ko'rinadi
@@ -143,6 +220,10 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
               onTake={take}
               onDeliver={setConfirm}
               onOpen={(order) => setDetailId(order.id)}
+              onArrive={arrive}
+              onShift={onShift}
+              shiftBusy={shiftBusy}
+              onToggleShift={toggleShift}
             />
           ) : (
             <CourierProfilePage
@@ -151,6 +232,8 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
               onOpenShop={onOpenShop}
               onOpenOrder={(order) => setDetailId(order.id)}
               supportUnread={supportUnread}
+              cashBusy={cashBusy}
+              onHandOverCash={handover}
               onOpenSupport={() => setSupport((s) => ({ open: true, threadId: null, order: null, key: s.key + 1 }))}
             />
           )}
@@ -207,6 +290,8 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
         onClose={() => setDetailId(null)}
         onTake={take}
         onDeliver={setConfirm}
+        onArrive={arrive}
+        onProblem={problem}
         onSupport={(order) => {
           // Shu buyurtma bo'yicha ochiq murojaat bo'lsa — to'g'ri o'sha chat,
           // bo'lmasa yozish oynasi (buyurtma oldindan tanlangan)

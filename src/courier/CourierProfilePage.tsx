@@ -1,13 +1,16 @@
-import { Banknote, BadgeCheck, ChevronRight, CreditCard, Headset, Languages, PackageCheck, Store, UserRound } from 'lucide-react'
+import {
+  Banknote, BadgeCheck, ChevronRight, Clock3, CreditCard, Headset, Languages, Loader2, PackageCheck, Star, Store,
+  UserRound, Wallet,
+} from 'lucide-react'
 import { useState } from 'react'
 import { formatPrice } from '../data'
-import { useI18n } from '../i18n'
+import { useI18n, type TranslationKey } from '../i18n'
 import { PageTitle } from '../components/layout/PageTitle'
 import { formatOrderDate } from '../utils/date'
 import { getTelegramUser, hapticSelection } from '../utils/telegram'
 import { updateUserProfile } from '../lib/firebase'
 import { auth } from '../lib/auth'
-import type { CourierOrder, CourierOverview } from './api'
+import type { CashHandover, CourierOrder, CourierOverview } from './api'
 
 type Period = 'today' | 'week' | 'month'
 
@@ -20,10 +23,25 @@ type Props = {
   /** Qo'llab-quvvatlash chati va unda o'qilmagan javoblar. */
   onOpenSupport: () => void
   supportUnread: number
+  /** «Kassaga topshirish» — qo'ldagi hamma naqd. */
+  onHandOverCash: () => void
+  cashBusy: boolean
+}
+
+/** Mijoz tanlagan teglar (api/_lib/actions/courier-rating.ts bilan bir xil). */
+const TAG_KEYS: Record<string, TranslationKey> = {
+  fast: 'rating.tagFast', polite: 'rating.tagPolite', careful: 'rating.tagCareful',
+  late: 'rating.tagLate', rude: 'rating.tagRude', damaged: 'rating.tagDamaged',
+}
+
+const HANDOVER_KEYS: Record<CashHandover['status'], TranslationKey> = {
+  pending: 'courier.cashStatusPending',
+  confirmed: 'courier.cashStatusConfirmed',
+  rejected: 'courier.cashStatusRejected',
 }
 
 export function CourierProfilePage({
-  data, photo, onOpenShop, onOpenOrder, onOpenSupport, supportUnread,
+  data, photo, onOpenShop, onOpenOrder, onOpenSupport, supportUnread, onHandOverCash, cashBusy,
 }: Props) {
   const { t, lang, setLang } = useI18n()
   const [period, setPeriod] = useState<Period>('today')
@@ -63,11 +81,64 @@ export function CourierProfilePage({
         <span className="min-w-0 flex-1">
           <b className="block truncate text-xl font-extrabold" style={{ color: 'var(--ink)' }}>{name}</b>
           {phone && <span className="block truncate text-sm" style={{ color: 'var(--muted)' }}>{phone}</span>}
-          <span className="crr-badge crr-badge--solid mt-2">
-            <BadgeCheck size={13} /> {t('courier.badge')}
+          <span className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="crr-badge crr-badge--solid">
+              <BadgeCheck size={13} /> {t('courier.badge')}
+            </span>
+            {data?.profile.rating.average != null && (
+              <span className="crr-badge crr-badge--rating">
+                <Star size={13} fill="currentColor" /> {data.profile.rating.average.toFixed(1)}
+                <span style={{ opacity: 0.7 }}>({data.profile.rating.count})</span>
+              </span>
+            )}
           </span>
         </span>
       </section>
+
+      {/* Qo'ldagi naqd — kassaga topshirish */}
+      {data && (
+        <section className="crr-cash mx-5 mt-4 sm:mx-10">
+          <div className="flex items-center gap-3">
+            <span className="crr-cash__icon"><Wallet size={22} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-bold" style={{ color: 'var(--gold-strong)' }}>{t('courier.cashHeld')}</span>
+              <b className="block text-2xl font-extrabold" style={{ color: 'var(--ink)' }}>{formatPrice(data.cash.held.amount)}</b>
+              <span className="block text-xs" style={{ color: 'var(--muted)' }}>
+                {t('courier.cashOrders', { count: data.cash.held.count })}
+              </span>
+            </span>
+          </div>
+          {data.cash.pending.count > 0 && (
+            <p className="crr-cash__pending">
+              <Clock3 size={14} /> {t('courier.cashPending', { amount: formatPrice(data.cash.pending.amount) })}
+            </p>
+          )}
+          <button
+            className="crr-btn crr-btn--primary crr-btn--block mt-3"
+            disabled={cashBusy || data.cash.held.count === 0}
+            onClick={onHandOverCash}
+          >
+            {cashBusy ? <Loader2 size={18} className="animate-spin" /> : <Banknote size={18} />}
+            {data.cash.held.count ? t('courier.cashHandOver') : t('courier.cashNothing')}
+          </button>
+          {data.cash.handovers.length > 0 && (
+            <ul className="crr-cash__history">
+              {data.cash.handovers.slice(0, 4).map((h) => (
+                <li key={h.id}>
+                  <span className="min-w-0 flex-1">
+                    <b className="block text-sm" style={{ color: 'var(--ink)' }}>{formatPrice(h.amount)}</b>
+                    <span className="block text-xs" style={{ color: 'var(--muted)' }}>
+                      {formatOrderDate(h.createdAt)} · {t('courier.cashOrders', { count: h.count })}
+                      {h.note ? ` · ${h.note}` : ''}
+                    </span>
+                  </span>
+                  <span className={'crr-cash__status is-' + h.status}>{t(HANDOVER_KEYS[h.status])}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {/* Statistika */}
       <section className="mx-5 mt-6 sm:mx-10">
@@ -96,6 +167,35 @@ export function CourierProfilePage({
           </p>
         )}
       </section>
+
+      {/* Mijozlar fikri */}
+      {data && data.reviews.length > 0 && (
+        <section className="mx-5 mt-6 sm:mx-10">
+          <h2 className="section-title mb-3">{t('courier.reviewsTitle')}</h2>
+          <ul className="crr-reviews">
+            {data.reviews.map((r, i) => (
+              <li key={i}>
+                <span className="flex items-center gap-2">
+                  <span className="crr-stars" aria-label={`${r.stars}/5`}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star key={n} size={14} fill={n <= r.stars ? 'currentColor' : 'none'} />
+                    ))}
+                  </span>
+                  <span className="text-xs" style={{ color: 'var(--faint)' }}>{r.number}</span>
+                </span>
+                {r.tags.length > 0 && (
+                  <span className="mt-1.5 flex flex-wrap gap-1">
+                    {r.tags.map((tag) => (
+                      <span key={tag} className="crr-tag">{TAG_KEYS[tag] ? t(TAG_KEYS[tag]) : tag}</span>
+                    ))}
+                  </span>
+                )}
+                {r.comment && <p className="mt-1.5 text-sm" style={{ color: 'var(--ink-2)' }}>«{r.comment}»</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Sozlamalar */}
       <section className="mx-5 mt-6 grid gap-2 sm:mx-10">

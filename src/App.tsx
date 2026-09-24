@@ -8,6 +8,10 @@ import { AddressPrompt } from './components/address/AddressPrompt'
 import { SplashAd } from './components/promo/SplashAd'
 import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
+import { DeliveryTracker } from './components/order/DeliveryTracker'
+import { CourierRatingSheet, type CourierRatingPayload } from './components/order/CourierRatingSheet'
+import { apiPost } from './lib/api'
+import type { Order } from './types/domain'
 import { useShopStore } from './hooks/use-shop-store'
 import { useSwipeNav } from './hooks/use-swipe-nav'
 import { usePresence } from './hooks/use-presence'
@@ -117,6 +121,25 @@ function App() {
   // Ochilish reklamasi ko'rinib turganda manzil taklifi kutib turadi
   const [adVisible, setAdVisible] = useState(false)
 
+  /*
+   * Faqat dev: `?deliveryDemo` — «Kuryer yo'lda» kartochkasi va baho
+   * oynasini serversiz ko'rish. Production'da bu shox kesib tashlanadi.
+   */
+  const [demoOrders, setDemoOrders] = useState<Order[] | null>(null)
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const param = new URLSearchParams(location.search).get('deliveryDemo')
+    if (param === null) return
+    void import('./components/order/delivery-demo').then((m) => setDemoOrders(m.demoOrders(param === 'arrived')))
+  }, [])
+  const trackedOrders = demoOrders ?? shop.myOrders
+
+  // Kuryer bahosi — server tekshiradi (buyurtma o'zinikimi, yetkazilganmi)
+  const rateCourier = async (orderId: string, payload: CourierRatingPayload) => {
+    if (demoOrders) return
+    await apiPost('/api/reviews', { kind: 'courier', orderId, ...payload })
+  }
+
   const goToCatalog = () => shop.navigate('catalog')
   // Savat yopilganda ham silliq tushib ketsin — styles.css `.cart-drawer.leaving`
   const cartPresence = usePresence(shop.isCartOpen, 280)
@@ -186,6 +209,19 @@ function App() {
           />
         )}
         {shop.checkoutDone && <CheckoutSuccess onViewOrders={() => shop.navigate('orders')} />}
+
+        {/* «Kuryer yo'lda» — pastda, menyu ustida. To'liq ekranli sahifalarda,
+            savat ochiq yoki savat taklifi turganda ko'rinmaydi. */}
+        {!FULLSCREEN_PAGES.includes(shop.page) && !shop.isCartOpen && !shop.cartPrompt && (
+          <DeliveryTracker orders={trackedOrders} onOpen={shop.openReceipt} />
+        )}
+
+        {/* Kuryerni baholash — reklama va manzil taklifi yopilgach */}
+        <CourierRatingSheet
+          orders={trackedOrders}
+          blocked={adVisible || shop.askAddress || shop.checkoutDone || shop.isCartOpen}
+          submit={rateCourier}
+        />
 
         {/* Yangi mijozga manzil taklifi — ilova ochilgach 2 soniyadan keyin */}
         {shop.askAddress && !adVisible && (

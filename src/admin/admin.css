@@ -1192,3 +1192,22 @@
 .adm-msg__author { display: block; font-size: 0.7rem; font-weight: 800; opacity: 0.85; }
 .adm-msg__text { margin: 0; font-size: 0.9rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
 .adm-msg__time { display: flex; justify-content: flex-end; align-items: center; gap: 0.2rem; font-size: 0.66rem; opacity: 0.7; }
+
+/* ====== Kuryerlar kassasi ====== */
+.adm-cash__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 14px;
+}
+.adm-cash__row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  padding: 0.6rem 0.75rem;
+}

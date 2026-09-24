@@ -20,6 +20,7 @@ export type Route =
   | 'customers'
   | 'broadcast'
   | 'support'
+  | 'cash'
   | 'staff'
   | 'promocodes'
   | 'settings'
@@ -38,6 +39,7 @@ export const ROUTES: Route[] = [
   'customers',
   'broadcast',
   'support',
+  'cash',
   'staff',
   'promocodes',
   'settings',

@@ -1,5 +1,5 @@
 import {
-  BarChart3, BrainCircuit, Boxes, Clapperboard, ExternalLink, FileBarChart, Flame, Headset, Layers, LayoutGrid, LogOut, Maximize2,
+  BarChart3, BrainCircuit, Boxes, Clapperboard, ExternalLink, FileBarChart, Flame, Headset, Layers, LayoutGrid, LogOut, Maximize2, Wallet,
   Megaphone, Menu, Minimize2, Moon, PlugZap, Settings, ShoppingBag, Sun, Tag, Users, UserCog, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -37,6 +37,7 @@ const NAV: NavEntry[] = [
   { route: 'customers', label: 'Mijozlar', icon: Users, min: 'admin', section: 'Odamlar' },
   { route: 'broadcast', label: 'Ommaviy xabar', icon: Megaphone, min: 'admin' },
   { route: 'support', label: 'Qo‘llab-quvvatlash', icon: Headset, min: 'admin' },
+  { route: 'cash', label: 'Kuryerlar kassasi', icon: Wallet, min: 'admin' },
   { route: 'staff', label: 'Xodimlar', icon: UserCog, min: 'owner' },
 
   { route: 'settings', label: 'Sozlamalar', icon: Settings, min: 'owner', section: 'Tizim' },
@@ -58,6 +59,7 @@ const TITLES: Record<Route, string> = {
   customers: 'Mijozlar',
   broadcast: 'Ommaviy xabar',
   support: 'Qo‘llab-quvvatlash',
+  cash: 'Kuryerlar kassasi',
   staff: 'Xodimlar',
   promocodes: 'Promokodlar',
   settings: 'Sozlamalar',
@@ -73,10 +75,12 @@ type Props = {
   newOrders?: number
   /** Kuryerlarning javob kutayotgan xabarlari. */
   supportUnread?: number
+  /** Tasdiq kutayotgan kassa topshirishlari. */
+  cashPending?: number
   children: ReactNode
 }
 
-export function Shell({ staff, route, onNavigate, newOrders = 0, supportUnread = 0, children }: Props) {
+export function Shell({ staff, route, onNavigate, newOrders = 0, supportUnread = 0, cashPending = 0, children }: Props) {
   const [open, setOpen] = useState(false)
   const [theme, setThemeState] = useState<ThemeMode>(getStoredTheme)
 
@@ -140,6 +144,9 @@ export function Shell({ staff, route, onNavigate, newOrders = 0, supportUnread =
                   )}
                   {entry.route === 'support' && supportUnread > 0 && (
                     <span className="adm-nav__badge">{supportUnread > 99 ? '99+' : supportUnread}</span>
+                  )}
+                  {entry.route === 'cash' && cashPending > 0 && (
+                    <span className="adm-nav__badge">{cashPending}</span>
                   )}
                 </button>
               </div>

@@ -1,5 +1,5 @@
 import type { TranslationKey } from '../i18n'
-import { getTelegram } from '../utils/telegram'
+import { getTelegram, isTelegramEnvironment } from '../utils/telegram'
 
 type T = (key: TranslationKey, values?: Record<string, string | number>) => string
 
@@ -26,6 +26,24 @@ export function clock(value: string | null): string {
   if (!Number.isFinite(ms)) return ''
   const d = new Date(ms)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+/**
+ * Tasdiqlash — Telegram'ning o'z oynasi (ilova ichida chiroyli va
+ * tanish ko'rinadi), Telegram tashqarisida — brauzer oynasi.
+ */
+export function confirmAction(message: string): Promise<boolean> {
+  const tg = getTelegram()
+  // Brauzerda ham `Telegram.WebApp` obyekti bor, lekin showConfirm u yerda
+  // javob qaytarmaydi — faqat haqiqiy Telegram muhitida ishlatamiz
+  if (tg?.showConfirm && isTelegramEnvironment()) {
+    try {
+      return new Promise((resolve) => tg.showConfirm(message, (ok) => resolve(Boolean(ok))))
+    } catch {
+      // Eski mijozda usul yo'q — brauzer oynasi
+    }
+  }
+  return Promise.resolve(window.confirm(message))
 }
 
 /** Telefon raqamidan `tel:` havolasi. */

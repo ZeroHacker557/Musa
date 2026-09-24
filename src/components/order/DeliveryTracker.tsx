@@ -1,0 +1,116 @@
+import { Car, MapPin, Phone, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useI18n } from '../../i18n'
+import type { Order } from '../../types/domain'
+
+type Props = {
+  orders: Order[]
+  onOpen: (order: Order) => void
+}
+
+const HIDDEN_KEY = 'musa:tracker-hidden'
+
+function readHidden(): string | null {
+  try {
+    return sessionStorage.getItem(HIDDEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * «Kuryer yo'lda» — mijoz ilovasining pastida suzib turadigan kartochka.
+ *
+ * Buyurtma «Yetkazilmoqda» bo'lishi bilan chiqadi: yo'l chizig'i
+ * bo'ylab mashina manzil tomon siljiydi (qancha yo'l qolgani taxminiy
+ * vaqtdan hisoblanadi), oxirida manzil belgisi lipillaydi. Kuryer «Yetib
+ * keldim» bossa — mashina manzilga yetib to'xtaydi: «Kuryer eshik
+ * oldida!».
+ *
+ * Ma'lumot buyurtmaning o'zidan: mijoz o'z buyurtmalarini Firestore'dan
+ * jonli o'qiydi, shuning uchun kuryer bosgan zahoti bu yerda ko'rinadi.
+ */
+export function DeliveryTracker({ orders, onOpen }: Props) {
+  const { t } = useI18n()
+  const order = orders.find((o) => o.status === 'Yetkazilmoqda') ?? null
+
+  // Daqiqalar sanog'i va mashina joyi vaqt o'tishi bilan yangilanadi
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!order) return
+    const timer = setInterval(() => setNow(Date.now()), 15_000)
+    return () => clearInterval(timer)
+  }, [order])
+
+  // «×» — shu holat uchun yashiriladi; kuryer yetib kelsa yana chiqadi
+  const stateKey = order ? `${order.id}:${order.arrivedAt ? 'arrived' : 'way'}` : ''
+  const [hidden, setHidden] = useState(readHidden)
+  if (!order || hidden === stateKey) return null
+
+  const hide = () => {
+    setHidden(stateKey)
+    try {
+      sessionStorage.setItem(HIDDEN_KEY, stateKey)
+    } catch {
+      // saqlanmasa ham shu seansda yashirin qoladi
+    }
+  }
+
+  const arrived = Boolean(order.arrivedAt)
+  const start = Date.parse(order.takenAt || '')
+  const end = Date.parse(order.etaAt || '')
+  const minutesLeft = Number.isFinite(end) ? Math.ceil((end - now) / 60_000) : null
+
+  // Mashina yo'lning qayerida: olingandan beri o'tgan vaqt / taxminiy vaqt
+  let progress = 0.35
+  // Yetib keldi — mashina manzil belgisining yonida to'xtaydi (ustiga chiqmaydi)
+  if (arrived) progress = 0.9
+  else if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+    // Yo'lda bo'lsa manzilga to'liq yetmaydi — bu «yetib keldim» uchun
+    progress = Math.min(0.82, Math.max(0.08, (now - start) / (end - start)))
+  }
+
+  const title = arrived ? t('delivery.arrivedTitle') : t('delivery.onWayTitle')
+  const subtitle = arrived
+    ? t('delivery.arrivedText')
+    : minutesLeft === null
+      ? t('delivery.onWaySoon')
+      : minutesLeft > 0
+        ? t('delivery.minutesLeft', { n: minutesLeft })
+        : t('delivery.almostThere')
+  const phone = order.courierPhone?.replace(/[^\d+]/g, '')
+
+  return (
+    <div className={'dlv ' + (arrived ? 'is-arrived' : '')} role="status" aria-live="polite">
+      <button className="dlv__main" onClick={() => onOpen(order)}>
+        <span className="dlv__road" aria-hidden="true">
+          <span className="dlv__track" />
+          <span className="dlv__done" style={{ width: `${progress * 100}%` }} />
+          <span className="dlv__car" style={{ left: `${progress * 100}%` }}>
+            <Car size={17} strokeWidth={2.4} />
+          </span>
+          <span className="dlv__pin">
+            <MapPin size={18} strokeWidth={2.4} />
+          </span>
+        </span>
+
+        <span className="dlv__text">
+          <b className="dlv__title">{title}</b>
+          <span className="dlv__sub">
+            {subtitle}
+            {order.courierName ? ` · ${order.courierName}` : ''} · {order.orderNumber}
+          </span>
+        </span>
+      </button>
+
+      {phone && (
+        <a className="dlv__call" href={`tel:${phone}`} aria-label={t('delivery.call')}>
+          <Phone size={17} />
+        </a>
+      )}
+      <button className="dlv__close" onClick={hide} aria-label={t('common.close')}>
+        <X size={15} />
+      </button>
+    </div>
+  )
+}

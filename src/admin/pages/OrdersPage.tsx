@@ -28,6 +28,13 @@ const COURIER_STATUSES: OrderStatus[] = ['Yetkazilmoqda', 'Yetkazildi']
 
 type Filter = 'all' | OrderStatus
 
+/** Kuryer bosgan tez muammo tugmalari (api/_lib/actions/courier.ts → PROBLEMS). */
+const PROBLEM_LABEL: Record<string, string> = {
+  no_answer: 'Mijoz javob bermayapti',
+  no_address: 'Manzil topilmadi',
+  refused: 'Mijoz rad etdi',
+}
+
 export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string | null }) {
   const courierId = staff.role === 'courier' ? staff.uid : undefined
   const { orders, loading, error } = useOrders(courierId)
@@ -233,7 +240,14 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
                 onClick={() => setOpenId(order.id)}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-extrabold">{order.orderNumber}</span>
+                  <span className="font-extrabold">
+                    {order.orderNumber}
+                    {!!order.problems?.length && (
+                      <span className="adm-badge ml-1.5" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>
+                        ⚠️ muammo
+                      </span>
+                    )}
+                  </span>
                   <StatusBadge status={order.status} />
                 </div>
                 <p className="mt-1.5 truncate text-sm font-semibold">
@@ -414,6 +428,31 @@ function OrderDrawer({
               Holat o‘zgarsa mijozga Telegram xabari va ilova ichida bildirishnoma boradi.
             </p>
           </section>
+
+          {/* Yetkazish — kuryer ma'lumotlari */}
+          {(order.courierName || order.problems?.length || order.courierRating) && (
+            <section className="adm-card p-3.5">
+              <p className="text-sm font-extrabold">Yetkazish{order.courierName ? ` — ${order.courierName}` : ''}</p>
+              <div className="mt-2 grid gap-1 text-sm" style={{ color: 'var(--muted)' }}>
+                {order.etaMinutes ? <span>🕒 Taxminiy vaqt: {order.etaMinutes} daqiqa</span> : null}
+                {order.arrivedAt ? <span>📍 Eshik oldida: {new Date(order.arrivedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span> : null}
+                {order.cashStatus ? (
+                  <span>💵 Naqd: {order.cashStatus === 'held' ? 'kuryer qo‘lida' : order.cashStatus === 'pending' ? 'kassaga topshirildi, tasdiq kutilmoqda' : 'kassa qabul qildi'}</span>
+                ) : null}
+                {order.problems?.map((p, i) => (
+                  <span key={i} style={{ color: 'var(--warning)' }}>
+                    ⚠️ {PROBLEM_LABEL[p.code] ?? p.code} · {new Date(p.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                ))}
+                {order.courierRating ? (
+                  <span style={{ color: 'var(--ink)' }}>
+                    {'★'.repeat(order.courierRating.stars)}{'☆'.repeat(5 - order.courierRating.stars)} mijoz bahosi
+                    {order.courierRating.comment ? ` — «${order.courierRating.comment}»` : ''}
+                  </span>
+                ) : null}
+              </div>
+            </section>
+          )}
 
           {/* Mijoz */}
           <section className="adm-card p-3.5">

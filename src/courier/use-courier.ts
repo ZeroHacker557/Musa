@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { db } from '../lib/firebase'
 import { ApiError } from '../lib/api'
 import type { TranslationKey } from '../i18n'
 import { getTelegram, hapticError, hapticSuccess, requestLocation } from '../utils/telegram'
-import { deliverOrder, fetchOverview, takeOrder, type CourierOverview } from './api'
+import { DEMO, arriveOrder, deliverOrder, fetchOverview, takeOrder, type CourierOverview } from './api'
 import type { Point } from './route'
 
-/** Ekran ochiq turganda ro'yxat shu oraliqda yangilanadi. */
-const POLL_MS = 15_000
+/**
+ * Zaxira so'rov oralig'i. Asosiy yangilanish — `signals/orders`
+ * belgisi (quyida): server har o'zgarishda uni yangilaydi va ro'yxat
+ * bir-ikki soniyada keladi. Belgi biror sabab bilan kelmasa ham
+ * ro'yxat eskirib qolmasin.
+ */
+const POLL_MS = 60_000
 /** Joylashuv shu oraliqda qayta o'qiladi — kuryer yurib boradi. */
 const LOCATION_MS = 90_000
 
@@ -61,9 +68,36 @@ export function useCourierData(onNotCourier: () => void) {
     // Telegram oynasi yig'ilib, qayta ochilganda
     const tg = getTelegram()
     tg?.onEvent?.('activated', onVisible)
+
+    /*
+     * Jonli yangilanish: server buyurtma holati o'zgargan har safar
+     * `signals/orders` ga vaqt yozadi. Birinchi javob — hozirgi holat,
+     * uni o'tkazib yuboramiz (ro'yxat allaqachon so'ralgan). Ketma-ket
+     * bir necha o'zgarish bitta so'rovga birlashadi.
+     */
+    let first_snapshot = true
+    let debounce: ReturnType<typeof setTimeout> | undefined
+    const stopSignal = DEMO
+      ? () => {}
+      : onSnapshot(
+          doc(db, 'signals', 'orders'),
+          () => {
+            if (first_snapshot) {
+              first_snapshot = false
+              return
+            }
+            clearTimeout(debounce)
+            debounce = setTimeout(() => void load(), 400)
+          },
+          // Qoidalar hali nashr qilinmagan bo'lsa ham ilova so'rov bilan ishlayveradi
+          () => {},
+        )
+
     return () => {
       clearTimeout(first)
+      clearTimeout(debounce)
       clearInterval(timer)
+      stopSignal()
       document.removeEventListener('visibilitychange', onVisible)
       tg?.offEvent?.('activated', onVisible)
     }
@@ -73,8 +107,10 @@ export function useCourierData(onNotCourier: () => void) {
 }
 
 export type OrderActions = {
-  take: (id: string) => Promise<Feedback>
+  /** `point` — kuryerning joyi: mijozga taxminiy vaqt yoziladi. */
+  take: (id: string, point?: Point | null) => Promise<Feedback>
   deliver: (id: string) => Promise<Feedback>
+  arrive: (id: string) => Promise<Feedback>
 }
 
 /** Olish va yetkazish — natija matni chaqiruvchiga qaytadi (tarjima bilan). */
@@ -87,6 +123,8 @@ export function createOrderActions(
     id: string,
     call: () => Promise<{ outcome: string; courierName?: string | null }>,
     good: string[],
+    /** Muvaffaqiyat matni amalga qarab farq qiladi («Yetib keldim»). */
+    doneKey: TranslationKey = 'courier.outcomeDone',
   ): Promise<Feedback> => {
     setBusyId(id)
     try {
@@ -97,7 +135,7 @@ export function createOrderActions(
         taken: 'courier.outcomeTaken',
         closed: 'courier.outcomeClosed',
         not_found: 'courier.outcomeNotFound',
-        done: 'courier.outcomeDone',
+        done: doneKey,
         not_yours: 'courier.outcomeNotYours',
       }
       const ok = good.includes(result.outcome)
@@ -119,8 +157,9 @@ export function createOrderActions(
   }
 
   return {
-    take: (id) => run(id, () => takeOrder(id), ['claimed', 'already']),
+    take: (id, point) => run(id, () => takeOrder(id, point ?? null), ['claimed', 'already']),
     deliver: (id) => run(id, () => deliverOrder(id), ['done', 'already']),
+    arrive: (id) => run(id, () => arriveOrder(id), ['done', 'already'], 'courier.outcomeArrived'),
   }
 }
 

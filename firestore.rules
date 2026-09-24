@@ -196,6 +196,22 @@ service cloud.firestore {
       }
     }
 
+    // ── Kuryer ilovasi uchun «buyurtmalar o'zgardi» belgisi ──
+    // Ichida faqat vaqt bor — maxfiy ma'lumot yo'q. Kuryer unga obuna
+    // bo'lib, ro'yxatni server orqali qayta so'raydi.
+    match /signals/{signalId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // ── Kuryerlar kassasi (naqd pulni topshirish) ───────────
+    // Kuryer o'z topshirishlarini server orqali ko'radi (/api/courier),
+    // admin panel esa jonli o'qiydi. Yozish — faqat server.
+    match /cash_handovers/{handoverId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

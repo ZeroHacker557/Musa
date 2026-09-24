@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { LOW_STOCK_AT, notifyLowStock, notifyNewOrder } from './_lib/actions/orders.js'
+import { LOW_STOCK_AT, bumpOrdersSignal, notifyLowStock, notifyNewOrder } from './_lib/actions/orders.js'
 import { pushOrderSafe } from './_lib/actions/linko-orders.js'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
@@ -341,6 +341,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!result.duplicate) {
       const snap = await db.collection('orders').doc(result.id).get()
       await notifyNewOrder(result.id, snap.data() || {})
+      // Kuryer ilovalari (smenadagilar) ro'yxatni yangilaydi
+      await bumpOrdersSignal()
       // Ombor signali — buyurtma xabarnomasidan keyin, alohida xabar
       await notifyLowStock(result.lowStock ?? [])
       /*

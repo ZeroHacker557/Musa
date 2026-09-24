@@ -1,7 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { adminAuth } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
-import { courierDeliver, courierOverview, courierTake } from './_lib/actions/courier.js'
+import {
+  courierArrived, courierDeliver, courierOverview, courierProblem, courierShift, courierTake,
+} from './_lib/actions/courier.js'
+import { courierCashHandover } from './_lib/actions/cash.js'
 import { supportCourierRead, supportOpen, supportSend } from './_lib/actions/support.js'
 import { courierByTelegram } from './_lib/courier-staff.js'
 
@@ -39,6 +42,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'overview') result = await courierOverview(courier)
     else if (action === 'take') result = await courierTake(courier, body)
     else if (action === 'deliver') result = await courierDeliver(courier, body)
+    else if (action === 'arrived') result = await courierArrived(courier, body)
+    else if (action === 'shift') result = await courierShift(courier, body)
+    else if (action === 'problem') result = await courierProblem(courier, body)
+    else if (action === 'cash.handover') result = await courierCashHandover(courier)
     // Qo'llab-quvvatlash chati — o'qish ilovada jonli, yozish shu yerda
     else if (action === 'support.open') result = await supportOpen(courier, body)
     else if (action === 'support.send') result = await supportSend(courier, body)

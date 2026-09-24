@@ -1,6 +1,10 @@
 import { adminDb } from '../firebase-admin.js'
 import type { Staff } from '../admin-auth.js'
-import { applyStatusEffects, type OrderDoc } from './orders.js'
+import { applyStatusEffects, bumpOrdersSignal, type OrderDoc } from './orders.js'
+import { supportOpen } from './support.js'
+import { escapeHtml, sendMessage } from '../telegram.js'
+import { userLang } from '../i18n.js'
+import { cashSummary } from './cash.js'
 import { canDeliver } from '../courier-staff.js'
 
 /**
@@ -31,6 +35,43 @@ function orderIdOf(body: Body): string {
   return id
 }
 
+/** Ikki nuqta orasidagi masofa, km (src/courier/route.ts dagi bilan bir xil). */
+function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const rad = Math.PI / 180
+  const dLat = (b.lat - a.lat) * rad
+  const dLng = (b.lng - a.lng) * rad
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+/**
+ * Taxminiy yetib kelish vaqti, daqiqa.
+ *
+ * To'g'ri chiziq × 1.4 (shahar ko'chalari egri) / 25 km/soat (tirbandlik
+ * bilan o'rtacha tezlik) + 5 daqiqa (mashinani qo'yish, eshikgacha
+ * borish). 10 dan kam va 120 dan ko'p ko'rsatilmaydi — mijozga «2
+ * daqiqa» deb va'da berish xavfli.
+ *
+ * Kuryer joylashuvi yoki mijoz koordinatasi bo'lmasa — null.
+ */
+export function etaMinutes(
+  from: { lat: number; lng: number } | null,
+  to: { lat: number; lng: number } | null | undefined,
+): number | null {
+  if (!from || !to) return null
+  const minutes = Math.round((distanceKm(from, to) * 1.4 * 60) / 25 + 5)
+  return Math.min(120, Math.max(10, minutes))
+}
+
+/** Ilova yuborgan joylashuv — noto'g'ri bo'lsa hisobga olinmaydi. */
+function pointOf(body: Body): { lat: number; lng: number } | null {
+  const lat = Number(body.lat)
+  const lng = Number(body.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
+  if (lat === 0 && lng === 0) return null
+  return { lat, lng }
+}
+
 export type TakeOutcome = 'claimed' | 'already' | 'taken' | 'closed' | 'not_found'
 
 /**
@@ -53,6 +94,9 @@ export async function courierTake(staff: Staff, body: Body) {
   const now = new Date().toISOString()
   const by = { uid: staff.uid, name: staff.name, role: staff.role }
 
+  const from = pointOf(body)
+  let eta: number | null = null
+
   const { outcome, order } = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
     if (!snap.exists) return { outcome: 'not_found' as TakeOutcome, order: null }
@@ -68,11 +112,17 @@ export async function courierTake(staff: Staff, body: Body) {
     // admin ko'rmagani kuryerga tegmaydi
     if (data.status !== 'Qabul qilindi') return { outcome: 'closed' as TakeOutcome, order: data }
 
+    // Mijozga «taxminan 15 daqiqada» — kuryerning hozirgi joyidan
+    eta = etaMinutes(from, data.customer?.location)
     tx.update(ref, {
       courierId: staff.uid,
       courierName: staff.name,
+      // Mijoz ilovasidagi «Kuryer yo'lda» kartochkasida qo'ng'iroq tugmasi
+      courierPhone: staff.phone ?? null,
       status: 'Yetkazilmoqda',
       takenAt: now,
+      etaMinutes: eta,
+      etaAt: eta ? new Date(Date.parse(now) + eta * 60_000).toISOString() : null,
       statusUpdatedAt: now,
       statusUpdatedBy: by,
     })
@@ -82,14 +132,14 @@ export async function courierTake(staff: Staff, body: Body) {
   if (outcome === 'claimed' && order) {
     await applyStatusEffects(
       orderId,
-      { ...order, courierId: staff.uid, courierName: staff.name },
+      { ...order, courierId: staff.uid, courierName: staff.name, etaMinutes: eta },
       'Yetkazilmoqda',
       by,
       now,
     )
   }
 
-  return { outcome, courierName: order?.courierName ?? null }
+  return { outcome, courierName: order?.courierName ?? null, etaMinutes: eta }
 }
 
 export type DeliverOutcome = 'done' | 'already' | 'not_yours' | 'closed' | 'not_found'
@@ -120,6 +170,12 @@ export async function courierDeliver(staff: Staff, body: Body) {
       deliveredAt: now,
       statusUpdatedAt: now,
       statusUpdatedBy: by,
+      /*
+       * Naqd pul endi kuryer qo'lida — kassaga topshirilguncha «held».
+       * Faqat shu paytdan yetkazilganlarga qo'yiladi: eski buyurtmalar
+       * belgisiz qoladi, aks holda butun tarix «qarz» bo'lib chiqardi.
+       */
+      ...(data.paymentMethod === 'Karta' ? {} : { cashStatus: 'held', cashCourierId: staff.uid }),
     })
     return { outcome: 'done' as DeliverOutcome, order: data }
   })
@@ -145,6 +201,11 @@ type RawOrder = OrderDoc & {
   promoCode?: string | null
   deliveryFee?: number
   paymentStatus?: string | null
+  arrivedAt?: string | null
+  etaAt?: string | null
+  cashStatus?: 'held' | 'pending' | 'settled'
+  courierRating?: { stars?: number; tags?: unknown[]; comment?: string } | null
+  problems?: { code: string; at: string }[]
   products?: {
     product?: {
       name?: string
@@ -211,6 +272,10 @@ function present(id: string, order: RawOrder, uid: string) {
     deliveryFee: Number(order.deliveryFee) || 0,
     paymentStatus: order.paymentStatus || null,
     courierName: order.courierName || null,
+    arrivedAt: order.arrivedAt || null,
+    etaAt: order.etaAt || null,
+    cashStatus: order.cashStatus || null,
+    problems: Array.isArray(order.problems) ? order.problems.map((p) => String(p.code)) : [],
   }
 }
 
@@ -259,10 +324,12 @@ export async function courierOverview(staff: Staff) {
   requireCourier(staff)
   const db = await adminDb()
 
-  const [ready, mine] = await Promise.all([
+  const [ready, mine, staffSnap] = await Promise.all([
     db.collection('orders').where('status', '==', 'Qabul qilindi').get(),
     db.collection('orders').where('courierId', '==', staff.uid).get(),
+    db.collection('staff').doc(staff.uid).get(),
   ])
+  const staffData = (staffSnap.data() || {}) as { onShift?: boolean; ratingSum?: number; ratingCount?: number }
 
   const available = ready.docs
     .filter((doc) => {
@@ -295,7 +362,30 @@ export async function courierOverview(staff: Staff) {
   const all = delivered.map((o) => o.data)
 
   return {
-    profile: { name: staff.name, phone: staff.phone ?? null, telegramId: staff.telegramId ?? null },
+    profile: {
+      name: staff.name,
+      phone: staff.phone ?? null,
+      telegramId: staff.telegramId ?? null,
+      onShift: staffData.onShift === true,
+      rating: {
+        count: Number(staffData.ratingCount) || 0,
+        average: Number(staffData.ratingCount) ? Number(staffData.ratingSum) / Number(staffData.ratingCount) : null,
+      },
+    },
+    // Mijozlarning oxirgi izohlari — profilda
+    reviews: delivered
+      .map((o) => ({ number: o.data.orderNumber || '', at: deliveredAt(o.data), rating: o.data.courierRating }))
+      .filter((r) => r.rating && Number(r.rating.stars) > 0)
+      .sort((a, b) => String(b.at).localeCompare(String(a.at)))
+      .slice(0, 5)
+      .map((r) => ({
+        number: r.number,
+        at: r.at,
+        stars: Number(r.rating!.stars),
+        tags: Array.isArray(r.rating!.tags) ? r.rating!.tags.map(String) : [],
+        comment: String(r.rating!.comment || ''),
+      })),
+    cash: await cashSummary(staff.uid, mineOrders),
     available,
     active,
     done,
@@ -308,4 +398,128 @@ export async function courierOverview(staff: Staff) {
     },
     serverTime: new Date().toISOString(),
   }
+}
+
+/* ─── Smena ─────────────────────────────────────────────────── */
+
+/**
+ * «Ishdaman / Dam olyapman». Yangi buyurtma xabari faqat ishdagi
+ * kuryerlarga boradi (orders.ts → dispatchToCouriers).
+ */
+export async function courierShift(staff: Staff, body: Body) {
+  requireCourier(staff)
+  const on = body.on === true
+  await (await adminDb()).collection('staff').doc(staff.uid).set(
+    { onShift: on, shiftSince: new Date().toISOString() },
+    { merge: true },
+  )
+  return { onShift: on }
+}
+
+/* ─── «Yetib keldim» ────────────────────────────────────────── */
+
+const ARRIVED_TEXT = {
+  uz: (n: string) => `📍 <b>Kuryer eshik oldida!</b>\n${n} buyurtmangizni kutib oling.`,
+  ru: (n: string) => `📍 <b>Курьер у двери!</b>\nВстречайте заказ ${n}.`,
+}
+const ARRIVED_NOTIF = { uz: 'Kuryer eshik oldida', ru: 'Курьер у двери' }
+
+export type ArrivedOutcome = 'done' | 'already' | 'not_yours' | 'closed' | 'not_found'
+
+/** Kuryer manzilga yetib keldi — mijozga bir marta xabar. */
+export async function courierArrived(staff: Staff, body: Body) {
+  requireCourier(staff)
+  const orderId = orderIdOf(body)
+  const db = await adminDb()
+  const ref = db.collection('orders').doc(orderId)
+  const now = new Date().toISOString()
+
+  const { outcome, order } = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists) return { outcome: 'not_found' as ArrivedOutcome, order: null }
+    const data = snap.data() as RawOrder
+    if (data.courierId !== staff.uid) return { outcome: 'not_yours' as ArrivedOutcome, order: data }
+    if (data.status !== 'Yetkazilmoqda') return { outcome: 'closed' as ArrivedOutcome, order: data }
+    if (data.arrivedAt) return { outcome: 'already' as ArrivedOutcome, order: data }
+    tx.update(ref, { arrivedAt: now })
+    return { outcome: 'done' as ArrivedOutcome, order: data }
+  })
+
+  if (outcome === 'done' && order?.userId) {
+    try {
+      const lang = await userLang(order.userId)
+      const label = order.orderNumber || `#${orderId.slice(0, 6)}`
+      await db.collection('notifications').add({
+        userId: order.userId,
+        title: ARRIVED_NOTIF[lang],
+        body: label,
+        date: now,
+        read: false,
+        type: 'order',
+        orderId,
+      })
+      await sendMessage(order.userId, ARRIVED_TEXT[lang](escapeHtml(label)))
+    } catch (error) {
+      console.error('[courier] «yetib keldim» xabari ketmadi:', error)
+    }
+    await bumpOrdersSignal()
+  }
+
+  return { outcome, arrivedAt: outcome === 'done' ? now : order?.arrivedAt ?? null }
+}
+
+/* ─── Tez muammo tugmalari ──────────────────────────────────── */
+
+export const PROBLEMS = {
+  no_answer: '📵 Mijoz javob bermayapti',
+  no_address: '🗺 Manzil topilmadi',
+  refused: '✋ Mijoz buyurtmani rad etdi',
+} as const
+export type ProblemCode = keyof typeof PROBLEMS
+
+const CALL_ME = {
+  uz: (n: string) => `📞 <b>Kuryer sizga qo‘ng‘iroq qilyapti</b>\n${n} buyurtmangiz bo‘yicha — iltimos, telefonga javob bering.`,
+  ru: (n: string) => `📞 <b>Курьер звонит вам</b>\nПо заказу ${n} — пожалуйста, ответьте на звонок.`,
+}
+
+/**
+ * Kuryer bir bosishda muammo haqida xabar beradi.
+ *
+ * Shu buyurtma bo'yicha qo'llab-quvvatlash chatiga tayyor matn yoziladi
+ * (adminlarga Telegram ham boradi). «Javob bermayapti» da mijozning
+ * o'ziga ham bot yozadi — ko'pincha shu yetarli bo'ladi.
+ */
+export async function courierProblem(staff: Staff, body: Body) {
+  requireCourier(staff)
+  const orderId = orderIdOf(body)
+  const code = String(body.code || '') as ProblemCode
+  if (!(code in PROBLEMS)) throw new Error('Muammo turi noto‘g‘ri')
+
+  const db = await adminDb()
+  const ref = db.collection('orders').doc(orderId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new Error('Buyurtma topilmadi')
+  const order = snap.data() as RawOrder
+  const mine = order.courierId === staff.uid
+  const open = !order.courierId && order.status === 'Qabul qilindi'
+  if (!mine && !open) throw new Error('Bu buyurtma sizga biriktirilmagan')
+
+  const at = new Date().toISOString()
+  const problems = [...(Array.isArray(order.problems) ? order.problems : []), { code, at, by: staff.uid }]
+  await ref.set({ problems }, { merge: true })
+
+  const note = String(body.note || '').trim().slice(0, 500)
+  const { threadId } = await supportOpen(staff, {
+    orderId,
+    text: `⚠️ ${PROBLEMS[code]}` + (note ? `\n${note}` : ''),
+  })
+
+  let customerNotified = false
+  if (code === 'no_answer' && order.userId) {
+    const lang = await userLang(order.userId)
+    const label = escapeHtml(order.orderNumber || `#${orderId.slice(0, 6)}`)
+    customerNotified = (await sendMessage(order.userId, CALL_ME[lang](label))).ok
+  }
+
+  return { threadId, customerNotified }
 }

@@ -157,6 +157,21 @@ export function StaffPage({ me }: { me: Staff }) {
                       Bloklangan
                     </span>
                   )}
+                  {(person.role === 'courier' || person.canDeliver) && (
+                    <span
+                      className="adm-badge"
+                      style={person.onShift
+                        ? { background: 'var(--brand-soft)', color: 'var(--brand)' }
+                        : { background: 'var(--surface-2)', color: 'var(--muted)' }}
+                    >
+                      {person.onShift ? '● Ishda' : 'Dam olmoqda'}
+                    </span>
+                  )}
+                  {!!person.ratingCount && (
+                    <span className="adm-badge" style={{ background: 'var(--gold-soft)', color: 'var(--gold-strong)' }}>
+                      ★ {((person.ratingSum ?? 0) / person.ratingCount).toFixed(1)} ({person.ratingCount})
+                    </span>
+                  )}
                   {person.role !== 'courier' && person.canDeliver && (
                     <span className="adm-badge" style={{ background: ROLE_TONE.courier.bg, color: ROLE_TONE.courier.fg }}>
                       + Kuryer

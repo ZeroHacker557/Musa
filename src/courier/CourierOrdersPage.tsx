@@ -1,6 +1,6 @@
 import {
-  Banknote, CheckCircle2, ChevronRight, CreditCard, LocateFixed, LocateOff, Loader2, MapPin, MessageSquareText,
-  Navigation, PackageCheck, Phone, RotateCw, Route, UserRound,
+  Banknote, BellOff, CheckCircle2, ChevronRight, CreditCard, DoorOpen, LocateFixed, LocateOff, Loader2, MapPin,
+  MessageSquareText, Navigation, PackageCheck, Phone, RotateCw, Route, UserRound,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { formatPrice } from '../data'
@@ -32,6 +32,12 @@ type Props = {
   onDeliver: (order: CourierOrder) => void
   /** Tafsilotlar oynasi — mahsulotlar rasmi bilan. */
   onOpen: (order: CourierOrder) => void
+  /** «Yetib keldim» — mijozga «Kuryer eshik oldida». */
+  onArrive: (order: CourierOrder) => void
+  /** Smena: yangi buyurtma xabarlari faqat ishdagilarga. */
+  onShift: boolean
+  shiftBusy: boolean
+  onToggleShift: () => void
 }
 
 const pointOf = (order: CourierOrder): Point | null => order.customer.location
@@ -42,7 +48,8 @@ const byCreated = (a: CourierOrder, b: CourierOrder) =>
 
 export function CourierOrdersPage({
   data, error, refreshing, busyId, location, tab, focusId,
-  onTab, onRefresh, onRetryLocation, onTake, onDeliver, onOpen,
+  onTab, onRefresh, onRetryLocation, onTake, onDeliver, onOpen, onArrive,
+  onShift, shiftBusy, onToggleShift,
 }: Props) {
   const { t, lang } = useI18n()
   const start = location.status === 'ok' ? location.point : null
@@ -90,6 +97,24 @@ export function CourierOrdersPage({
         </button>
       </header>
 
+      {/* Smena — yangi buyurtma xabarlari faqat ishdagilarga */}
+      {data && (
+        <button
+          className={'crr-shiftbar mx-5 mt-4 sm:mx-10 ' + (onShift ? 'is-on' : '')}
+          onClick={onToggleShift}
+          disabled={shiftBusy}
+          role="switch"
+          aria-checked={onShift}
+        >
+          <span className="crr-shiftbar__dot" />
+          <span className="min-w-0 flex-1 text-left">
+            <b className="block text-sm">{onShift ? t('courier.shiftOn') : t('courier.shiftOff')}</b>
+            <span className="block text-xs">{onShift ? t('courier.shiftOnSub') : t('courier.shiftOffSub')}</span>
+          </span>
+          <span className="crr-switch" aria-hidden="true"><span /></span>
+        </button>
+      )}
+
       {/* Bugungi xulosa */}
       <section className="crr-summary mx-5 mt-5 sm:mx-10">
         <SummaryTile icon={<PackageCheck size={18} />} label={t('courier.sumDelivered')} value={data ? String(data.stats.today.delivered) : null} />
@@ -97,7 +122,8 @@ export function CourierOrdersPage({
         <SummaryTile
           icon={<Banknote size={18} />}
           label={t('courier.sumCash')}
-          value={data ? formatPrice(data.stats.today.cash) : null}
+          // Haqiqatan qo'ldagi — kassaga hali topshirilmagan naqd
+          value={data ? formatPrice(data.cash.held.amount) : null}
           tone="gold"
         />
       </section>
@@ -119,6 +145,15 @@ export function CourierOrdersPage({
       </div>
 
       {tab !== 'done' && <LocationBar location={location} onRetry={onRetryLocation} />}
+
+      {/* Dam olayotganda — yangi buyurtma xabarlari kelmaydi */}
+      {data && !onShift && tab === 'new' && (
+        <div className="crr-offshift mx-5 mt-3 sm:mx-10">
+          <BellOff size={17} className="shrink-0" />
+          <span className="min-w-0 flex-1">{t('courier.offShiftNote')}</span>
+          <button className="crr-link" onClick={onToggleShift} disabled={shiftBusy}>{t('courier.shiftStart')}</button>
+        </div>
+      )}
 
       <section className="px-5 pb-8 pt-4 sm:px-10">
         {!data && !error && <ListSkeleton />}
@@ -179,12 +214,15 @@ export function CourierOrdersPage({
                   lang={lang}
                   onOpen={onOpen}
                   action={
-                    <div className="grid grid-cols-[auto_1fr] gap-2">
-                      {stop.item.customer.location ? (
-                        <NavigateButton point={stop.item.customer.location} />
-                      ) : (
-                        <span />
-                      )}
+                    <div className="grid gap-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        {stop.item.customer.location ? (
+                          <NavigateButton point={stop.item.customer.location} block />
+                        ) : (
+                          <span />
+                        )}
+                        <ArriveButton order={stop.item} busy={busyId !== null} onArrive={onArrive} />
+                      </div>
                       <button
                         className="crr-btn crr-btn--primary crr-btn--block"
                         disabled={busyId !== null}
@@ -214,6 +252,29 @@ export function CourierOrdersPage({
         )}
       </section>
     </>
+  )
+}
+
+/** «Yetib keldim» — bir marta; keyin «mijozga xabar berildi» belgisi. */
+export function ArriveButton({
+  order, busy, onArrive,
+}: {
+  order: CourierOrder
+  busy: boolean
+  onArrive: (order: CourierOrder) => void
+}) {
+  const { t } = useI18n()
+  if (order.arrivedAt) {
+    return (
+      <span className="crr-arrived">
+        <CheckCircle2 size={16} /> {t('courier.arrivedDone')}
+      </span>
+    )
+  }
+  return (
+    <button className="crr-btn crr-btn--ghost crr-btn--block crr-btn--arrive" disabled={busy} onClick={() => onArrive(order)}>
+      <DoorOpen size={17} /> {t('courier.arrived')}
+    </button>
   )
 }
 

@@ -114,6 +114,19 @@ export type Order = {
   notified?: boolean
   /** Eski yozuvlarda formatlangan sana matni bo'lishi mumkin. */
   date?: string
+  /** Kuryer — «Kuryer yo'lda» kartochkasi va baho oynasi uchun (server yozadi). */
+  courierId?: string | null
+  courierName?: string | null
+  courierPhone?: string | null
+  takenAt?: string | null
+  /** Taxminiy yetib kelish vaqti — kuryer olganda joylashuvidan hisoblanadi. */
+  etaAt?: string | null
+  etaMinutes?: number | null
+  /** Kuryer «Yetib keldim» bosgan vaqt. */
+  arrivedAt?: string | null
+  deliveredAt?: string | null
+  /** Mijoz kuryerni baholagan bo'lsa. */
+  courierRating?: { stars: number; tags?: string[]; comment?: string; at?: string } | null
 }
 
 /** Firestore'ga yozishdan oldingi buyurtma — id va raqam server tomonda beriladi. */

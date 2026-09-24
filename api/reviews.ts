@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
+import { RatingError, rateCourier } from './_lib/actions/courier-rating.js'
 
 const MAX_COMMENT = 1000
 
@@ -30,6 +31,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     uid = (await (await adminAuth()).verifyIdToken(idToken)).uid
   } catch {
     return fail(res, 401, 'Sessiya eskirgan, ilovani qayta oching')
+  }
+
+  // Kuryer bahosi — mini app'dagi 5 yulduzli oyna (alohida funksiya
+  // ochilmadi: Vercel'da funksiyalar soni cheklangan)
+  if (req.body?.kind === 'courier') {
+    try {
+      return res.status(200).json(await rateCourier(Number(uid), req.body ?? {}))
+    } catch (error) {
+      if (error instanceof RatingError) return fail(res, 403, error.message, error.code)
+      console.error('[reviews] kuryer bahosi:', error)
+      return fail(res, 500, "Baho saqlanmadi, qayta urinib ko'ring")
+    }
   }
 
   const productId = String(req.body?.productId ?? '').trim()
