@@ -8,6 +8,7 @@ import { courierCashHandover } from './_lib/actions/cash.js'
 import { courierLocation } from './_lib/actions/location.js'
 import { supportCourierRead, supportOpen, supportSend } from './_lib/actions/support.js'
 import { courierByTelegram } from './_lib/courier-staff.js'
+import { errorCode } from './_lib/errors.js'
 
 /**
  * POST /api/courier   { action: "overview" | "take" | "deliver" | "support.*", … }
@@ -29,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     uid = (await (await adminAuth()).verifyIdToken(idToken)).uid
   } catch {
-    return fail(res, 401, 'Sessiya eskirgan, ilovani qayta oching')
+    return fail(res, 401, 'Sessiya eskirgan, ilovani qayta oching', 'SESSION_EXPIRED')
   }
 
   const courier = await courierByTelegram(Number(uid))
@@ -53,11 +54,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     else if (action === 'support.open') result = await supportOpen(courier, body)
     else if (action === 'support.send') result = await supportSend(courier, body)
     else if (action === 'support.read') result = await supportCourierRead(courier, body)
-    else return fail(res, 400, `Noma’lum amal: ${action || '(bo‘sh)'}`)
+    else return fail(res, 400, `Noma’lum amal: ${action || '(bo‘sh)'}`, 'UNKNOWN_ACTION')
 
     return res.status(200).json({ ok: true, ...result })
   } catch (error) {
     console.error(`[courier] ${action} xatosi:`, error)
-    return fail(res, 400, error instanceof Error ? error.message : 'Amal bajarilmadi')
+    // Kod bo'lsa ilova xatoni kuryerning tilida ko'rsatadi (api/_lib/errors.ts)
+    return fail(res, 400, error instanceof Error ? error.message : 'Amal bajarilmadi', errorCode(error))
   }
 }

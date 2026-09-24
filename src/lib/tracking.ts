@@ -18,6 +18,10 @@ export type Tracking = {
   source: 'live' | 'app'
   at: string
   courierName: string
+  /** Kuryer shu mijozdan OLDIN boradigan boshqa manzillar soni. */
+  stopsBefore: number
+  /** Kuryerdan oldingi manzillar orqali shu mijozgacha, km. Eski yozuvlarda null. */
+  viaKm: number | null
 }
 
 /** Shundan eski joylashuv «jonli» hisoblanmaydi. */
@@ -43,6 +47,8 @@ export function useOrderTracking(orderId: string | null, destination: Point | nu
           source: 'live',
           at: new Date().toISOString(),
           courierName: 'Komiljon',
+          stopsBefore: orderId === 'demo-way2' ? 1 : 0,
+          viaKm: null,
         })
       }
       const first = setTimeout(step, 0)
@@ -65,6 +71,8 @@ export function useOrderTracking(orderId: string | null, destination: Point | nu
           source: d.source === 'live' ? 'live' : 'app',
           at: String(d.at || ''),
           courierName: String(d.courierName || ''),
+          stopsBefore: Number(d.stopsBefore) || 0,
+          viaKm: Number.isFinite(Number(d.viaKm)) && d.viaKm !== null ? Number(d.viaKm) : null,
         })
       },
       // Ruxsat yo'q yoki hujjat hali yo'q — kartochka vaqt bo'yicha ishlayveradi
@@ -75,14 +83,26 @@ export function useOrderTracking(orderId: string | null, destination: Point | nu
   return orderId ? tracking : null
 }
 
+/** Har oldingi manzilda ketadigan vaqt — server bilan bir xil (location.ts → STOP_MINUTES). */
+const STOP_MINUTES = 6
+
+/**
+ * Kuryer shu mijozgacha qancha yo'l bosadi, km: oldin boshqa manzillarga
+ * borsa — ular orqali (server hisoblaydi), bo'lmasa to'g'ridan-to'g'ri.
+ */
+export function remainingKm(tracking: Tracking, to: Point): number {
+  return tracking.stopsBefore > 0 && tracking.viaKm !== null ? tracking.viaKm : distanceKm(tracking, to)
+}
+
 /**
  * Qolgan taxminiy vaqt, daqiqa — kuryerning HOZIRGI joyidan.
  *
- * Server formulasiga (api/_lib/actions/courier.ts → etaMinutes) yaqin:
- * to'g'ri chiziq × 1.4 / 25 km/soat, lekin qo'shimcha faqat 2 daqiqa
- * (mashina allaqachon yo'lda) va pastki chegara 1 daqiqa — yetib
- * kelayotganda «10 daqiqa» deb qotib qolmasin.
+ * Server formulasiga (api/_lib/actions/location.ts → etaFromPlan) yaqin:
+ * masofa × 1.4 / 25 km/soat + har oldingi manzil uchun 6 daqiqa, lekin
+ * qo'shimcha faqat 2 daqiqa (mashina allaqachon yo'lda) va pastki
+ * chegara 1 daqiqa — yetib kelayotganda «10 daqiqa» deb qotib qolmasin.
  */
-export function liveMinutes(from: Point, to: Point): number {
-  return Math.max(1, Math.round((distanceKm(from, to) * 1.4 * 60) / 25 + 2))
+export function liveMinutes(tracking: Tracking, to: Point): number {
+  const km = remainingKm(tracking, to)
+  return Math.max(1, Math.round((km * 1.4 * 60) / 25 + 2 + tracking.stopsBefore * STOP_MINUTES))
 }

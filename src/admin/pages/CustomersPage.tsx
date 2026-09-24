@@ -8,7 +8,8 @@ const COUNTED = new Set(['Yangi', 'Qabul qilindi', 'Yetkazilmoqda', 'Yetkazildi'
 
 export function CustomersPage() {
   const { customers, loading } = useCustomers()
-  const { orders } = useOrders()
+  // Mijozning umrboqiy xaridi — butun tarix kerak
+  const { orders } = useOrders(undefined, 'all')
   const [query, setQuery] = useState('')
 
   // Har mijoz uchun buyurtmalar soni va sarflagan summasi

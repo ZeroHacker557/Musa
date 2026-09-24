@@ -1237,18 +1237,45 @@
 }
 .amap__summary span { padding: 0.75rem 0.25rem; color: var(--muted); font-size: 0.72rem; font-weight: 700; }
 .amap__summary b { display: block; color: var(--ink); font-size: 1.2rem; font-weight: 800; }
-.amap__list { flex: 1; overflow-y: auto; padding: 0.4rem; }
+.amap__list { flex: 1; min-height: 0; overflow-y: auto; padding: 0.5rem; }
+
+/* «Hammasi» — umumiy ko'rinish */
+.amap__all {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--r-sm);
+  padding: 0.55rem 0.7rem;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 800;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.amap__all:hover { background: var(--surface-2); }
+.amap__all.is-on { border-style: solid; border-color: var(--ink); background: var(--surface-2); }
+
+.amap__couriers { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem; }
+.amap__courier {
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  border-radius: var(--r-sm);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.amap__courier.is-on {
+  border-color: var(--c);
+  background: color-mix(in srgb, var(--c) 7%, var(--surface));
+}
 .amap__item {
   display: flex;
   width: 100%;
   align-items: center;
   gap: 0.65rem;
-  border-radius: var(--r-sm);
-  padding: 0.6rem;
+  padding: 0.55rem 0.6rem;
   transition: background-color 0.15s ease;
 }
-.amap__item:hover:not(:disabled) { background: var(--surface-2); }
-.amap__item:disabled { opacity: 0.6; cursor: default; }
+.amap__courier:not(.is-on) .amap__item:hover { background: var(--surface-2); }
 .amap__dot {
   position: relative;
   display: grid;
@@ -1273,8 +1300,76 @@
 }
 .amap__dot.is-fresh::after { background: #22c55e; }
 .amap__dot.is-recent::after { background: #f5b301; }
-.amap__dot.is-lost { filter: grayscale(0.9); opacity: 0.7; }
+.amap__dot.is-lost { filter: grayscale(0.85); opacity: 0.75; }
 .amap__dot.is-lost::after { background: #9aa5a0; }
+.amap__count {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.2rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  padding: 0.15rem 0.5rem;
+  color: var(--c);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.amap__chev { flex-shrink: 0; color: var(--faint); transition: transform 0.2s ease; }
+.amap__courier.is-on .amap__chev { transform: rotate(90deg); color: var(--c); }
+
+/* Tanlangan kuryerning to'xtash joylari — yo'nalish tartibida */
+.amap__stops { display: flex; flex-direction: column; padding: 0 0.45rem 0.5rem; }
+.amap__stop-empty { padding: 0.3rem 0.5rem 0.2rem 3.3rem; color: var(--muted); font-size: 0.78rem; }
+.amap__stop {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border-radius: 10px;
+  padding: 0.45rem 0.45rem 0.45rem 0.55rem;
+  transition: background-color 0.15s ease;
+}
+.amap__stop:hover { background: var(--surface-2); }
+.amap__stop i {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--c);
+  color: #fff;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+}
+.amap__stop i.is-waiting { background: #64748b; }
+/* Raqamlar orasidagi ingichka chiziq — yo'nalish ekanini bildiradi */
+.amap__stops li + li .amap__stop::before {
+  position: absolute;
+  top: -10px;
+  left: calc(0.55rem + 11px);
+  width: 2px;
+  height: 14px;
+  background: color-mix(in srgb, var(--c) 45%, transparent);
+  content: "";
+}
+.amap__stop-state { margin-left: 0.4rem; color: var(--muted); font-size: 0.72rem; font-weight: 700; }
+.amap__waiting { margin-top: 0.7rem; border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.amap__section {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem 0.35rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .amap__legend {
   display: flex;
   flex-wrap: wrap;
@@ -1305,9 +1400,57 @@
   color: var(--ink);
   box-shadow: var(--shadow-md);
 }
+/* Tanlangan kuryer — xarita ustida kim ko'rsatilayotgani */
+.amap__banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: min(calc(100% - 7rem), 420px);
+  transform: translateX(-50%);
+  border-left: 4px solid var(--c);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0.5rem 0.55rem 0.5rem 0.65rem;
+  box-shadow: var(--shadow-md);
+}
+.amap__banner-dot {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--c);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+.amap__banner-close {
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 0.35rem 0.65rem;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
 
-/* Kuryer belgisi: rangli doira, bosh harf; yangiligiga qarab yashil/sariq/kulrang halqa */
+/* Kuryer belgisi: rangli doira + bosh harf, ostida ism; burchakda yangilik nuqtasi */
 .amap-courier {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -20px);
+  transition: opacity 0.2s ease;
+}
+.amap-courier__dot {
   position: relative;
   display: grid;
   place-items: center;
@@ -1321,8 +1464,22 @@
   font-weight: 800;
   box-shadow: 0 3px 10px rgb(0 0 0 / 0.3);
 }
-.amap-courier span { position: relative; z-index: 1; }
-.amap-courier.is-fresh::before {
+.amap-courier__dot span { position: relative; z-index: 1; }
+.amap-courier__dot em {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  z-index: 2;
+  width: 13px;
+  height: 13px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #22c55e;
+}
+.amap-courier.is-recent .amap-courier__dot em { background: #f5b301; }
+.amap-courier.is-lost .amap-courier__dot em { background: #9aa5a0; }
+.amap-courier.is-lost .amap-courier__dot { filter: grayscale(0.9); }
+.amap-courier.is-fresh .amap-courier__dot::before {
   position: absolute;
   inset: -8px;
   border-radius: 50%;
@@ -1330,8 +1487,23 @@
   content: "";
   animation: amapPulse 1.8s ease-out infinite;
 }
-.amap-courier.is-recent { box-shadow: 0 0 0 3px #f5b301, 0 3px 10px rgb(0 0 0 / 0.3); }
-.amap-courier.is-lost { filter: grayscale(1); opacity: 0.65; }
+.amap-courier__name {
+  margin-top: 3px;
+  max-width: 120px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--c);
+  padding: 1px 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.25);
+}
+.amap-courier.is-dim { opacity: 0.4; }
+.amap-courier.is-dim .amap-courier__dot::before { display: none; }
+.amap-courier.is-selected .amap-courier__dot { width: 46px; height: 46px; font-size: 17px; }
 /* Harakat yo'nalishi */
 .amap-courier__arrow {
   position: absolute;
@@ -1353,22 +1525,46 @@
   to { opacity: 0; transform: scale(1.5); }
 }
 
-/* Buyurtma belgisi — tomchi shaklidagi raqamli pin */
-.amap-order {
+/* Buyurtma pini — raqami yozilgan yorliq va pastga uchi; marshrutda tartib raqami */
+.amap-pin {
   position: absolute;
   left: 0;
   top: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--c);
+  padding: 2px 8px 2px 8px;
+  color: #fff;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.28);
+  transform: translate(-50%, calc(-100% - 7px));
+  transition: opacity 0.2s ease;
+}
+.amap-pin::after {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  border-top: 7px solid var(--c);
+  border-right: 6px solid transparent;
+  border-left: 6px solid transparent;
+  transform: translateX(-50%);
+  content: "";
+}
+.amap-pin span { font-size: 11px; font-weight: 800; letter-spacing: 0.01em; }
+.amap-pin.has-step { padding-left: 3px; }
+.amap-pin i {
   display: grid;
   place-items: center;
-  min-width: 30px;
-  height: 30px;
-  border: 2px solid #fff;
-  border-radius: 50% 50% 50% 0;
-  background: var(--c);
-  color: #fff;
-  box-shadow: 0 3px 8px rgb(0 0 0 / 0.25);
-  transform: translate(-50%, -115%) rotate(-45deg);
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--c);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
 }
-.amap-order span { font-size: 11px; font-weight: 800; transform: rotate(45deg); }
-.amap-order.is-waiting { min-width: 34px; height: 34px; }
-.amap-order.is-waiting span { font-size: 9px; }
+.amap-pin.is-dim { opacity: 0.45; }

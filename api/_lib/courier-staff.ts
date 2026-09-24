@@ -16,6 +16,28 @@ export function canDeliver(staff: { role?: unknown; canDeliver?: unknown }): boo
   return staff.role === 'courier' || staff.canDeliver === true
 }
 
+const TASHKENT_OFFSET_MS = 5 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** Toshkent bo'yicha oxirgi yarim tun (00:00), ms. */
+export function tashkentMidnight(now = Date.now()): number {
+  const local = now + TASHKENT_OFFSET_MS
+  return local - (local % DAY_MS) - TASHKENT_OFFSET_MS
+}
+
+/**
+ * Smena hozir ochiqmi. Smena Toshkent vaqti bilan 00:00 da o'zi
+ * yopiladi: kechagi «Ishdaman» bugun hisobga olinmaydi — kuryer
+ * o'chirishni unutsa ham kechasi unga buyurtma ketmaydi. Bazadagi
+ * belgini keyin cron ham tozalaydi (shift.ts → endExpiredShifts), lekin
+ * to'g'rilik unga bog'liq emas.
+ */
+export function shiftActive(data: { onShift?: unknown; shiftSince?: unknown }, now = Date.now()): boolean {
+  if (data.onShift !== true) return false
+  const since = Date.parse(String(data.shiftSince ?? ''))
+  return Number.isFinite(since) && since >= tashkentMidnight(now)
+}
+
 /** Telegram ID bo'yicha faol yetkazuvchi. Bo'lmasa — null. */
 export async function courierByTelegram(telegramId: number): Promise<Staff | null> {
   if (!Number.isFinite(telegramId)) return null

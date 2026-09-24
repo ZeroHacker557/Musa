@@ -1,6 +1,7 @@
 """
 Firebase Firestore & Storage Integration for Python Telegram Bot
 """
+import math
 import os
 import uuid
 import urllib.parse
@@ -590,6 +591,58 @@ def get_courier_by_telegram(telegram_id: int):
     return None
 
 
+TASHKENT_OFFSET_S = 5 * 60 * 60
+STOP_MINUTES = 6
+
+
+def shift_active(staff: dict) -> bool:
+    """
+    Smena hozir ochiqmi — api/_lib/courier-staff.ts → shiftActive bilan
+    bir xil: Toshkent vaqti bilan 00:00 da o'zi yopiladi.
+    """
+    if staff.get("onShift") is not True:
+        return False
+    try:
+        since = datetime.fromisoformat(str(staff.get("shiftSince") or "").replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return False
+    local = datetime.now(timezone.utc).timestamp() + TASHKENT_OFFSET_S
+    midnight = local - (local % 86400) - TASHKENT_OFFSET_S
+    return since >= midnight
+
+
+def _distance_km(a: tuple, b: tuple) -> float:
+    """Haversine — api/_lib/actions/location.ts → distanceKm bilan bir xil."""
+    lat1, lng1 = math.radians(a[0]), math.radians(a[1])
+    lat2, lng2 = math.radians(b[0]), math.radians(b[1])
+    h = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lng2 - lng1) / 2) ** 2
+    return 2 * 6371 * math.asin(min(1.0, math.sqrt(h)))
+
+
+def plan_stops(start: tuple, stops: list) -> dict:
+    """
+    Eng yaqin qo'shni tartibi — location.ts → planStops bilan bir xil.
+    stops: [(order_id, (lat, lng) | None)] → {order_id: (stops_before, via_km)}
+    """
+    left = [(oid, pt) for oid, pt in stops if pt is not None]
+    plan, at, km, index = {}, start, 0.0, 0
+    while left:
+        best = min(range(len(left)), key=lambda i: _distance_km(at, left[i][1]))
+        oid, pt = left.pop(best)
+        km += _distance_km(at, pt)
+        plan[oid] = (index, round(km, 2))
+        at, index = pt, index + 1
+    return plan
+
+
+def _order_point(order: dict):
+    loc = (order.get("customer") or {}).get("location") or {}
+    try:
+        return (float(loc["lat"]), float(loc["lng"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def save_courier_location(courier: dict, lat: float, lng: float, heading=None,
                           accuracy=None, live_until: str | None = None) -> int:
     """
@@ -598,12 +651,24 @@ def save_courier_location(courier: dict, lat: float, lng: float, heading=None,
 
       courier_locations/{uid}  — admin xaritasi
       order_tracking/{orderId} — yo'ldagi har buyurtma mijozi uchun
+                                 («sizdan oldin N ta manzil» bilan)
 
-    Qaytaradi: nechta buyurtma kuzatuvi yangilandi.
+    Maxfiylik: kuryer smenada bo'lmasa va qo'lida yo'ldagi buyurtma
+    bo'lmasa — hech narsa saqlanmaydi, -1 qaytadi.
+
+    Qaytaradi: nechta buyurtma kuzatuvi yangilandi (yoki -1).
     """
     uid = courier["uid"]
     at = datetime.now(timezone.utc).isoformat()
     name = courier.get("name") or "Kuryer"
+
+    active = [
+        (doc.id, doc.to_dict() or {})
+        for doc in db.collection("orders").where("courierId", "==", uid).where("status", "==", "Yetkazilmoqda").stream()
+    ]
+    if not active and not shift_active(courier):
+        return -1
+
     db.collection("courier_locations").document(uid).set({
         "uid": uid,
         "name": name,
@@ -618,13 +683,14 @@ def save_courier_location(courier: dict, lat: float, lng: float, heading=None,
         "liveUntil": live_until,
     }, merge=True)
 
+    plan = plan_stops((lat, lng), [(oid, _order_point(order)) for oid, order in active])
     tracked = 0
     batch = db.batch()
-    for doc in db.collection("orders").where("courierId", "==", uid).stream():
-        order = doc.to_dict() or {}
-        if order.get("status") != "Yetkazilmoqda" or not order.get("userId"):
+    for oid, order in active:
+        if not order.get("userId"):
             continue
-        batch.set(db.collection("order_tracking").document(doc.id), {
+        stops_before, via_km = plan.get(oid, (0, None))
+        batch.set(db.collection("order_tracking").document(oid), {
             "userId": order.get("userId"),
             "courierUid": uid,
             "courierName": name,
@@ -633,6 +699,8 @@ def save_courier_location(courier: dict, lat: float, lng: float, heading=None,
             "heading": heading,
             "source": "live",
             "at": at,
+            "stopsBefore": stops_before,
+            "viaKm": via_km,
         })
         tracked += 1
     if tracked:

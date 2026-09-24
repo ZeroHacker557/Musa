@@ -5,8 +5,10 @@ import {
 import { userLang, type Lang } from '../i18n.js'
 import { restoreStock } from '../stock.js'
 import { pushOrderSafe } from './linko-orders.js'
-import { clearOrderTracking } from './location.js'
+import { clearOrderTracking, refreshCourierTracking } from './location.js'
 import type { Staff } from '../admin-auth.js'
+import { shiftActive } from '../courier-staff.js'
+import { orderLabel } from '../order-number.js'
 
 const STATUSES = [
   'Yangi',
@@ -93,6 +95,21 @@ const RATING_TEXT: Record<Lang, {
   },
 }
 
+const RATE_IN_APP: Record<Lang, { ask: (label: string) => string; button: string }> = {
+  uz: {
+    ask: (label) =>
+      `⭐ <b>${label} buyurtmangiz qanday bo‘ldi?</b>\n\n` +
+      'Kuryer va mahsulotlarni bir oynada baholang — 10 soniya vaqt oladi.',
+    button: '⭐ Baholash',
+  },
+  ru: {
+    ask: (label) =>
+      `⭐ <b>Как вам заказ ${label}?</b>\n\n` +
+      'Оцените курьера и товары в одном окне — это займёт 10 секунд.',
+    button: '⭐ Оценить',
+  },
+}
+
 type ChatMessage = { chatId: string; messageId: number }
 
 /**
@@ -105,6 +122,8 @@ type DispatchMessage = ChatMessage & { kind?: 'courier' | 'group' }
 
 export type OrderDoc = {
   orderNumber?: string
+  /** Toshkent sanasi — raqam har kuni #0001 dan boshlanadi. */
+  orderDay?: string
   status?: string
   userId?: number
   courierId?: string | null
@@ -117,6 +136,9 @@ export type OrderDoc = {
   groupText?: string
   /** Kuryer olganda hisoblangan taxminiy yetib kelish vaqti, daqiqa. */
   etaMinutes?: number | null
+  /** Kuryer bu manzildan oldin boradigan boshqa manzillar soni. */
+  etaStops?: number | null
+  cashStatus?: 'held' | 'pending' | 'settled' | null
   customer?: {
     name?: string
     phone?: string
@@ -271,7 +293,7 @@ export function orderSummary(id: string, order: OrderDoc): string {
     .join('\n')
 
   return (
-    `📦 <b>${escapeHtml(order.orderNumber || id)}</b>\n\n` +
+    `📦 <b>${escapeHtml(orderLabel(order, id))}</b>\n\n` +
     `👤 ${escapeHtml(order.customer?.name)}\n` +
     `📞 ${escapeHtml(order.customer?.phone)}\n` +
     `📍 ${escapeHtml(order.customer?.address)}\n` +
@@ -323,13 +345,44 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
 
   const now = new Date().toISOString()
   const by = { uid: staff.uid, name: staff.name, role: staff.role }
-  await ref.set({ status, statusUpdatedAt: now, statusUpdatedBy: by }, { merge: true })
+  await ref.set({ status, statusUpdatedAt: now, statusUpdatedBy: by, ...cashFields(order, status, now) }, { merge: true })
 
   const { notified } = await applyStatusEffects(orderId, order, status, by, now)
   return { ok: true, notified }
 }
 
+/**
+ * Kassa belgisi admin yo'lida ham (panel yoki botdagi «🎉 Bajarildi»).
+ *
+ * Kuryer ilovadan yetkazsa `courierDeliver` o'zi belgilaydi. Admin
+ * yopsa ham kuryeri bor naqd buyurtmaning puli o'sha kuryer qo'lida —
+ * aks holda u kassada umuman ko'rinmay qolardi. Holat «Yetkazildi» dan
+ * orqaga qaytsa, topshirilmagan («held») belgi olib tashlanadi.
+ * Topshirish jarayonidagi («pending», «settled») pulga tegilmaydi.
+ */
+function cashFields(order: OrderDoc, status: Status, now: string): Record<string, unknown> {
+  if (status === 'Yetkazildi') {
+    const fields: Record<string, unknown> = { deliveredAt: now }
+    if (order.courierId && order.paymentMethod !== 'Karta' && !order.cashStatus) {
+      fields.cashStatus = 'held'
+      fields.cashCourierId = order.courierId
+    }
+    return fields
+  }
+  if (order.status === 'Yetkazildi' && order.cashStatus === 'held') {
+    return { cashStatus: null, cashCourierId: null }
+  }
+  return {}
+}
+
 type Actor = { uid: string; name: string; role: string }
+
+type EffectOptions = {
+  /** Mijozga Telegram va ilova xabari. Mijozning o'zi bekor qilganda — yo'q. */
+  customerNotice?: boolean
+  /** Kuryer xabarlaridagi yopilish yorlig'i («❌ Mijoz bekor qildi»). */
+  closeLabel?: string
+}
 
 /**
  * Holat o'zgargandan KEYINGI hamma ish — bitta joyda.
@@ -349,9 +402,11 @@ export async function applyStatusEffects(
   status: Status,
   by: Actor,
   now: string,
+  options: EffectOptions = {},
 ): Promise<{ notified: boolean }> {
   const db = await adminDb()
   const ref = db.collection('orders').doc(orderId)
+  const customerNotice = options.customerNotice !== false
 
   await ref.collection('history').add({ at: now, from: order.status ?? null, to: status, by })
 
@@ -362,7 +417,7 @@ export async function applyStatusEffects(
     await dispatchToCouriers(orderId, { ...order, status })
   } else if (status === 'Bekor qilingan' || status === 'Rad etildi') {
     // Kuryerlardagi «Oldim» tugmasi qolib ketmasin — buyurtma yopilgan
-    await clearDispatchButtons(orderId, order, `❌ ${status}`)
+    await clearDispatchButtons(orderId, order, options.closeLabel ?? `❌ ${status}`)
     // Buyurtma yopildi — band qilingan miqdor omborga qaytadi
     await restoreStock(orderId)
   } else if (status === 'Yetkazilmoqda' || status === 'Yetkazildi') {
@@ -378,10 +433,10 @@ export async function applyStatusEffects(
    */
   await refreshAdminMessages(orderId, `${statusIcon(status)} ${status} — ${by.name}`)
 
-  const label = order.orderNumber || `#${orderId.slice(0, 6)}`
+  const label = orderLabel(order, orderId)
   let notified = false
 
-  if (order.userId) {
+  if (order.userId && customerNotice) {
     const lang = await userLang(order.userId)
     await db.collection('notifications').add({
       userId: order.userId,
@@ -400,7 +455,7 @@ export async function applyStatusEffects(
     )
     notified = result.ok
 
-    // Yetkazildi — mahsulotlarni baholashni so'raymiz (javobni bot qabul qiladi)
+    // Yetkazildi — baho so'raladi (kuryerli buyurtmada ilovadagi bitta oyna)
     if (status === 'Yetkazildi') await sendRatingPrompt(orderId, order)
   }
 
@@ -409,6 +464,10 @@ export async function applyStatusEffects(
 
   // Buyurtma yo'lda emas — mijoz endi kuryerning joyini ko'rmasin
   if (status !== 'Yetkazilmoqda') await clearOrderTracking(orderId)
+  // Kuryerning qolgan manzillari tartibi («sizdan oldin N ta») yangilanadi
+  if (order.courierId && (order.status === 'Yetkazilmoqda' || status === 'Yetkazilmoqda')) {
+    await refreshCourierTracking(order.courierId)
+  }
 
   // Kuryer ilovalari ro'yxatni darhol yangilasin
   await bumpOrdersSignal()
@@ -424,8 +483,13 @@ function courierLine(order: OrderDoc, status: Status, lang: Lang): string {
   if (status !== 'Yetkazilmoqda' || !order.courierName) return ''
   const name = escapeHtml(order.courierName)
   const eta = Number(order.etaMinutes) || 0
-  if (lang === 'ru') return `\n🛵 Курьер: ${name}` + (eta ? ` · примерно через ${eta} мин` : '')
-  return `\n🛵 Kuryer: ${name}` + (eta ? ` · taxminan ${eta} daqiqada yetib keladi` : '')
+  const stops = Number(order.etaStops) || 0
+  if (lang === 'ru') {
+    return `\n🛵 Курьер: ${name}` + (eta ? ` · примерно через ${eta} мин` : '') +
+      (stops ? `\n📍 Перед вами ещё адресов: ${stops}` : '')
+  }
+  return `\n🛵 Kuryer: ${name}` + (eta ? ` · taxminan ${eta} daqiqada yetib keladi` : '') +
+    (stops ? `\n📍 Sizdan oldin yana ${stops} ta manzil bor` : '')
 }
 
 /**
@@ -650,7 +714,7 @@ export async function dispatchToCouriers(orderId: string, order: OrderDoc): Prom
     }
     const channel = settings.channel ?? (settings.toGroup ? 'group' : 'couriers')
 
-    const label = escapeHtml(order.orderNumber || `#${orderId.slice(0, 6)}`)
+    const label = escapeHtml(orderLabel(order, orderId))
     const summary = orderSummary(orderId, order)
     const courierText = `🛵 <b>Sizni ${label}-buyurtma kutmoqda</b>\n\n${summary}`
     const groupText = `🛵 <b>YETKAZISHGA TAYYOR</b>\n\n${summary}`
@@ -673,10 +737,11 @@ export async function dispatchToCouriers(orderId: string, order: OrderDoc): Prom
       const all: number[] = []
       const onShift: number[] = []
       for (const doc of [...byRole.docs, ...byFlag.docs]) {
-        const data = doc.data() as { telegramId?: number; active?: boolean; onShift?: boolean }
+        const data = doc.data() as { telegramId?: number; active?: boolean; onShift?: boolean; shiftSince?: string }
         if (data.active === false || !data.telegramId) continue
         all.push(data.telegramId)
-        if (data.onShift === true) onShift.push(data.telegramId)
+        // Kechagi smena 00:00 da o'zi yopilgan (courier-staff.ts → shiftActive)
+        if (shiftActive(data)) onShift.push(data.telegramId)
       }
       /*
        * Smena: xabar faqat «Ishdaman» deb turganlarga. Hech kim ishda
@@ -686,7 +751,7 @@ export async function dispatchToCouriers(orderId: string, order: OrderDoc): Prom
       if (onShift.length) couriers.push(...onShift)
       else {
         couriers.push(...all)
-        await warnNoShift(order.orderNumber || `#${orderId.slice(0, 6)}`)
+        await warnNoShift(orderLabel(order, orderId))
       }
     }
 
@@ -805,6 +870,22 @@ export async function clearDispatchButtons(
 export async function sendRatingPrompt(orderId: string, order: OrderDoc): Promise<void> {
   try {
     if (!order.userId) return
+
+    /*
+     * Kuryer yetkazgan buyurtmada mijoz ilovada ham baho oynasini
+     * ko'radi (kuryer + mahsulotlar — bitta oynada). Ikki joyda ikki xil
+     * so'rov bo'lmasin: bot faqat shu oynani ochadigan tugma yuboradi.
+     */
+    const app = miniAppUrl()
+    if (order.courierId && app) {
+      const lang = await userLang(order.userId)
+      const label = escapeHtml(orderLabel(order, orderId))
+      const text = RATE_IN_APP[lang]
+      await sendRows(order.userId, text.ask(label), [
+        [{ text: text.button, web_app: { url: `${app}/?rate=${encodeURIComponent(orderId)}` } }],
+      ])
+      return
+    }
     const seen = new Set<string>()
     const items = (order.products || []).filter((p) => {
       const id = String((p.product as { id?: unknown } | undefined)?.id ?? '')
@@ -814,7 +895,7 @@ export async function sendRatingPrompt(orderId: string, order: OrderDoc): Promis
     })
     if (!items.length) return
 
-    const label = escapeHtml(order.orderNumber || `#${orderId.slice(0, 6)}`)
+    const label = escapeHtml(orderLabel(order, orderId))
     // Bitta baho — hamma mahsulotga. Har mahsulotni alohida so'rash mijozni
     // charchatardi va ko'pchilik yarim yo'lda tashlab ketardi.
     const text = RATING_TEXT[await userLang(order.userId)]

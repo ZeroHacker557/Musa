@@ -4,6 +4,7 @@
     { "source": "/admin/", "destination": "/admin.html" }
   ],
   "crons": [
-    { "path": "/api/linko-cron", "schedule": "0 3 * * *" }
+    { "path": "/api/linko-cron", "schedule": "0 3 * * *" },
+    { "path": "/api/linko-cron?shifts=1", "schedule": "0 19 * * *" }
   ]
 }

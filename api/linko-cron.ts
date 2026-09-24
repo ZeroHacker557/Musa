@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { linkoPull } from './_lib/actions/linko.js'
+import { endExpiredShifts } from './_lib/actions/shift.js'
 import { fail } from './_lib/http.js'
 
 /**
@@ -12,6 +13,10 @@ import { fail } from './_lib/http.js'
  *
  * Admin panel esa `linko.pull` amali orqali qo'lda chaqiradi — mantiq
  * bitta joyda (api/_lib/actions/linko.ts).
+ *
+ * Shu bilan birga kechagi kuryer smenalari yopiladi (actions/shift.ts):
+ * alohida funksiya ochilmadi — Vercel'da funksiyalar soni cheklangan.
+ * Ikkinchi cron (19:00 UTC = Toshkent 00:00) aynan shu uchun.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const secret = String(process.env.CRON_SECRET || '')
@@ -24,9 +29,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (provided !== secret) return fail(res, 401, 'Ruxsat yo‘q', 'FORBIDDEN')
 
+  // Smenalar Linko'dan mustaqil: sinxron yiqilsa ham yopilaversin
+  let shifts: { ended: number } | { error: string }
+  try {
+    shifts = await endExpiredShifts()
+  } catch (error) {
+    console.error('[linko-cron] smenalar yopilmadi:', error)
+    shifts = { error: error instanceof Error ? error.message : 'xato' }
+  }
+
   try {
     const result = await linkoPull(null, { full: req.query.full === '1' })
-    return res.status(200).json(result)
+    return res.status(200).json({ ...result, shifts })
   } catch (error) {
     // Sinxron yiqilsa do'kon ishlashda davom etadi — faqat log va 200 emas 500
     console.error('[linko-cron] xato:', error)

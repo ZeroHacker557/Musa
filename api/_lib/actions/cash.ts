@@ -1,4 +1,5 @@
 import { adminDb } from '../firebase-admin.js'
+import { CodedError } from '../errors.js'
 import type { Staff } from '../admin-auth.js'
 import { canDeliver } from '../courier-staff.js'
 import { escapeHtml, sendMessage } from '../telegram.js'
@@ -79,12 +80,12 @@ export async function cashSummary(uid: string, mine: { id: string; data: OrderLi
 
 /** Kuryer: qo'lidagi hamma naqdni kassaga topshirish. */
 export async function courierCashHandover(staff: Staff) {
-  if (!canDeliver(staff)) throw new Error('Bu amal faqat kuryer uchun')
+  if (!canDeliver(staff)) throw new CodedError('COURIER_ONLY', 'Bu amal faqat kuryer uchun')
   const db = await adminDb()
 
   const snap = await db.collection('orders').where('courierId', '==', staff.uid).get()
   const held = snap.docs.filter((doc) => (doc.data() as OrderLike).cashStatus === 'held')
-  if (!held.length) throw new Error('Topshiriladigan naqd pul yo‘q')
+  if (!held.length) throw new CodedError('CASH_NOTHING', 'Topshiriladigan naqd pul yo‘q')
 
   const amount = held.reduce((s, doc) => s + (Number((doc.data() as OrderLike).total) || 0), 0)
   const now = new Date().toISOString()

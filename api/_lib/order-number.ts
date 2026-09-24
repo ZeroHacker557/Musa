@@ -18,3 +18,19 @@ export function tashkentDay(date = new Date()): string {
 export function formatDailyNumber(n: number): string {
   return `#${String(n).padStart(4, '0')}`
 }
+
+/**
+ * Xabarlardagi buyurtma yorlig'i. Raqam har kuni takrorlanadi, shuning
+ * uchun bugungi bo'lmagan buyurtmaga sana qo'shiladi: «#0005 (23.09)».
+ * Aks holda admin kechagi #0005 ni bugungisi bilan adashtirardi.
+ */
+export function orderLabel(
+  order: { orderNumber?: string | null; orderDay?: string | null },
+  id: string,
+  today = tashkentDay(),
+): string {
+  const number = order.orderNumber || `#${id.slice(0, 6)}`
+  const day = order.orderDay
+  if (!day || day === today || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return number
+  return `${number} (${day.slice(8, 10)}.${day.slice(5, 7)})`
+}

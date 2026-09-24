@@ -1030,6 +1030,14 @@ async def handle_courier_location(message: Message, edited: bool):
         logger.warning(f"[LOCATION] {courier['uid']} yozilmadi: {e}")
         return
 
+    if tracked < 0:
+        # Dam olyapti va yetkazadigani yo'q — joylashuv saqlanmadi
+        if not edited:
+            await message.answer(
+                "🌙 Siz hozir <b>dam olyapsiz</b> — joylashuvingiz saqlanmadi.\n\n"
+                "Ishga chiqqaningizda ilovada «Ishdaman» ni yoqing, keyin joylashuvni qayta ulashing."
+            )
+        return
     if edited:
         return
     if loc.live_period:

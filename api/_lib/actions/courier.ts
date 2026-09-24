@@ -5,8 +5,13 @@ import { supportOpen } from './support.js'
 import { escapeHtml, sendMessage } from '../telegram.js'
 import { userLang } from '../i18n.js'
 import { cashSummary } from './cash.js'
-import { locationStatus, seedOrderTracking } from './location.js'
-import { canDeliver } from '../courier-staff.js'
+import {
+  distanceKm, endShiftLocation, etaFromPlan, lastKnownPoint, locationStatus, planStops,
+  type Point,
+} from './location.js'
+import { canDeliver, shiftActive, tashkentMidnight } from '../courier-staff.js'
+import { CodedError } from '../errors.js'
+import { orderLabel, tashkentDay } from '../order-number.js'
 
 /**
  * Kuryer amallari — mini app'dagi kuryer sahifasi uchun.
@@ -22,46 +27,26 @@ import { canDeliver } from '../courier-staff.js'
 
 type Body = Record<string, unknown>
 
-/** Toshkent vaqti — UTC+5, yozgi vaqt yo'q. */
-const TASHKENT_OFFSET_MS = 5 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function requireCourier(staff: Staff) {
-  if (!canDeliver(staff)) throw new Error('Bu amal faqat kuryer uchun')
+  if (!canDeliver(staff)) throw new CodedError('COURIER_ONLY', 'Bu amal faqat kuryer uchun')
 }
 
 function orderIdOf(body: Body): string {
   const id = String(body.orderId || '').trim()
-  if (!id) throw new Error('orderId kerak')
+  if (!id) throw new CodedError('ORDER_MISSING', 'Buyurtma tanlanmagan')
   return id
 }
 
-/** Ikki nuqta orasidagi masofa, km (src/courier/route.ts dagi bilan bir xil). */
-function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const rad = Math.PI / 180
-  const dLat = (b.lat - a.lat) * rad
-  const dLng = (b.lng - a.lng) * rad
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2
-  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)))
-}
-
 /**
- * Taxminiy yetib kelish vaqti, daqiqa.
- *
- * To'g'ri chiziq × 1.4 (shahar ko'chalari egri) / 25 km/soat (tirbandlik
- * bilan o'rtacha tezlik) + 5 daqiqa (mashinani qo'yish, eshikgacha
- * borish). 10 dan kam va 120 dan ko'p ko'rsatilmaydi — mijozga «2
- * daqiqa» deb va'da berish xavfli.
- *
- * Kuryer joylashuvi yoki mijoz koordinatasi bo'lmasa — null.
+ * To'g'ridan-to'g'ri bitta manzilgacha taxminiy vaqt, daqiqa
+ * (location.ts → etaFromPlan, oldingi manzillarsiz). Kuryer joylashuvi
+ * yoki mijoz koordinatasi bo'lmasa — null.
  */
-export function etaMinutes(
-  from: { lat: number; lng: number } | null,
-  to: { lat: number; lng: number } | null | undefined,
-): number | null {
+export function etaMinutes(from: Point | null, to: Point | null | undefined): number | null {
   if (!from || !to) return null
-  const minutes = Math.round((distanceKm(from, to) * 1.4 * 60) / 25 + 5)
-  return Math.min(120, Math.max(10, minutes))
+  return etaFromPlan({ stopsBefore: 0, viaKm: distanceKm(from, to) })
 }
 
 /** Ilova yuborgan joylashuv — noto'g'ri bo'lsa hisobga olinmaydi. */
@@ -95,8 +80,18 @@ export async function courierTake(staff: Staff, body: Body) {
   const now = new Date().toISOString()
   const by = { uid: staff.uid, name: staff.name, role: staff.role }
 
-  const from = pointOf(body)
+  /*
+   * Kuryer qayerda: ilova yuborgan nuqta, bo'lmasa so'nggi ma'lum joyi
+   * (Telegram jonli joylashuvi yoki ilova, 10 daqiqadan yangi). Ilova
+   * GPS ruxsatini olmagan bo'lsa ham mijoz vaqtni bilsin.
+   */
+  const from: Point | null = pointOf(body) ?? (await lastKnownPoint(staff.uid))
+  // Kuryer qo'lidagi boshqa buyurtmalar — yangi mijoz ulardan keyin bo'lishi mumkin
+  const others = from
+    ? (await db.collection('orders').where('courierId', '==', staff.uid).where('status', '==', 'Yetkazilmoqda').get()).docs
+    : []
   let eta: number | null = null
+  let stops = 0
 
   const { outcome, order } = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
@@ -113,8 +108,22 @@ export async function courierTake(staff: Staff, body: Body) {
     // admin ko'rmagani kuryerga tegmaydi
     if (data.status !== 'Qabul qilindi') return { outcome: 'closed' as TakeOutcome, order: data }
 
-    // Mijozga «taxminan 15 daqiqada» — kuryerning hozirgi joyidan
-    eta = etaMinutes(from, data.customer?.location)
+    // Mijozga «taxminan 25 daqiqada» — kuryerning hozirgi joyidan, qo'lidagi
+    // boshqa manzillarni ham hisobga olib (eng yaqin qo'shni tartibi)
+    const target = data.customer?.location
+    if (from && target && Number.isFinite(target.lat) && Number.isFinite(target.lng)) {
+      const plan = planStops(from, [
+        ...others.filter((doc) => doc.id !== orderId).map((doc) => {
+          const loc = (doc.data() as OrderDoc).customer?.location
+          return { id: doc.id, point: loc && Number.isFinite(loc.lat) ? { lat: loc.lat, lng: loc.lng } : null }
+        }),
+        { id: orderId, point: { lat: target.lat, lng: target.lng } },
+      ]).get(orderId)
+      if (plan) {
+        eta = etaFromPlan(plan)
+        stops = plan.stopsBefore
+      }
+    }
     tx.update(ref, {
       courierId: staff.uid,
       courierName: staff.name,
@@ -123,6 +132,7 @@ export async function courierTake(staff: Staff, body: Body) {
       status: 'Yetkazilmoqda',
       takenAt: now,
       etaMinutes: eta,
+      etaStops: eta ? stops : null,
       etaAt: eta ? new Date(Date.parse(now) + eta * 60_000).toISOString() : null,
       statusUpdatedAt: now,
       statusUpdatedBy: by,
@@ -131,18 +141,18 @@ export async function courierTake(staff: Staff, body: Body) {
   })
 
   if (outcome === 'claimed' && order) {
-    // Mijoz «Kuryer qayerda» xaritasida kuryerni darhol ko'rsin
-    await seedOrderTracking(orderId, staff, order.userId)
+    // Mijoz «Kuryer qayerda» xaritasida kuryerni darhol ko'radi —
+    // applyStatusEffects → refreshCourierTracking
     await applyStatusEffects(
       orderId,
-      { ...order, courierId: staff.uid, courierName: staff.name, etaMinutes: eta },
+      { ...order, courierId: staff.uid, courierName: staff.name, etaMinutes: eta, etaStops: stops },
       'Yetkazilmoqda',
       by,
       now,
     )
   }
 
-  return { outcome, courierName: order?.courierName ?? null, etaMinutes: eta }
+  return { outcome, courierName: order?.courierName ?? null, etaMinutes: eta, etaStops: eta ? stops : null }
 }
 
 export type DeliverOutcome = 'done' | 'already' | 'not_yours' | 'closed' | 'not_found'
@@ -277,6 +287,7 @@ function present(id: string, order: RawOrder, uid: string) {
     courierName: order.courierName || null,
     arrivedAt: order.arrivedAt || null,
     etaAt: order.etaAt || null,
+    etaStops: typeof order.etaStops === 'number' ? order.etaStops : null,
     cashStatus: order.cashStatus || null,
     problems: Array.isArray(order.problems) ? order.problems.map((p) => String(p.code)) : [],
   }
@@ -290,10 +301,18 @@ function deliveredAt(order: RawOrder): string | null {
 
 /** Toshkent bo'yicha bugungi kun boshidan `daysBack` kun oldingi vaqt (ms). */
 function tashkentDayStart(daysBack = 0): number {
-  const local = Date.now() + TASHKENT_OFFSET_MS
-  const midnight = local - (local % DAY_MS)
-  return midnight - TASHKENT_OFFSET_MS - daysBack * DAY_MS
+  return tashkentMidnight() - daysBack * DAY_MS
 }
+
+/** Oxirgi `n` kunning Toshkent sanalari: bugun, kecha, … */
+function lastDays(n: number): string[] {
+  const days: string[] = []
+  for (let i = 0; i < n; i++) days.push(tashkentDay(new Date(Date.now() - i * DAY_MS)))
+  return days
+}
+
+/** Kuryer ilovasi ko'rsatadigan tarix chuqurligi, kun. Firestore `in` ko'pi 30 ta qiymat oladi. */
+const HISTORY_DAYS = 30
 
 type Bucket = { delivered: number; cash: number; card: number }
 
@@ -322,17 +341,28 @@ function bucket(orders: RawOrder[], since: number): Bucket {
  *
  * Tartiblash (yaqinlik bo'yicha) ilovada: kuryerning joylashuvi faqat
  * telefonda ma'lum.
+ *
+ * Bu so'rov har buyurtma o'zgarishida (signals/orders) qayta keladi,
+ * shuning uchun kuryerning BUTUN tarixi o'qilmaydi: yo'ldagilar,
+ * oxirgi 30 kun yetkazilganlari va kassaga topshirilmaganlari. Jami son
+ * — `count()` bilan, hujjatlarni yuklamasdan.
  */
 export async function courierOverview(staff: Staff) {
   requireCourier(staff)
   const db = await adminDb()
+  const byMe = db.collection('orders').where('courierId', '==', staff.uid)
 
-  const [ready, mine, staffSnap] = await Promise.all([
+  const [ready, onWay, recentDelivered, unsettled, deliveredCount, staffSnap] = await Promise.all([
     db.collection('orders').where('status', '==', 'Qabul qilindi').get(),
-    db.collection('orders').where('courierId', '==', staff.uid).get(),
+    byMe.where('status', '==', 'Yetkazilmoqda').get(),
+    byMe.where('status', '==', 'Yetkazildi').where('orderDay', 'in', lastDays(HISTORY_DAYS)).get(),
+    byMe.where('cashStatus', 'in', ['held', 'pending']).get(),
+    byMe.where('status', '==', 'Yetkazildi').count().get(),
     db.collection('staff').doc(staff.uid).get(),
   ])
-  const staffData = (staffSnap.data() || {}) as { onShift?: boolean; ratingSum?: number; ratingCount?: number }
+  const staffData = (staffSnap.data() || {}) as {
+    onShift?: boolean; shiftSince?: string; ratingSum?: number; ratingCount?: number
+  }
 
   const available = ready.docs
     .filter((doc) => {
@@ -341,13 +371,11 @@ export async function courierOverview(staff: Staff) {
     })
     .map((doc) => present(doc.id, doc.data() as RawOrder, staff.uid))
 
-  const mineOrders = mine.docs.map((doc) => ({ id: doc.id, data: doc.data() as RawOrder }))
-  const delivered = mineOrders.filter((o) => o.data.status === 'Yetkazildi')
+  const toRows = (snap: typeof onWay) => snap.docs.map((doc) => ({ id: doc.id, data: doc.data() as RawOrder }))
+  const delivered = toRows(recentDelivered)
   const today = tashkentDayStart(0)
 
-  const active = mineOrders
-    .filter((o) => o.data.status === 'Yetkazilmoqda')
-    .map((o) => present(o.id, o.data, staff.uid))
+  const active = toRows(onWay).map((o) => present(o.id, o.data, staff.uid))
 
   const byDeliveredDesc = (a: { data: RawOrder }, b: { data: RawOrder }) =>
     String(deliveredAt(b.data)).localeCompare(String(deliveredAt(a.data)))
@@ -369,7 +397,8 @@ export async function courierOverview(staff: Staff) {
       name: staff.name,
       phone: staff.phone ?? null,
       telegramId: staff.telegramId ?? null,
-      onShift: staffData.onShift === true,
+      // Kechagi smena 00:00 da o'zi yopiladi
+      onShift: shiftActive(staffData),
       rating: {
         count: Number(staffData.ratingCount) || 0,
         average: Number(staffData.ratingCount) ? Number(staffData.ratingSum) / Number(staffData.ratingCount) : null,
@@ -388,7 +417,7 @@ export async function courierOverview(staff: Staff) {
         tags: Array.isArray(r.rating!.tags) ? r.rating!.tags.map(String) : [],
         comment: String(r.rating!.comment || ''),
       })),
-    cash: await cashSummary(staff.uid, mineOrders),
+    cash: await cashSummary(staff.uid, toRows(unsettled)),
     // Telegram jonli joylashuvi yoqilganmi — ilova eslatma ko'rsatadi
     location: await locationStatus(staff.uid),
     available,
@@ -399,7 +428,7 @@ export async function courierOverview(staff: Staff) {
       today: bucket(all, today),
       week: bucket(all, tashkentDayStart(6)),
       month: bucket(all, tashkentDayStart(29)),
-      total: all.length,
+      total: Number(deliveredCount.data().count) || all.length,
     },
     serverTime: new Date().toISOString(),
   }
@@ -414,10 +443,19 @@ export async function courierOverview(staff: Staff) {
 export async function courierShift(staff: Staff, body: Body) {
   requireCourier(staff)
   const on = body.on === true
+  const now = new Date().toISOString()
   await (await adminDb()).collection('staff').doc(staff.uid).set(
-    { onShift: on, shiftSince: new Date().toISOString() },
+    on ? { onShift: true, shiftSince: now } : { onShift: false, shiftEndedAt: now },
     { merge: true },
   )
+
+  // Smena tugadi — dam olayotgan kuryer xaritada kuzatilmaydi
+  if (!on) {
+    const { liveWasOn } = await endShiftLocation(staff.uid)
+    if (liveWasOn && staff.telegramId) {
+      await sendMessage(staff.telegramId, STOP_LIVE_TEXT).catch(() => undefined)
+    }
+  }
 
   // Smena boshlandi, jonli joylashuv esa yoqilmagan — bot qanday qilishni eslatadi
   if (on && staff.telegramId) {
@@ -437,6 +475,12 @@ const SHARE_LIVE_TEXT =
   '2. «Joylashuv» (Location) ni tanlang\n' +
   '3. «Jonli joylashuvni ulashish» → <b>«Men o‘chirgunimcha»</b>\n\n' +
   '<i>Smena tugaganda xabardagi «Ulashishni to‘xtatish» ni bosing.</i>'
+
+/** Smena tugaganda — jonli ulashishni to'xtatishni faqat kuryerning o'zi qila oladi. */
+export const STOP_LIVE_TEXT =
+  '🌙 <b>Smena tugadi.</b> Joylashuvingiz endi saqlanmaydi.\n\n' +
+  'Telegram jonli joylashuvni baribir ulashib turibdi — shu chatdagi joylashuv xabari ostidagi ' +
+  '<b>«Ulashishni to‘xtatish»</b> ni bosing.'
 
 /* ─── «Yetib keldim» ────────────────────────────────────────── */
 
@@ -470,7 +514,7 @@ export async function courierArrived(staff: Staff, body: Body) {
   if (outcome === 'done' && order?.userId) {
     try {
       const lang = await userLang(order.userId)
-      const label = order.orderNumber || `#${orderId.slice(0, 6)}`
+      const label = orderLabel(order, orderId)
       await db.collection('notifications').add({
         userId: order.userId,
         title: ARRIVED_NOTIF[lang],
@@ -515,16 +559,16 @@ export async function courierProblem(staff: Staff, body: Body) {
   requireCourier(staff)
   const orderId = orderIdOf(body)
   const code = String(body.code || '') as ProblemCode
-  if (!(code in PROBLEMS)) throw new Error('Muammo turi noto‘g‘ri')
+  if (!(code in PROBLEMS)) throw new CodedError('PROBLEM_TYPE', 'Muammo turi noto‘g‘ri')
 
   const db = await adminDb()
   const ref = db.collection('orders').doc(orderId)
   const snap = await ref.get()
-  if (!snap.exists) throw new Error('Buyurtma topilmadi')
+  if (!snap.exists) throw new CodedError('ORDER_GONE', 'Buyurtma topilmadi')
   const order = snap.data() as RawOrder
   const mine = order.courierId === staff.uid
   const open = !order.courierId && order.status === 'Qabul qilindi'
-  if (!mine && !open) throw new Error('Bu buyurtma sizga biriktirilmagan')
+  if (!mine && !open) throw new CodedError('ORDER_NOT_YOURS', 'Bu buyurtma sizga biriktirilmagan')
 
   const at = new Date().toISOString()
   const problems = [...(Array.isArray(order.problems) ? order.problems : []), { code, at, by: staff.uid }]
@@ -539,7 +583,7 @@ export async function courierProblem(staff: Staff, body: Body) {
   let customerNotified = false
   if (code === 'no_answer' && order.userId) {
     const lang = await userLang(order.userId)
-    const label = escapeHtml(order.orderNumber || `#${orderId.slice(0, 6)}`)
+    const label = escapeHtml(orderLabel(order, orderId))
     customerNotified = (await sendMessage(order.userId, CALL_ME[lang](label))).ok
   }
 

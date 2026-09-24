@@ -3,6 +3,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../i18n'
+import { apiErrorText } from '../utils/api-error'
 import { usePresence } from '../hooks/use-presence'
 import { hapticError, hapticSuccess, setupBackButton, toggleBackButton } from '../utils/telegram'
 import { orderLabel, type SupportThread } from '../types/support'
@@ -200,7 +201,7 @@ function NewThread({
       onCreated(id)
     } catch (e) {
       hapticError()
-      setError(e instanceof Error ? e.message : 'Xato')
+      setError(apiErrorText(e, t, 'error.courierGeneric'))
     } finally {
       setBusy(false)
     }
@@ -318,7 +319,7 @@ function Chat({ threadId, thread }: { threadId: string; thread: SupportThread | 
       setText('')
     } catch (e) {
       hapticError()
-      setError(e instanceof Error ? e.message : 'Xato')
+      setError(apiErrorText(e, t, 'error.courierGeneric'))
     } finally {
       setBusy(false)
     }

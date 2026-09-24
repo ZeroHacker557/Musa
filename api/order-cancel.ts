@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
+import { applyStatusEffects, type OrderDoc } from './_lib/actions/orders.js'
 
 /** Faqat shu statuslardagi buyurtmani mijoz bekor qila oladi. */
 const CANCELLABLE = ['Yangi', 'Qabul qilindi']
@@ -16,6 +17,13 @@ const CANCELLABLE = ['Yangi', 'Qabul qilindi']
  * turardi.
  *
  * Bekor qilinganda ombor qoldig'i qaytariladi.
+ *
+ * Keyin admin paneldagi bekor qilish bilan BIR XIL yo'l ishlaydi
+ * (applyStatusEffects): kuryerlardagi «Ilovada ochish» xabari
+ * «❌ Mijoz bekor qildi» ga aylanadi, kuryer ilovasi darhol yangilanadi,
+ * Linko'ga holat ketadi va tarixga yoziladi. Mijozning o'ziga xabar
+ * yuborilmaydi — o'zi bekor qildi. Adminga xabarni bot beradi
+ * (`cancelNotified` bayrog'i).
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requirePost(req, res)) return
@@ -38,6 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = Number(uid)
 
   try {
+    const now = new Date().toISOString()
     const result = await db.runTransaction(async (tx) => {
       const orderRef = db.collection('orders').doc(orderId)
       const orderSnap = await tx.get(orderRef)
@@ -74,20 +83,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       tx.update(orderRef, {
         status: 'Bekor qilingan',
-        cancelledAt: new Date().toISOString(),
+        cancelledAt: now,
         cancelledBy: 'customer',
+        statusUpdatedAt: now,
         // Qoldiq shu yerda qaytarildi — admin keyin «Rad etildi» qo'ysa
         // ikkinchi marta oshib ketmasligi uchun (api/_lib/stock.ts)
         stockRestored: true,
-        stockRestoredAt: new Date().toISOString(),
+        stockRestoredAt: now,
         // Bot mijozga xabar berishi uchun bayroq
         cancelNotified: false,
       })
 
-      return { id: orderId, orderNumber: String(order.orderNumber || order.id || '') }
+      return {
+        id: orderId,
+        orderNumber: String(order.orderNumber || order.id || ''),
+        before: order as OrderDoc,
+      }
     })
 
-    return res.status(200).json(result)
+    // Xabarlar ketmasa ham bekor qilish kuchda — xato mijozga qaytmaydi
+    try {
+      await applyStatusEffects(
+        orderId,
+        result.before,
+        'Bekor qilingan',
+        { uid: String(userId), name: 'Mijoz', role: 'customer' },
+        now,
+        { customerNotice: false, closeLabel: '❌ Mijoz bekor qildi' },
+      )
+    } catch (error) {
+      console.error('[order-cancel] keyingi ishlar bajarilmadi:', error)
+    }
+
+    return res.status(200).json({ id: result.id, orderNumber: result.orderNumber })
   } catch (error) {
     const code = error instanceof Error ? error.message : ''
     const messages: Record<string, string> = {

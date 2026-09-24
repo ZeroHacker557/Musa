@@ -6,7 +6,8 @@ import { createPortal } from 'react-dom'
 import { formatPrice } from '../../data'
 import type { OrderStatus } from '../../types/domain'
 import { apiPost } from '../lib/api'
-import { useOrders, useStaff, type AdminOrder, type StaffRow } from '../lib/live'
+import { ORDERS_WINDOW_DAYS, useOrders, useStaff, type AdminOrder, type StaffRow } from '../lib/live'
+import { datedNumber, shortDay } from '../../utils/order-label'
 import { StatusBadge } from '../components/StatusBadge'
 import { can, type Staff } from '../lib/auth'
 import { useToast } from '../components/Toast'
@@ -35,13 +36,25 @@ const PROBLEM_LABEL: Record<string, string> = {
   refused: 'Mijoz rad etdi',
 }
 
+/**
+ * Tanlangan oraliq oxirgi 30 kunga sig'adimi. Sig'masa (hammasi yoki eski
+ * sana) — butun tarix yuklanadi; odatiy ish esa faqat 30 kunlik bilan.
+ */
+function needsFullHistory(range: Range): boolean {
+  if (range === 'all') return true
+  if (!range.includes('-')) return false
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - (ORDERS_WINDOW_DAYS - 1))
+  return range < dayKey(start)
+}
+
 export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string | null }) {
   const courierId = staff.role === 'courier' ? staff.uid : undefined
-  const { orders, loading, error } = useOrders(courierId)
-
   const [filter, setFilter] = useState<Filter>('all')
   // Kun bo'yicha ko'rish — sukut bo'yicha bugungi buyurtmalar
   const [range, setRange] = useState<Range>('today')
+  const { orders, loading, error } = useOrders(courierId, needsFullHistory(range) ? 'all' : ORDERS_WINDOW_DAYS)
   const [query, setQuery] = useState('')
   /**
    * Ochiq buyurtma HOLATDA emas, identifikator bo'yicha hisoblanadi.
@@ -116,8 +129,11 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
     return inPeriod.filter((order) => {
       if (filter !== 'all' && order.status !== filter) return false
       if (!needle) return true
+      // «0005 23.09» ham topilsin — raqam har kuni takrorlanadi
+      const dated = order.orderDay ? `${order.orderNumber} ${shortDay(order.orderDay)}`.toLowerCase() : ''
       return (
         order.orderNumber.toLowerCase().includes(needle) ||
+        (dated && needle.split(/\s+/).every((part) => dated.includes(part))) ||
         (order.customer?.name || '').toLowerCase().includes(needle) ||
         (order.customer?.phone || '').toLowerCase().includes(needle)
       )
@@ -135,8 +151,8 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
       })
       show(
         result.notified
-          ? `${order.orderNumber} — «${status}». Mijozga xabar yuborildi.`
-          : `${order.orderNumber} — «${status}».`,
+          ? `${datedNumber(order.orderNumber, order.orderDay)} — «${status}». Mijozga xabar yuborildi.`
+          : `${datedNumber(order.orderNumber, order.orderDay)} — «${status}».`,
       )
     } catch (err) {
       show(err instanceof Error ? err.message : 'O‘zgartirib bo‘lmadi', 'error')
@@ -241,7 +257,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-extrabold">
-                    {order.orderNumber}
+                    {datedNumber(order.orderNumber, order.orderDay)}
                     {!!order.problems?.length && (
                       <span className="adm-badge ml-1.5" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>
                         ⚠️ muammo
@@ -285,7 +301,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
                       className="cursor-pointer"
                       onClick={() => setOpenId(order.id)}
                     >
-                      <td className="font-extrabold">{order.orderNumber}</td>
+                      <td className="font-extrabold">{datedNumber(order.orderNumber, order.orderDay)}</td>
                       <td>{order.customer?.name || '—'}</td>
                       <td style={{ color: 'var(--muted)' }}>{order.customer?.phone || '—'}</td>
                       <td className="font-bold">{formatPrice(order.total)}</td>
@@ -363,7 +379,7 @@ function OrderDrawer({
       <div className="adm-drawer__panel">
         <div className="adm-drawer__head">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-lg font-extrabold">{order.orderNumber}</p>
+            <p className="truncate text-lg font-extrabold">{datedNumber(order.orderNumber, order.orderDay)}</p>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>
               {order.createdAt ? new Date(order.createdAt).toLocaleString('ru-RU') : '—'}
             </p>

@@ -1,4 +1,5 @@
 import { adminDb } from '../firebase-admin.js'
+import { CodedError } from '../errors.js'
 import type { Staff } from '../admin-auth.js'
 import { canDeliver } from '../courier-staff.js'
 import { escapeHtml, sendMessage, sendRows } from '../telegram.js'
@@ -43,20 +44,20 @@ export type ThreadDoc = {
 
 function textOf(body: Body): string {
   const text = String(body.text ?? '').trim()
-  if (!text) throw new Error('Xabar bo‘sh')
-  if (text.length > MAX_TEXT) throw new Error(`Xabar ${MAX_TEXT} belgidan oshmasin`)
+  if (!text) throw new CodedError('SUPPORT_EMPTY', 'Xabar bo‘sh')
+  if (text.length > MAX_TEXT) throw new CodedError('SUPPORT_TOO_LONG', `Xabar ${MAX_TEXT} belgidan oshmasin`)
   return text
 }
 
 function idOf(body: Body): string {
   const id = String(body.threadId || '').trim()
-  if (!id) throw new Error('threadId kerak')
+  if (!id) throw new CodedError('SUPPORT_THREAD_MISSING', 'threadId kerak')
   return id
 }
 
 function requireCourier(staff: Staff) {
-  if (!canDeliver(staff)) throw new Error('Bu amal faqat kuryer uchun')
-  if (!staff.telegramId) throw new Error('Telegram ID ulanmagan')
+  if (!canDeliver(staff)) throw new CodedError('COURIER_ONLY', 'Bu amal faqat kuryer uchun')
+  if (!staff.telegramId) throw new CodedError('NO_TELEGRAM', 'Telegram ID ulanmagan')
 }
 
 /** «#0005 · 23.09» yoki «Umumiy savol». */
@@ -74,7 +75,7 @@ async function append(threadId: string, from: From, authorName: string, text: st
 
   const thread = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
-    if (!snap.exists) throw new Error('Murojaat topilmadi')
+    if (!snap.exists) throw new CodedError('SUPPORT_THREAD_GONE', 'Murojaat topilmadi')
     const data = snap.data() as ThreadDoc
     const patch: Partial<ThreadDoc> = {
       lastAt: at,
@@ -143,7 +144,7 @@ export async function supportOpen(staff: Staff, body: Body) {
   let orderDay: string | null = null
   if (orderId) {
     const order = await db.collection('orders').doc(orderId).get()
-    if (!order.exists) throw new Error('Buyurtma topilmadi')
+    if (!order.exists) throw new CodedError('ORDER_GONE', 'Buyurtma topilmadi')
     const data = order.data() as { orderNumber?: string; orderDay?: string }
     orderNumber = data.orderNumber || `#${orderId.slice(0, 6)}`
     orderDay = data.orderDay || null
@@ -185,9 +186,9 @@ export async function supportOpen(staff: Staff, body: Body) {
 
 async function ownThread(staff: Staff, threadId: string) {
   const snap = await (await adminDb()).collection(THREADS).doc(threadId).get()
-  if (!snap.exists) throw new Error('Murojaat topilmadi')
+  if (!snap.exists) throw new CodedError('SUPPORT_THREAD_GONE', 'Murojaat topilmadi')
   const data = snap.data() as ThreadDoc
-  if (data.courierUid !== staff.uid) throw new Error('Bu murojaat sizniki emas')
+  if (data.courierUid !== staff.uid) throw new CodedError('SUPPORT_NOT_YOURS', 'Bu murojaat sizniki emas')
   return data
 }
 
@@ -232,7 +233,7 @@ export async function supportClose(_staff: Staff, body: Body) {
   const db = await adminDb()
   const ref = db.collection(THREADS).doc(threadId)
   const snap = await ref.get()
-  if (!snap.exists) throw new Error('Murojaat topilmadi')
+  if (!snap.exists) throw new CodedError('SUPPORT_THREAD_GONE', 'Murojaat topilmadi')
   const status = body.closed === false ? 'open' : 'closed'
   await ref.set({ status, unreadAdmin: 0 }, { merge: true })
   return { threadId, status }

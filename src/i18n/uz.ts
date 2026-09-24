@@ -386,6 +386,24 @@ export const uz = {
   'error.NOT_YOURS': 'Bu buyurtma sizniki emas',
   'error.ALREADY_CANCELLED': 'Buyurtma allaqachon bekor qilingan',
   'error.TOO_LATE': "Bu buyurtmani endi bekor qilib bo'lmaydi — operator bilan bog'laning",
+  // Kuryer ilovasi (api/courier.ts) — rus tilidagi kuryer ham o'z tilida ko'rsin
+  'error.COURIER_ONLY': 'Bu amal faqat kuryer uchun',
+  'error.NOT_COURIER': 'Siz kuryer emassiz yoki hisobingiz faol emas',
+  'error.SESSION_EXPIRED': 'Sessiya eskirgan — ilovani qayta oching',
+  'error.UNKNOWN_ACTION': 'Ilova eskirgan — uni yopib, qayta oching',
+  'error.ORDER_MISSING': 'Buyurtma tanlanmagan',
+  'error.ORDER_GONE': 'Buyurtma topilmadi',
+  'error.ORDER_NOT_YOURS': 'Bu buyurtma sizga biriktirilmagan',
+  'error.PROBLEM_TYPE': 'Muammo turi noto‘g‘ri',
+  'error.BAD_LOCATION': 'Joylashuv noto‘g‘ri aniqlandi',
+  'error.CASH_NOTHING': 'Topshiriladigan naqd pul yo‘q',
+  'error.SUPPORT_EMPTY': 'Xabar bo‘sh',
+  'error.SUPPORT_TOO_LONG': 'Xabar juda uzun',
+  'error.SUPPORT_THREAD_MISSING': 'Murojaat tanlanmagan',
+  'error.SUPPORT_THREAD_GONE': 'Murojaat topilmadi',
+  'error.SUPPORT_NOT_YOURS': 'Bu murojaat sizniki emas',
+  'error.NO_TELEGRAM': 'Telegram hisobingiz ulanmagan — adminga murojaat qiling',
+  'error.courierGeneric': 'Amal bajarilmadi, qayta urinib ko‘ring',
 
   // ── Telegram to'sig'i ──
   'gate.title': 'Telegram orqali oching',
@@ -551,6 +569,9 @@ export const uz = {
   'delivery.stale': 'Kuryer joylashuvi biroz eskirgan',
   'delivery.noLocation': 'Kuryer joylashuvi hali kelmadi — tez orada xaritada paydo bo‘ladi',
   'delivery.receipt': 'Buyurtma cheki',
+  'delivery.pickOrder': 'Qaysi buyurtmani kuzatish',
+  'delivery.stopsBefore': 'oldin {n} ta manzil',
+  'delivery.stopsBeforeLong': 'Kuryer sizdan oldin yana {n} ta manzilga boradi — vaqt shuni hisobga olgan',
 
   // ── Kuryerni baholash ──
   'rating.title': 'Buyurtmangiz yetkazildi!',
@@ -573,6 +594,7 @@ export const uz = {
   'rating.later': 'Keyinroq',
   'rating.thanks': 'Rahmat!',
   'rating.thanksText': 'Bahoyingiz kuryer ishini yaxshilashga yordam beradi',
+  'rating.products': 'Mahsulotlar sifati',
 } as const
 
 export type TranslationKey = keyof typeof uz

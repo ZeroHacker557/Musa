@@ -3,6 +3,7 @@ import {
   MessageSquareText, Package, PackageCheck, Phone, UserRound,
 } from 'lucide-react'
 import { useState } from 'react'
+import { datedNumber } from '../utils/order-label'
 import { formatPrice } from '../data'
 import { useI18n, type TranslationKey } from '../i18n'
 import { usePresence } from '../hooks/use-presence'
@@ -61,7 +62,7 @@ export function OrderDetail({ order, busy, onClose, onTake, onDeliver, onSupport
         </button>
         <div className="min-w-0 flex-1">
           <b className="block truncate text-lg font-extrabold" style={{ color: 'var(--ink)' }}>
-            {shown.number}
+            {datedNumber(shown.number, shown.orderDay)}
           </b>
           <span className="block text-xs" style={{ color: 'var(--muted)' }}>{t('courier.detailsTitle')}</span>
         </div>

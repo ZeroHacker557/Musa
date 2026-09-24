@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { db } from './auth'
 import type { Category, Order, Product, PromoCode, Section } from '../../types/domain'
 import { readPromotion, type Promotion } from '../../utils/promotions'
+import { tashkentToday } from '../../utils/order-label'
 import { EMPTY_AD, readSplashAd, type SplashAd } from '../../utils/splash-ad'
 import {
   readMessage, readThread, type SupportMessage, type SupportThread,
@@ -22,6 +23,8 @@ function parseTime(value: unknown): number {
 }
 
 export type AdminOrder = Order & {
+  /** Toshkent sanasi — raqam har kuni #0001 dan boshlanadi. */
+  orderDay?: string
   courierId?: string | null
   courierName?: string | null
   statusUpdatedAt?: string
@@ -31,19 +34,47 @@ export type AdminOrder = Order & {
   problems?: { code: string; at: string }[]
 }
 
+/** Sukut bo'yicha nechta kunlik buyurtma jonli kuzatiladi. */
+export const ORDERS_WINDOW_DAYS = 30
+
+/**
+ * `days` kun oldingi mahalliy yarim tun — ISO. Kun boshiga yaxlitlanadi:
+ * bir vaqtda ochiq sahifalar AYNAN bir xil so'rov yuboradi va Firestore
+ * SDK ularni bitta tinglovchiga birlashtiradi (hujjatlar ikki marta
+ * o'qilmaydi).
+ */
+function windowStart(days: number): string {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - (days - 1))
+  return start.toISOString()
+}
+
 /**
  * Buyurtmalar. Kuryerga faqat o'ziga biriktirilganlari ko'rinadi —
  * bu Firestore Rules bilan ham takrorlanadi, bu yerdagi filtr esa
  * keraksiz ma'lumotni umuman yuklamaslik uchun.
+ *
+ * `days` — faqat oxirgi N kun (sukut bo'yicha 30). Ilgari panel har
+ * sahifada BUTUN tarixni yuklardi: buyurtmalar ko'paygan sari sekinlashib,
+ * Firestore o'qishlari o'sib borardi. Butun tarix kerak bo'lgan joylar
+ * (mijozlar, tahlil) `'all'` beradi.
  */
-export function useOrders(courierId?: string) {
+export function useOrders(courierId?: string, days: number | 'all' = ORDERS_WINDOW_DAYS) {
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const ref = collection(db, 'orders')
-    const q = courierId ? query(ref, where('courierId', '==', courierId)) : ref
+    const since = days === 'all' || courierId ? null : windowStart(days)
+    // Kuryer: faqat o'zinikilar (oz) — sana filtri qo'shilmaydi, aks holda
+    // Firestore murakkab indeks talab qilardi
+    const q = courierId
+      ? query(ref, where('courierId', '==', courierId))
+      : since
+        ? query(ref, where('createdAt', '>=', since))
+        : ref
 
     return onSnapshot(
       q,
@@ -68,9 +99,28 @@ export function useOrders(courierId?: string) {
         setLoading(false)
       },
     )
-  }, [courierId])
+  }, [courierId, days])
 
   return { orders, loading, error }
+}
+
+/**
+ * Kuryerlar qo'lidagi (kassaga topshirilmagan) naqd buyurtmalar — sanaga
+ * qaramay: kuryer pulni bir oy topshirmasa ham kassada ko'rinib tursin.
+ */
+export function useHeldCashOrders(enabled = true) {
+  const [orders, setOrders] = useState<AdminOrder[]>([])
+
+  useEffect(() => {
+    if (!enabled) return
+    return onSnapshot(
+      query(collection(db, 'orders'), where('cashStatus', '==', 'held')),
+      (snapshot) => setOrders(snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }) as AdminOrder)),
+      (err) => console.error('[admin] kassa buyurtmalari o‘qilmadi:', err),
+    )
+  }, [enabled])
+
+  return enabled ? orders : []
 }
 
 /** Firestore hujjat identifikatori — tahrir va o'chirish shu bo'yicha. */
@@ -297,8 +347,12 @@ export type StaffRow = {
   webAccess?: boolean
   /** Ega/admin kuryer sifatida ham ishlaydi. */
   canDeliver?: boolean
-  /** Smena: «Ishdaman» — yangi buyurtma xabarlari keladi. */
+  /**
+   * Smena: «Ishdaman» — yangi buyurtma xabarlari keladi. Kechagi smena
+   * hisoblanmaydi (Toshkent 00:00 da yopiladi — server bilan bir xil).
+   */
   onShift?: boolean
+  shiftSince?: string
   /** Mijozlar bahosi yig'indisi va soni. */
   ratingSum?: number
   ratingCount?: number
@@ -319,7 +373,13 @@ export function useStaff(enabled: boolean) {
     return onSnapshot(
       collection(db, 'staff'),
       (snapshot) => {
-        const rows = snapshot.docs.map((d) => ({ ...d.data(), uid: d.id }) as StaffRow)
+        const today = tashkentToday()
+        const rows = snapshot.docs.map((d) => {
+          const row = { ...d.data(), uid: d.id } as StaffRow
+          const since = Date.parse(row.shiftSince || '')
+          row.onShift = row.onShift === true && Number.isFinite(since) && tashkentToday(since) === today
+          return row
+        })
         const rank = { owner: 0, admin: 1, courier: 2 }
         rows.sort((a, b) => rank[a.role] - rank[b.role] || a.name.localeCompare(b.name))
         setStaff(rows)

@@ -3,6 +3,7 @@ import {
   MessageSquareText, Navigation, PackageCheck, Phone, Radio, RotateCw, Route, Send, UserRound,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { datedNumber } from '../utils/order-label'
 import { formatPrice } from '../data'
 import { useI18n } from '../i18n'
 import { PageTitle } from '../components/layout/PageTitle'
@@ -462,7 +463,7 @@ function OrderCard({
         {numbered && <span className="crr-stop">{index + 1}</span>}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <b className="text-base" style={{ color: 'var(--ink)' }}>{order.number}</b>
+            <b className="text-base" style={{ color: 'var(--ink)' }}>{datedNumber(order.number, order.orderDay)}</b>
             <span className="text-xs" style={{ color: 'var(--faint)' }}>
               {delivered ? t('courier.deliveredAt', { time: clock(order.deliveredAt) }) : timeAgo(order.createdAt, t)}
             </span>

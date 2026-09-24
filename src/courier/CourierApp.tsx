@@ -2,6 +2,7 @@ import { Banknote, ClipboardList, CreditCard, PackageCheck, UserRound } from 'lu
 import { useEffect, useRef, useState } from 'react'
 import { formatPrice } from '../data'
 import { useI18n } from '../i18n'
+import { apiErrorText } from '../utils/api-error'
 import { usePresence } from '../hooks/use-presence'
 import { Toast } from '../components/ui/Toast'
 import { hapticError, hapticSuccess, setupBackButton, showAlert, toggleBackButton } from '../utils/telegram'
@@ -51,7 +52,9 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
     key: number
   }>({ open: supportId !== null, threadId: supportId, order: null, key: 0 })
 
-  const { data, error, refreshing, busyId, setBusyId, load } = useCourierData(onNotCourier)
+  const { data, error: loadError, refreshing, busyId, setBusyId, load } = useCourierData(onNotCourier)
+  // Xato kuryerning tilida (server kod beradi — api/_lib/errors.ts)
+  const error = loadError ? apiErrorText(loadError, t, 'error.courierGeneric') : null
   const { location, retry } = useCourierLocation()
   const { threads, ready: threadsReady } = useMyThreads(data?.profile.telegramId ?? null)
   const supportUnread = threads.reduce((sum, thread) => sum + thread.unreadCourier, 0)
@@ -99,7 +102,7 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
       await load()
     } catch (e) {
       hapticError()
-      showAlert(e instanceof Error ? e.message : 'Xato')
+      showAlert(apiErrorText(e, t, 'error.courierGeneric'))
     } finally {
       setShiftOverride(null)
       setShiftBusy(false)
@@ -178,7 +181,7 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
       void load()
     } catch (e) {
       hapticError()
-      showAlert(e instanceof Error ? e.message : 'Xato')
+      showAlert(apiErrorText(e, t, 'error.courierGeneric'))
     } finally {
       setBusyId(null)
     }
@@ -198,7 +201,7 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
       await load()
     } catch (e) {
       hapticError()
-      showAlert(e instanceof Error ? e.message : 'Xato')
+      showAlert(apiErrorText(e, t, 'error.courierGeneric'))
     } finally {
       setCashBusy(false)
     }

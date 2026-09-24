@@ -48,7 +48,6 @@ function periodOf(preset: Preset, from: string, to: string, base: number): Perio
  * tugma bilan tartibli Excel faylga.
  */
 export function ReportsPage() {
-  const { orders, loading } = useOrders()
   const { products } = useProducts()
   const { show, node: toast } = useToast()
 
@@ -58,6 +57,9 @@ export function ReportsPage() {
   const [to, setTo] = useState(() => dayKey(new Date(now)))
 
   const period = useMemo(() => periodOf(preset, from, to, now), [preset, from, to, now])
+  // Faqat tanlangan davr boshidan beri — butun tarix yuklanmaydi
+  const days = Math.max(1, Math.ceil((startOfDay(new Date(now)).getTime() - period.from.getTime()) / 86_400_000) + 1)
+  const { orders, loading } = useOrders(undefined, days)
   const report = useMemo(() => buildReport(orders, products, period), [orders, products, period])
   const periodText = `${dayLabel(period.from)} — ${dayLabel(addDays(period.to, -1))}`
 

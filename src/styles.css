@@ -3694,6 +3694,33 @@ a { color: inherit; text-decoration: none; }
 @media (min-width: 640px) {
   .dlv { bottom: calc(5.4rem + var(--safe-bottom)); }
 }
+/* Bir nechta buyurtma yo'lda — qaysi birini kuzatish */
+.dlv { flex-wrap: wrap; }
+.dlv__tabs {
+  display: flex;
+  flex-basis: 100%;
+  gap: 0.35rem;
+  overflow-x: auto;
+  margin: -0.15rem 0 0.1rem;
+  scrollbar-width: none;
+}
+.dlv__tabs::-webkit-scrollbar { display: none; }
+.dlv__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.16);
+  padding: 0.22rem 0.65rem;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.dlv__tab.is-on { background: #fff; color: var(--brand); }
+.dlv.is-arrived .dlv__tab.is-on { color: var(--gold); }
+.dlv__tab-dot { width: 7px; height: 7px; border-radius: 50%; background: #ffd24d; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.5); }
 .dlv.is-arrived {
   background: linear-gradient(135deg, #d99b0f 0%, var(--gold) 100%);
   box-shadow: 0 12px 30px rgb(169 118 10 / 0.38), 0 2px 6px rgb(0 0 0 / 0.08);
@@ -3902,6 +3929,22 @@ a { color: inherit; text-decoration: none; }
   transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
 .crt-tag.is-on { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
+/* Mahsulotlar bahosi — kuryer bahosi ostida, ixchamroq */
+.crt-products {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  padding: 0.4rem 0.4rem 0.4rem 0.8rem;
+  animation: fadeIn 0.25s ease;
+}
+.crt-products__label { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--ink-2); font-size: 0.85rem; font-weight: 800; text-align: left; }
+.crt-products__label svg { flex-shrink: 0; color: var(--brand); }
+.crt-products__stars { display: flex; flex-shrink: 0; }
+.crt-star--sm { width: 34px; height: 36px; border-radius: 10px; }
 .crt-comment {
   width: 100%;
   margin-top: 0.8rem;
@@ -4217,6 +4260,20 @@ a { color: inherit; text-decoration: none; }
   font-weight: 700;
 }
 .lts__status.is-live { background: var(--brand-soft); color: var(--brand); }
+/* Kuryer avval boshqa manzil(lar)ga boradi */
+.lts__stops {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  padding: 0.55rem 0.75rem;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.lts__stops svg { flex-shrink: 0; color: var(--gold); }
 .lts__receipt {
   display: flex;
   width: 100%;

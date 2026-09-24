@@ -142,7 +142,7 @@ function App() {
     if (!import.meta.env.DEV) return
     const param = new URLSearchParams(location.search).get('deliveryDemo')
     if (param === null) return
-    void import('./components/order/delivery-demo').then((m) => setDemoOrders(m.demoOrders(param === 'arrived')))
+    void import('./components/order/delivery-demo').then((m) => setDemoOrders(m.demoOrders(param)))
   }, [])
   const trackedOrders = demoOrders ?? shop.myOrders
 

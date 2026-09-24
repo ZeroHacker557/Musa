@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { apiErrorText } from '../utils/api-error'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { ApiError } from '../lib/api'
@@ -33,7 +34,8 @@ export type Feedback = { kind: 'success' | 'error'; text: string }
  */
 export function useCourierData(onNotCourier: () => void) {
   const [data, setData] = useState<CourierOverview | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  /** Xom xato — matnga ekranda, kuryer tilida aylantiriladi. */
+  const [error, setError] = useState<unknown>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const notCourier = useRef(onNotCourier)
@@ -52,7 +54,7 @@ export function useCourierData(onNotCourier: () => void) {
         notCourier.current()
         return
       }
-      setError(e instanceof Error ? e.message : 'Xato')
+      setError(e)
     } finally {
       if (manual) setRefreshing(false)
     }
@@ -152,7 +154,7 @@ export function createOrderActions(
       }
     } catch (e) {
       hapticError()
-      return { kind: 'error', text: e instanceof Error ? e.message : 'Xato' }
+      return { kind: 'error', text: apiErrorText(e, t, 'error.courierGeneric') }
     } finally {
       setBusyId(null)
       await reload()

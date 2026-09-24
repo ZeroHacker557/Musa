@@ -2,7 +2,7 @@ import { Banknote, Check, Clock3, Loader2, Wallet, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { formatPrice } from '../../data'
 import { apiPost } from '../lib/api'
-import { useCashHandovers, useOrders, type CashHandoverRow } from '../lib/live'
+import { useCashHandovers, useHeldCashOrders, type CashHandoverRow } from '../lib/live'
 import { useToast } from '../components/Toast'
 
 const when = (iso: string | null) => {
@@ -28,7 +28,7 @@ const STATUS: Record<CashHandoverRow['status'], { label: string; fg: string; bg:
  */
 export function CashPage() {
   const { handovers, loading } = useCashHandovers()
-  const { orders } = useOrders()
+  const orders = useHeldCashOrders()
   const { show, node: toast } = useToast()
   const [busy, setBusy] = useState<string | null>(null)
 

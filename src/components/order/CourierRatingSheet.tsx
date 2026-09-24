@@ -1,4 +1,4 @@
-import { Bike, Loader2, Star } from 'lucide-react'
+import { Bike, Loader2, ShoppingBag, Star } from 'lucide-react'
 import { useState } from 'react'
 import { useI18n, type TranslationKey } from '../../i18n'
 import { usePresence } from '../../hooks/use-presence'
@@ -6,7 +6,8 @@ import { hapticError, hapticSelection, hapticSuccess } from '../../utils/telegra
 import { parseDate } from '../../utils/date'
 import type { Order } from '../../types/domain'
 
-export type CourierRatingPayload = { stars: number; tags: string[]; comment: string }
+/** `productStars` — buyurtmadagi hamma mahsulotga bitta baho (ixtiyoriy). */
+export type CourierRatingPayload = { stars: number; tags: string[]; comment: string; productStars?: number }
 
 type Props = {
   orders: Order[]
@@ -39,9 +40,20 @@ function readSkipped(): string[] {
   }
 }
 
+/**
+ * Bot xabaridagi «⭐ Baholash» tugmasi ilovani `?rate=<id>` bilan ochadi
+ * (api/_lib/actions/orders.ts → sendRatingPrompt): shu buyurtma «Keyinroq»
+ * bosilgan yoki eski bo'lsa ham so'raladi — mijozning o'zi baholamoqchi.
+ */
+const RATE_PARAM = new URLSearchParams(location.search).get('rate')
+
 /** Baholanmagan oxirgi yetkazilgan buyurtma (kuryeri bilan). */
 function pending(orders: Order[], skipped: string[]): Order | null {
   const now = Date.now()
+  const asked = RATE_PARAM
+    ? orders.find((o) => o.id === RATE_PARAM && o.status === 'Yetkazildi' && o.courierId && !o.courierRating)
+    : null
+  if (asked) return asked
   return orders.find((o) =>
     o.status === 'Yetkazildi'
     && o.courierId
@@ -64,6 +76,7 @@ export function CourierRatingSheet({ orders, blocked, submit }: Props) {
   const { t } = useI18n()
   const [skipped, setSkipped] = useState(readSkipped)
   const [stars, setStars] = useState(0)
+  const [productStars, setProductStars] = useState(0)
   const [tags, setTags] = useState<string[]>([])
   const [comment, setComment] = useState('')
   const [busy, setBusy] = useState(false)
@@ -100,7 +113,12 @@ export function CourierRatingSheet({ orders, blocked, submit }: Props) {
     if (!stars || !shown) return
     setBusy(true)
     try {
-      await submit(shown.id, { stars, tags, comment: comment.trim() })
+      await submit(shown.id, {
+        stars,
+        tags,
+        comment: comment.trim(),
+        ...(productStars ? { productStars } : {}),
+      })
       hapticSuccess()
       setThanked(shown.id)
       setTimeout(() => close(false), 1600)
@@ -180,6 +198,29 @@ export function CourierRatingSheet({ orders, blocked, submit }: Props) {
                       </button>
                     )
                   })}
+                </div>
+                {/* Mahsulotlar — alohida so'rov yo'q, shu oynaning o'zida */}
+                <div className="crt-products">
+                  <span className="crt-products__label">
+                    <ShoppingBag size={16} /> {t('rating.products')}
+                  </span>
+                  <span className="crt-products__stars" role="radiogroup" aria-label={t('rating.products')}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        role="radio"
+                        aria-checked={productStars === n}
+                        aria-label={`${n}`}
+                        className={'crt-star crt-star--sm ' + (n <= productStars ? 'is-on' : '')}
+                        onClick={() => {
+                          hapticSelection()
+                          setProductStars(n)
+                        }}
+                      >
+                        <Star size={24} strokeWidth={1.9} fill={n <= productStars ? 'currentColor' : 'none'} />
+                      </button>
+                    ))}
+                  </span>
                 </div>
                 <textarea
                   className="crt-comment"

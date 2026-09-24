@@ -122,6 +122,8 @@ export type Order = {
   /** Taxminiy yetib kelish vaqti — kuryer olganda joylashuvidan hisoblanadi. */
   etaAt?: string | null
   etaMinutes?: number | null
+  /** Kuryer bu manzildan oldin boradigan boshqa manzillar soni (olgan paytdagi). */
+  etaStops?: number | null
   /** Kuryer «Yetib keldim» bosgan vaqt. */
   arrivedAt?: string | null
   deliveredAt?: string | null

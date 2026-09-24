@@ -375,6 +375,24 @@ export const ru: Record<TranslationKey, string> = {
   'error.NOT_YOURS': 'Это не ваш заказ',
   'error.ALREADY_CANCELLED': 'Заказ уже отменён',
   'error.TOO_LATE': 'Этот заказ уже нельзя отменить — свяжитесь с оператором',
+  // Приложение курьера (api/courier.ts)
+  'error.COURIER_ONLY': 'Это действие только для курьера',
+  'error.NOT_COURIER': 'Вы не курьер или ваш аккаунт отключён',
+  'error.SESSION_EXPIRED': 'Сессия истекла — откройте приложение заново',
+  'error.UNKNOWN_ACTION': 'Приложение устарело — закройте и откройте его заново',
+  'error.ORDER_MISSING': 'Заказ не выбран',
+  'error.ORDER_GONE': 'Заказ не найден',
+  'error.ORDER_NOT_YOURS': 'Этот заказ не назначен вам',
+  'error.PROBLEM_TYPE': 'Неверный тип проблемы',
+  'error.BAD_LOCATION': 'Местоположение определено неверно',
+  'error.CASH_NOTHING': 'Нет наличных для сдачи',
+  'error.SUPPORT_EMPTY': 'Сообщение пустое',
+  'error.SUPPORT_TOO_LONG': 'Сообщение слишком длинное',
+  'error.SUPPORT_THREAD_MISSING': 'Обращение не выбрано',
+  'error.SUPPORT_THREAD_GONE': 'Обращение не найдено',
+  'error.SUPPORT_NOT_YOURS': 'Это не ваше обращение',
+  'error.NO_TELEGRAM': 'Telegram не привязан — обратитесь к администратору',
+  'error.courierGeneric': 'Не удалось выполнить, попробуйте ещё раз',
 
   // ── Telegram ──
   'gate.title': 'Откройте через Telegram',
@@ -539,6 +557,9 @@ export const ru: Record<TranslationKey, string> = {
   'delivery.stale': 'Геопозиция курьера немного устарела',
   'delivery.noLocation': 'Геопозиция курьера ещё не пришла — скоро появится на карте',
   'delivery.receipt': 'Чек заказа',
+  'delivery.pickOrder': 'Какой заказ отслеживать',
+  'delivery.stopsBefore': 'ещё адресов до вас: {n}',
+  'delivery.stopsBeforeLong': 'Курьер сначала заедет ещё по адресам: {n} — время это учитывает',
 
   // ── Оценка курьера ──
   'rating.title': 'Заказ доставлен!',
@@ -561,4 +582,5 @@ export const ru: Record<TranslationKey, string> = {
   'rating.later': 'Позже',
   'rating.thanks': 'Спасибо!',
   'rating.thanksText': 'Ваша оценка помогает курьерам работать лучше',
+  'rating.products': 'Качество товаров',
 }

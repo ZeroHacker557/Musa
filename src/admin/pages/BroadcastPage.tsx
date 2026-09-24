@@ -36,7 +36,8 @@ const displayName = (c: CustomerRow) =>
 
 export function BroadcastPage() {
   const { customers } = useCustomers()
-  const { orders } = useOrders()
+  // Auditoriya (kim qachon xarid qilgan) — butun tarix
+  const { orders } = useOrders(undefined, 'all')
   const { products } = useProducts()
   const { categories } = useCategories()
   const { show, node: toast } = useToast()

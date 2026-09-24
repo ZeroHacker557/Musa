@@ -31,10 +31,15 @@ function readHidden(): string | null {
  *
  * Ma'lumot buyurtmaning o'zidan: mijoz o'z buyurtmalarini Firestore'dan
  * jonli o'qiydi, shuning uchun kuryer bosgan zahoti bu yerda ko'rinadi.
+ *
+ * Bir vaqtda bir nechta buyurtma yo'lda bo'lsa — tepada raqamlar
+ * chiqadi, mijoz qaysi birini kuzatishni tanlaydi.
  */
 export function DeliveryTracker({ orders, onOpen }: Props) {
   const { t } = useI18n()
-  const order = orders.find((o) => o.status === 'Yetkazilmoqda') ?? null
+  const onWay = useMemo(() => orders.filter((o) => o.status === 'Yetkazilmoqda'), [orders])
+  const [pickedId, setPickedId] = useState<string | null>(null)
+  const order = useMemo(() => onWay.find((o) => o.id === pickedId) ?? onWay[0] ?? null, [onWay, pickedId])
 
   // Daqiqalar sanog'i va mashina joyi vaqt o'tishi bilan yangilanadi
   const [now, setNow] = useState(() => Date.now())
@@ -72,6 +77,8 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
   const minutesLeft = live
     ? liveMinutes(tracking, home)
     : Number.isFinite(end) ? Math.ceil((end - now) / 60_000) : null
+  // Kuryer avval boshqa manzil(lar)ga boradi — mijoz nega kutayotganini bilsin
+  const stopsBefore = live ? tracking.stopsBefore : Number(order.etaStops) || 0
 
   // Mashina yo'lning qayerida: olingandan beri o'tgan vaqt / taxminiy vaqt
   let progress = 0.35
@@ -94,6 +101,22 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
 
   return (
     <div className={'dlv ' + (arrived ? 'is-arrived' : '')} role="status" aria-live="polite">
+      {onWay.length > 1 && (
+        <div className="dlv__tabs" role="tablist" aria-label={t('delivery.pickOrder')}>
+          {onWay.map((o) => (
+            <button
+              key={o.id}
+              role="tab"
+              aria-selected={o.id === order.id}
+              className={'dlv__tab ' + (o.id === order.id ? 'is-on' : '')}
+              onClick={() => setPickedId(o.id)}
+            >
+              {o.arrivedAt && <span className="dlv__tab-dot" />}
+              {o.orderNumber}
+            </button>
+          ))}
+        </div>
+      )}
       <button className="dlv__main" onClick={() => onOpen(order)}>
         <span className="dlv__road" aria-hidden="true">
           <span className="dlv__track" />
@@ -115,7 +138,10 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
           </b>
           <span className="dlv__sub">
             {subtitle}
-            {order.courierName ? ` · ${order.courierName}` : ''} · {order.orderNumber}
+            {!arrived && stopsBefore > 0
+              ? ` · ${t('delivery.stopsBefore', { n: stopsBefore })}`
+              : order.courierName ? ` · ${order.courierName}` : ''}
+            {' · '}{order.orderNumber}
           </span>
         </span>
       </button>

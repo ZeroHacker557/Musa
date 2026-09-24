@@ -3,6 +3,7 @@ import {
   UserRound, Wallet,
 } from 'lucide-react'
 import { useState } from 'react'
+import { datedNumber } from '../utils/order-label'
 import { formatPrice } from '../data'
 import { useI18n, type TranslationKey } from '../i18n'
 import { PageTitle } from '../components/layout/PageTitle'
@@ -250,7 +251,7 @@ export function CourierProfilePage({
                   </span>
                   <span className="min-w-0 flex-1">
                     <b className="block truncate text-sm" style={{ color: 'var(--ink)' }}>
-                      {order.number} · {order.customer.address || '—'}
+                      {datedNumber(order.number, order.orderDay)} · {order.customer.address || '—'}
                     </b>
                     <span className="block text-xs" style={{ color: 'var(--muted)' }}>
                       {formatOrderDate(order.deliveredAt || undefined)}

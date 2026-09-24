@@ -26,7 +26,8 @@ export function BrainPage({ staff }: { staff: Staff }) {
   const { products, loading: l1 } = useProducts()
   const { categories, loading: l2 } = useCategories()
   const { sections, loading: l3 } = useSections()
-  const { orders, loading: l4 } = useOrders()
+  // Tahlil butun tarix bo'yicha
+  const { orders, loading: l4 } = useOrders(undefined, 'all')
   const { customers, loading: l5 } = useCustomers()
   // Xodimlar ro'yxati faqat egaga ochiq (Firestore Rules)
   const { staff: team, loading: l6 } = useStaff(staff.role === 'owner')

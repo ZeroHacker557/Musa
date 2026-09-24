@@ -1,12 +1,14 @@
 import type { Order } from '../../types/domain'
 
 /*
- * FAQAT dev rejimi uchun (`?deliveryDemo`, `?deliveryDemo=arrived`):
+ * FAQAT dev rejimi uchun (`?deliveryDemo`, `?deliveryDemo=arrived`,
+ * `?deliveryDemo=multi` — ikki buyurtma yo'lda, biri boshqa manzildan keyin):
  * mijoz ilovasidagi «Kuryer yo'lda» kartochkasi va kuryer bahosi
  * oynasini serversiz ko'rish. App.tsx uni `import.meta.env.DEV` sharti
  * ostida dinamik yuklaydi — production bundlega kirmaydi.
  */
-export function demoOrders(arrived: boolean): Order[] {
+export function demoOrders(mode: string): Order[] {
+  const arrived = mode === 'arrived'
   const now = Date.now()
   const iso = (ms: number) => new Date(ms).toISOString()
   const base = {
@@ -21,7 +23,22 @@ export function demoOrders(arrived: boolean): Order[] {
     courierName: 'Komiljon',
     courierPhone: '+998905551234',
   }
+  const second = mode === 'multi'
+    ? [{
+        ...base,
+        id: 'demo-way2',
+        orderNumber: '#0009',
+        createdAt: iso(now - 20 * 60_000),
+        status: 'Yetkazilmoqda',
+        takenAt: iso(now - 5 * 60_000),
+        etaAt: iso(now + 22 * 60_000),
+        etaMinutes: 27,
+        etaStops: 1,
+        arrivedAt: null,
+      }]
+    : []
   return [
+    ...second,
     {
       ...base,
       id: 'demo-way',

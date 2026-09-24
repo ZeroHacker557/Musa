@@ -1,10 +1,10 @@
 import L from 'leaflet'
-import { ChevronLeft, Crosshair, Phone, Radio, Receipt } from 'lucide-react'
+import { ChevronLeft, Crosshair, MapPinned, Phone, Radio, Receipt } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet'
 import { useI18n } from '../../i18n'
-import { TRACKING_FRESH_MS, liveMinutes, useOrderTracking } from '../../lib/tracking'
-import { distanceKm, formatKm, type Point } from '../../courier/route'
+import { TRACKING_FRESH_MS, liveMinutes, remainingKm, useOrderTracking } from '../../lib/tracking'
+import { formatKm, type Point } from '../../courier/route'
 import type { Order } from '../../types/domain'
 
 type Props = {
@@ -95,8 +95,11 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
   const age = tracking ? now - Date.parse(tracking.at) : Infinity
   const fresh = age < TRACKING_FRESH_MS
   const arrived = Boolean(order.arrivedAt)
-  const km = courier && home ? distanceKm(courier, home) : null
-  const minutes = courier && home && fresh ? liveMinutes(courier, home) : null
+  // Kuryer avval boshqa manzillarga borsa — masofa ular orqali (boshqa
+  // mijozlarning joyi ko'rsatilmaydi, faqat soni)
+  const km = tracking && home ? remainingKm(tracking, home) : null
+  const minutes = tracking && home && fresh ? liveMinutes(tracking, home) : null
+  const stopsBefore = tracking?.stopsBefore ?? 0
   const phone = order.courierPhone?.replace(/[^\d+]/g, '')
   const seconds = Math.max(0, Math.round(age / 1000))
 
@@ -161,6 +164,12 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
             </a>
           )}
         </div>
+
+        {!arrived && stopsBefore > 0 && (
+          <p className="lts__stops">
+            <MapPinned size={15} /> {t('delivery.stopsBeforeLong', { n: stopsBefore })}
+          </p>
+        )}
 
         <p className={'lts__status ' + (fresh ? 'is-live' : '')}>
           {tracking ? (

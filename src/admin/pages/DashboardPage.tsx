@@ -2,6 +2,7 @@ import {
   Clock, Package, ShoppingBag, TrendingUp, Users, Wallet,
 } from 'lucide-react'
 import { useMemo } from 'react'
+import { datedNumber } from '../../utils/order-label'
 import { formatPrice } from '../../data'
 import { useCustomers, useOrders, useProducts, type AdminOrder } from '../lib/live'
 import { StatusBadge } from '../components/StatusBadge'
@@ -126,7 +127,7 @@ export function DashboardPage({ courierId }: { courierId?: string }) {
           delay={80}
         />
         <StatCard
-          label="Umumiy tushum"
+          label="Tushum · 30 kun"
           value={formatPrice(stats.revenue)}
           icon={TrendingUp}
           tone={{ fg: 'var(--brand)', bg: 'var(--brand-soft)' }}
@@ -209,7 +210,7 @@ export function DashboardPage({ courierId }: { courierId?: string }) {
               <tbody>
                 {recent.map((order) => (
                   <tr key={order.id}>
-                    <td className="font-extrabold">{order.orderNumber}</td>
+                    <td className="font-extrabold">{datedNumber(order.orderNumber, order.orderDay)}</td>
                     <td>{order.customer?.name || '—'}</td>
                     <td className="font-bold">{formatPrice(order.total)}</td>
                     <td>
