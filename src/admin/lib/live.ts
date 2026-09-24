@@ -135,14 +135,18 @@ export function useProducts() {
       onSnapshot(
         collection(db, 'products'),
         (snapshot) => {
-          const rows = snapshot.docs.map((doc) => {
+          const rows = snapshot.docs
+            // Nomsiz yozuv — mahsulot emas (eski Linko sinxroni qoldig'i):
+            // ro'yxatlarda bo'sh qator bo'lib, saralashni yiqitardi
+            .filter((doc) => typeof doc.data().name === 'string' && doc.data().name.trim() !== '')
+            .map((doc) => {
               const data = doc.data()
               return {
                 ...data,
                 id: typeof data.id === 'number' ? data.id : Number(data.id) || 0,
                 docId: doc.id,
               } as ProductRow
-          })
+            })
           // Admin belgilagan tartib (src/admin/lib/sort.ts)
           rows.sort(
             (a, b) =>

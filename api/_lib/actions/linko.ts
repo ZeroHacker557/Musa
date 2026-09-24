@@ -150,6 +150,13 @@ async function applyToProduct(
   if (!productId || !rows.length) return null
 
   const db = await adminDb()
+  /*
+   * Mahsulot do'kondan o'chirilgan bo'lsa — yozilmaydi. `merge` bilan
+   * yozish yo'q hujjatni YARATADI: ilgari o'chirilgan mahsulot har
+   * sinxronda nomsiz «arvoh» bo'lib qaytib kelardi (faqat narx va qoldiq
+   * bilan) va admin paneldagi reklama sahifasini yiqitardi.
+   */
+  if (!(await db.collection('products').doc(productId).get()).exists) return null
   const stock = Math.max(0, Math.round(rows.reduce((sum, row) => sum + num(row.stock), 0)))
   const priced = rows.filter((row) => num(row.price) > 0)
   const primary = priced.find((row) => row.primary)
@@ -655,6 +662,39 @@ export async function linkoAutoLink(): Promise<Result> {
 
   await commitAll(writes)
   return { ok: true, linked }
+}
+
+/**
+ * Mahsulot o'chirildi — unga bog'langan Linko pozitsiyalaridan uziladi.
+ * Aks holda bog'lanish osilib qolib, panelda yo'q mahsulotga «bog'langan»
+ * ko'rinardi. Xato tashlamaydi: o'chirish baribir amalga oshsin.
+ */
+export async function linkoForgetProduct(productId: string): Promise<number> {
+  try {
+    const db = await adminDb()
+    const snap = await db.collection(MIRROR).get()
+    const now = new Date().toISOString()
+    let changed = 0
+    for (const doc of snap.docs) {
+      const before = rowProducts(doc.data())
+      if (!before.includes(productId)) continue
+      const next = before.filter((id) => id !== productId)
+      await doc.ref.set(
+        {
+          productIds: next,
+          productId: next[0] ?? null,
+          ...(next.length ? {} : { primary: false }),
+          updatedAt: now,
+        },
+        { merge: true },
+      )
+      changed++
+    }
+    return changed
+  } catch (error) {
+    console.error('[linko] o‘chirilgan mahsulot bog‘lanishi uzilmadi:', error)
+    return 0
+  }
 }
 
 /** Ulanish tekshiruvi — bitta yengil so'rov. */

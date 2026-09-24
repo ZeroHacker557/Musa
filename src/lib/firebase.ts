@@ -18,7 +18,10 @@ export function subscribeToProducts(callback: (products: Product[]) => void, onE
   const productsRef = collection(db, 'products')
   return onSnapshot(productsRef, (snapshot) => {
     console.log(`[Firebase] Products snapshot received: ${snapshot.size} documents`)
-    const products: Product[] = snapshot.docs.map((doc) => {
+    // Nomsiz yozuv — mahsulot emas (eski Linko sinxroni qoldig'i), katalogda chiqmasin
+    const products: Product[] = snapshot.docs
+      .filter((doc) => typeof doc.data().name === 'string' && doc.data().name.trim() !== '')
+      .map((doc) => {
       const data = doc.data()
       const rawId = data.id || doc.id
       const numId = typeof rawId === 'number' ? rawId : (parseInt(String(rawId), 10) || Math.abs(hashString(doc.id)))

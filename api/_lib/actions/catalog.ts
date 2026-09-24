@@ -1,5 +1,6 @@
 import { adminDb } from '../firebase-admin.js'
 import { LOW_STOCK_AT } from './orders.js'
+import { linkoForgetProduct } from './linko.js'
 import type { Staff } from '../admin-auth.js'
 
 /**
@@ -115,6 +116,8 @@ export async function productDelete(body: Record<string, unknown>): Promise<Resu
   const id = text(body.id)
   if (!id) throw new Error('id kerak')
   await (await adminDb()).collection('products').doc(id).delete()
+  // Linko bog'lanishi osilib qolmasin — keyingi sinxron mahsulotni qayta yaratmasin
+  await linkoForgetProduct(id)
   return { id }
 }
 

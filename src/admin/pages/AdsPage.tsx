@@ -143,7 +143,7 @@ export function AdsPage() {
   }), [draft])
 
   const sortedProducts = useMemo(
-    () => [...products].sort((a, b) => a.name.localeCompare(b.name)),
+    () => [...products].sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''))),
     [products],
   )
 
