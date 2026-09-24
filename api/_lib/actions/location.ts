@@ -1,6 +1,6 @@
 import { adminDb } from '../firebase-admin.js'
 import type { Staff } from '../admin-auth.js'
-import { canDeliver, shiftActive } from '../courier-staff.js'
+import { canDeliver, courierPhone, shiftActive } from '../courier-staff.js'
 import { CodedError } from '../errors.js'
 
 /**
@@ -133,7 +133,7 @@ async function activeOrders(uid: string) {
  * faqat soni va umumiy masofa).
  */
 async function writeTracking(
-  staff: Pick<Staff, 'uid' | 'name'>,
+  staff: Pick<Staff, 'uid' | 'name'> & { phone?: string | null },
   point: LocationPoint,
   source: LocationSource,
   at: string,
@@ -150,6 +150,8 @@ async function writeTracking(
       userId: order.data.userId,
       courierUid: staff.uid,
       courierName: staff.name,
+      // Mijoz xaritasida ism yonida raqam — buyurtmada yozilmagan bo'lsa ham
+      courierPhone: staff.phone ?? null,
       lat: point.lat,
       lng: point.lng,
       heading: point.heading ?? null,
@@ -187,6 +189,8 @@ export async function saveCourierLocation(
   const db = await adminDb()
   const at = new Date().toISOString()
   const ref = db.collection('courier_locations').doc(staff.uid)
+  // Xodimlar kartasidagi raqam, bo'lmasa botga ulashgan kontakt
+  const phone = await courierPhone(staff)
 
   const orders = await activeOrders(staff.uid)
   // Dam olayotgan va yetkazadigani yo'q kuryerning joyi saqlanmaydi
@@ -203,7 +207,7 @@ export async function saveCourierLocation(
     name: staff.name,
     telegramId: staff.telegramId ?? null,
     // Admin xaritasida qo'ng'iroq tugmasi — oddiy admin `staff` ni o'qiy olmaydi
-    phone: staff.phone ?? null,
+    phone,
     lat: point.lat,
     lng: point.lng,
     accuracy: point.accuracy ?? null,
@@ -214,7 +218,7 @@ export async function saveCourierLocation(
     ...(source === 'live' ? { liveUntil } : {}),
   }, { merge: true })
 
-  const tracked = await writeTracking(staff, point, source, at, orders)
+  const tracked = await writeTracking({ ...staff, phone }, point, source, at, orders)
   return { saved: true, tracked }
 }
 
@@ -261,7 +265,9 @@ export async function refreshCourierTracking(uid: string) {
     const loc = snap.data() as StoredLocation | undefined
     const point = await lastKnownPoint(uid)
     if (!point) return
-    await writeTracking({ uid, name: loc?.name || 'Kuryer' }, point, point.source, point.at, orders)
+    const staff = ((await db.collection('staff').doc(uid).get()).data() || {}) as { phone?: string; telegramId?: number }
+    const phone = await courierPhone(staff)
+    await writeTracking({ uid, name: loc?.name || 'Kuryer', phone }, point, point.source, point.at, orders)
   } catch (error) {
     console.error('[location] kuzatuv yangilanmadi:', error)
   }

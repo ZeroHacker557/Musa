@@ -105,7 +105,8 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
   const km = tracking && home ? remainingKm(tracking, home) : null
   const minutes = tracking && home && fresh ? liveMinutes(tracking, home) : null
   const stopsBefore = tracking?.stopsBefore ?? 0
-  const phone = onWay && order.courierPhone ? order.courierPhone : null
+  // Buyurtmadagi raqam, bo'lmasa kuzatuvdagisi (oldin olingan buyurtmalar uchun)
+  const phone = onWay ? order.courierPhone || tracking?.courierPhone || null : null
   const seconds = Math.max(0, Math.round(age / 1000))
 
   const closed = order.status === 'Bekor qilingan' || order.status === 'Rad etildi'

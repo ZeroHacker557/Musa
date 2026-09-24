@@ -18,6 +18,8 @@ export type Tracking = {
   source: 'live' | 'app'
   at: string
   courierName: string
+  /** Kuryer raqami — buyurtmada yozilmagan bo'lsa ham (server kuzatuvga qo'shadi). */
+  courierPhone: string | null
   /** Kuryer shu mijozdan OLDIN boradigan boshqa manzillar soni. */
   stopsBefore: number
   /** Kuryerdan oldingi manzillar orqali shu mijozgacha, km. Eski yozuvlarda null. */
@@ -47,6 +49,7 @@ export function useOrderTracking(orderId: string | null, destination: Point | nu
           source: 'live',
           at: new Date().toISOString(),
           courierName: 'Komiljon',
+          courierPhone: '+998905551234',
           stopsBefore: orderId === 'demo-way2' ? 1 : 0,
           viaKm: null,
         })
@@ -71,6 +74,7 @@ export function useOrderTracking(orderId: string | null, destination: Point | nu
           source: d.source === 'live' ? 'live' : 'app',
           at: String(d.at || ''),
           courierName: String(d.courierName || ''),
+          courierPhone: d.courierPhone ? String(d.courierPhone) : null,
           stopsBefore: Number(d.stopsBefore) || 0,
           viaKm: Number.isFinite(Number(d.viaKm)) && d.viaKm !== null ? Number(d.viaKm) : null,
         })

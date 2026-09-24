@@ -661,6 +661,9 @@ def save_courier_location(courier: dict, lat: float, lng: float, heading=None,
     uid = courier["uid"]
     at = datetime.now(timezone.utc).isoformat()
     name = courier.get("name") or "Kuryer"
+    # Xodimlar kartasidagi raqam, bo'lmasa botga ulashgan kontakt
+    # (api/_lib/courier-staff.ts → courierPhone bilan bir xil)
+    phone = courier.get("phone") or ((get_user(courier.get("telegramId")) or {}).get("phone") if courier.get("telegramId") else None)
 
     active = [
         (doc.id, doc.to_dict() or {})
@@ -674,7 +677,7 @@ def save_courier_location(courier: dict, lat: float, lng: float, heading=None,
         "name": name,
         "telegramId": courier.get("telegramId"),
         # Admin xaritasida qo'ng'iroq tugmasi (server bilan bir xil)
-        "phone": courier.get("phone"),
+        "phone": phone,
         "lat": lat,
         "lng": lng,
         "accuracy": accuracy,
@@ -696,6 +699,7 @@ def save_courier_location(courier: dict, lat: float, lng: float, heading=None,
             "userId": order.get("userId"),
             "courierUid": uid,
             "courierName": name,
+            "courierPhone": phone,
             "lat": lat,
             "lng": lng,
             "heading": heading,

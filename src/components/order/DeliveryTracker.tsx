@@ -97,7 +97,7 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
       : minutesLeft > 0
         ? t('delivery.minutesLeft', { n: minutesLeft })
         : t('delivery.almostThere')
-  const phone = order.courierPhone?.replace(/[^\d+]/g, '')
+  const phone = (order.courierPhone || tracking?.courierPhone)?.replace(/[^\d+]/g, '')
 
   return (
     <div className={'dlv ' + (arrived ? 'is-arrived' : '')} role="status" aria-live="polite">
