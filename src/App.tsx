@@ -322,7 +322,7 @@ function App() {
           {shop.page === 'orders' && (
             <div className="page-animate">
               <OrdersPage
-                orders={shop.myOrders}
+                orders={trackedOrders}
                 ordersReady={shop.ordersReady}
                 authReady={shop.authReady}
                 isAuthenticated={shop.isAuthenticated}
@@ -330,6 +330,7 @@ function App() {
                 onFavorites={() => shop.navigate('favorites')}
                 onGoToCatalog={goToCatalog}
                 onOpenReceipt={shop.openReceipt}
+                onOpenMap={(order) => setTrackOrderId(order.id)}
                 onBack={shop.goBack}
               />
             </div>

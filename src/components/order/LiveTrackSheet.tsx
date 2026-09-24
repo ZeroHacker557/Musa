@@ -1,8 +1,8 @@
 import L from 'leaflet'
-import { ChevronLeft, Crosshair, MapPinned, Phone, Radio, Receipt } from 'lucide-react'
+import { ChevronLeft, Crosshair, Info, MapPin, MapPinned, Phone, Radio, Receipt } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet'
-import { useI18n } from '../../i18n'
+import { useI18n, type TranslationKey } from '../../i18n'
 import { TRACKING_FRESH_MS, liveMinutes, remainingKm, useOrderTracking } from '../../lib/tracking'
 import { formatKm, type Point } from '../../courier/route'
 import type { Order } from '../../types/domain'
@@ -67,7 +67,9 @@ function Camera({ courier, home, follow, fitKey }: {
 }
 
 /**
- * «Kuryer qayerda» — jonli xarita.
+ * «Kuryer qayerda» — jonli xarita. «Buyurtmalarim» dan har qanday
+ * buyurtma uchun ham ochiladi: yo'lda bo'lmasa — faqat manzil va holat
+ * (kuryer joylashuvi faqat «Yetkazilmoqda» paytida ko'rinadi).
  *
  * Mashina belgisi har yangilanishda manzil tomon silliq siljiydi, qolgan
  * masofa va vaqt jonli hisoblanadi. Joylashuv kelmagan bo'lsa (kuryer
@@ -79,7 +81,9 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
     const loc = order.customer?.location
     return loc && Number.isFinite(loc.lat) ? { lat: loc.lat, lng: loc.lng } : null
   }, [order.customer?.location])
-  const tracking = useOrderTracking(order.id, home)
+  const onWay = order.status === 'Yetkazilmoqda'
+  // Kuzatuv faqat yo'ldagi buyurtmada bor (server boshqa paytda yozmaydi)
+  const tracking = useOrderTracking(onWay ? order.id : null, home)
   const [follow, setFollow] = useState(false)
   const [fitKey, setFitKey] = useState(0)
 
@@ -94,18 +98,25 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
   const courier = useMemo<Point | null>(() => (tracking ? { lat: tracking.lat, lng: tracking.lng } : null), [tracking])
   const age = tracking ? now - Date.parse(tracking.at) : Infinity
   const fresh = age < TRACKING_FRESH_MS
-  const arrived = Boolean(order.arrivedAt)
+  const arrived = onWay && Boolean(order.arrivedAt)
   // Kuryer avval boshqa manzillarga borsa — masofa ular orqali (boshqa
   // mijozlarning joyi ko'rsatilmaydi, faqat soni)
   const km = tracking && home ? remainingKm(tracking, home) : null
   const minutes = tracking && home && fresh ? liveMinutes(tracking, home) : null
   const stopsBefore = tracking?.stopsBefore ?? 0
-  const phone = order.courierPhone?.replace(/[^\d+]/g, '')
+  const phone = onWay ? order.courierPhone?.replace(/[^\d+]/g, '') : undefined
   const seconds = Math.max(0, Math.round(age / 1000))
 
+  const closed = order.status === 'Bekor qilingan' || order.status === 'Rad etildi'
   const title = arrived
     ? t('delivery.arrivedTitle')
-    : minutes !== null ? t('delivery.minutesLeft', { n: minutes }) : t('delivery.onWayTitle')
+    : onWay
+      ? minutes !== null ? t('delivery.minutesLeft', { n: minutes }) : t('delivery.onWayTitle')
+      : t(`status.${order.status}` as TranslationKey)
+  // Yo'lda bo'lmagan buyurtma — nima kutish kerakligi
+  const note: TranslationKey = order.status === 'Yetkazildi'
+    ? 'map.noteDelivered'
+    : closed ? 'map.noteClosed' : 'map.notePreparing'
 
   return (
     <div className="lts" role="dialog" aria-modal="true">
@@ -147,15 +158,18 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
         )}
       </div>
 
-      <div className={'lts__card ' + (arrived ? 'is-arrived' : '')}>
+      <div className={'lts__card ' + (arrived ? 'is-arrived' : '') + (closed ? ' is-closed' : '')}>
         <span className="lts__grip" />
         <div className="flex items-center gap-3">
-          <span className="lts__avatar">{(order.courierName || 'K').charAt(0).toUpperCase()}</span>
+          <span className="lts__avatar">
+            {onWay ? (order.courierName || 'K').charAt(0).toUpperCase() : <MapPin size={22} />}
+          </span>
           <div className="min-w-0 flex-1">
             <b className="block text-lg font-extrabold" style={{ color: 'var(--ink)' }}>{title}</b>
             <span className="block truncate text-sm" style={{ color: 'var(--muted)' }}>
-              {order.courierName || t('rating.courier')} · {order.orderNumber}
-              {km !== null && !arrived ? ` · ${formatKm(km, lang)}` : ''}
+              {onWay
+                ? `${order.courierName || t('rating.courier')} · ${order.orderNumber}${km !== null && !arrived ? ` · ${formatKm(km, lang)}` : ''}`
+                : `${order.orderNumber} · ${order.customer?.address || '—'}`}
             </span>
           </div>
           {phone && (
@@ -165,12 +179,17 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
           )}
         </div>
 
-        {!arrived && stopsBefore > 0 && (
+        {onWay && !arrived && stopsBefore > 0 && (
           <p className="lts__stops">
             <MapPinned size={15} /> {t('delivery.stopsBeforeLong', { n: stopsBefore })}
           </p>
         )}
 
+        {!onWay ? (
+          <p className="lts__status">
+            <Info size={14} className="shrink-0" /> {t(note)}
+          </p>
+        ) : (
         <p className={'lts__status ' + (fresh ? 'is-live' : '')}>
           {tracking ? (
             <>
@@ -187,6 +206,7 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
             t('delivery.noLocation')
           )}
         </p>
+        )}
 
         <button className="lts__receipt" onClick={() => onReceipt(order)}>
           <Receipt size={16} /> {t('delivery.receipt')}

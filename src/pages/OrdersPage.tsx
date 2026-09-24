@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, ExternalLink, ShoppingBag } from 'lucide-react'
+import { ChevronRight, ExternalLink, MapPin, Radio, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '../data'
 import { openBotDeepLink } from '../utils/telegram'
 import { formatOrderDate } from '../utils/date'
@@ -37,13 +37,15 @@ type Props = {
   onGoToCatalog: () => void
   /** Kartochka bosilganda chek sahifasi ochiladi. */
   onOpenReceipt: (order: Order) => void
+  /** «Xaritadan ochish» — yetkazish manzili, yo'lda bo'lsa kuryer ham. */
+  onOpenMap: (order: Order) => void
   onBack: () => void
 }
 
 /** Mijoz faqat shu statuslardagi buyurtmani bekor qila oladi. */
 export function OrdersPage({
   orders, ordersReady, authReady, isAuthenticated, onSearch, onFavorites,
-  onGoToCatalog, onOpenReceipt, onBack,
+  onGoToCatalog, onOpenReceipt, onOpenMap, onBack,
 }: Props) {
   const t = useT()
   const [active, setActive] = useState('all')
@@ -105,6 +107,9 @@ export function OrdersPage({
       <section className="space-y-4 px-5 pb-32 pt-5 sm:px-10">
         {shown.map((order, i) => {
           const payInfo = getPayInfo(order)
+          const loc = order.customer?.location
+          const hasMap = !!loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng)
+          const onWay = order.status === 'Yetkazilmoqda'
 
           return (
             <div key={order.id} className="order-card flex-col gap-3" style={{ animationDelay: `${Math.min(i, 6) * 0.06}s` }}>
@@ -156,6 +161,17 @@ export function OrdersPage({
                   </div>
                 </div>
               </div>
+
+              {/* Yo'ldagi buyurtma — kuryerni jonli kuzatish; qolganlari — manzil */}
+              {hasMap && (
+                <button
+                  onClick={() => onOpenMap(order)}
+                  className={'order-map-btn ' + (onWay ? 'is-live' : '')}
+                >
+                  {onWay ? <Radio size={15} /> : <MapPin size={15} />}
+                  {onWay ? t('orders.trackOnMap') : t('orders.openMap')}
+                </button>
+              )}
 
               {payInfo?.needsAction && (
                 <button
