@@ -9,7 +9,7 @@ import {
   distanceKm, endShiftLocation, etaFromPlan, lastKnownPoint, locationStatus, planStops,
   type Point,
 } from './location.js'
-import { canDeliver, shiftActive, tashkentMidnight } from '../courier-staff.js'
+import { canDeliver, courierPhone, shiftActive, tashkentMidnight } from '../courier-staff.js'
 import { CodedError } from '../errors.js'
 import { orderLabel, tashkentDay } from '../order-number.js'
 
@@ -92,6 +92,8 @@ export async function courierTake(staff: Staff, body: Body) {
     : []
   let eta: number | null = null
   let stops = 0
+  // Mijoz xaritasida ism yonida chiqadi — Xodimlar kartasi yoki bot kontakti
+  const phone = await courierPhone(staff)
 
   const { outcome, order } = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
@@ -128,7 +130,7 @@ export async function courierTake(staff: Staff, body: Body) {
       courierId: staff.uid,
       courierName: staff.name,
       // Mijoz ilovasidagi «Kuryer yo'lda» kartochkasida qo'ng'iroq tugmasi
-      courierPhone: staff.phone ?? null,
+      courierPhone: phone,
       status: 'Yetkazilmoqda',
       takenAt: now,
       etaMinutes: eta,

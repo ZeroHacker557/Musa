@@ -38,6 +38,27 @@ export function shiftActive(data: { onShift?: unknown; shiftSince?: unknown }, n
   return Number.isFinite(since) && since >= tashkentMidnight(now)
 }
 
+/**
+ * Kuryer telefoni — mijoz xaritasida ism yonida va qo'ng'iroq tugmasi.
+ *
+ * Avval Xodimlar bo'limidagi raqam; u yozilmagan bo'lsa — kuryer botga
+ * ulashgan kontakt (`users/{telegramId}.phone`). Aks holda mijoz
+ * kuryerga umuman qo'ng'iroq qila olmasdi.
+ */
+export async function courierPhone(staff: { phone?: unknown; telegramId?: unknown }): Promise<string | null> {
+  const own = String(staff.phone ?? '').trim()
+  if (own) return own
+  const tg = Number(staff.telegramId)
+  if (!Number.isFinite(tg) || !tg) return null
+  try {
+    const snap = await (await adminDb()).collection('users').doc(String(tg)).get()
+    const phone = String(snap.data()?.phone ?? '').trim()
+    return phone || null
+  } catch {
+    return null
+  }
+}
+
 /** Telegram ID bo'yicha faol yetkazuvchi. Bo'lmasa — null. */
 export async function courierByTelegram(telegramId: number): Promise<Staff | null> {
   if (!Number.isFinite(telegramId)) return null

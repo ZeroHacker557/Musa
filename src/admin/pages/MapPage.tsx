@@ -7,6 +7,7 @@ import { useCourierLocations, useOrders, useStaff, type AdminOrder, type Courier
 import type { Staff } from '../lib/auth'
 import { planRoute, type Point } from '../../courier/route'
 import { datedNumber } from '../../utils/order-label'
+import { formatPhone, telHref } from '../../utils/phone'
 
 /** Toshkent markazi — ma'lumot kelguncha. */
 const CENTER: [number, number] = [41.3111, 69.2797]
@@ -44,15 +45,6 @@ const pointOf = (o: AdminOrder): Point | null => {
   const loc = o.customer?.location
   return loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng) ? { lat: loc.lat, lng: loc.lng } : null
 }
-
-/** «+998905551234» → «+998 90 555 12 34»; boshqa ko'rinish o'zgarmaydi. */
-function formatPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
-  const m = /^998(\d{2})(\d{3})(\d{2})(\d{2})$/.exec(digits)
-  return m ? `+998 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : phone
-}
-
-const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`
 
 const escape = (text: string) =>
   text.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!)

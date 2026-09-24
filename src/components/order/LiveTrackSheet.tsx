@@ -6,6 +6,7 @@ import { useI18n, type TranslationKey } from '../../i18n'
 import { TRACKING_FRESH_MS, liveMinutes, remainingKm, useOrderTracking } from '../../lib/tracking'
 import { formatKm, type Point } from '../../courier/route'
 import type { Order } from '../../types/domain'
+import { formatPhone, telHref } from '../../utils/phone'
 
 type Props = {
   order: Order
@@ -104,7 +105,7 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
   const km = tracking && home ? remainingKm(tracking, home) : null
   const minutes = tracking && home && fresh ? liveMinutes(tracking, home) : null
   const stopsBefore = tracking?.stopsBefore ?? 0
-  const phone = onWay ? order.courierPhone?.replace(/[^\d+]/g, '') : undefined
+  const phone = onWay && order.courierPhone ? order.courierPhone : null
   const seconds = Math.max(0, Math.round(age / 1000))
 
   const closed = order.status === 'Bekor qilingan' || order.status === 'Rad etildi'
@@ -166,14 +167,27 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
           </span>
           <div className="min-w-0 flex-1">
             <b className="block text-lg font-extrabold" style={{ color: 'var(--ink)' }}>{title}</b>
-            <span className="block truncate text-sm" style={{ color: 'var(--muted)' }}>
-              {onWay
-                ? `${order.courierName || t('rating.courier')} · ${order.orderNumber}${km !== null && !arrived ? ` · ${formatKm(km, lang)}` : ''}`
-                : `${order.orderNumber} · ${order.customer?.address || '—'}`}
-            </span>
+            {onWay ? (
+              <>
+                {/* Kuryer: ismi va raqami — raqam bosilsa ham qo'ng'iroq */}
+                <span className="lts__who">
+                  <span className="truncate">{order.courierName || t('rating.courier')}</span>
+                  {phone && (
+                    <a className="lts__phone" href={telHref(phone)}>{formatPhone(phone)}</a>
+                  )}
+                </span>
+                <span className="block truncate text-xs" style={{ color: 'var(--faint)' }}>
+                  {order.orderNumber}{km !== null && !arrived ? ` · ${formatKm(km, lang)}` : ''}
+                </span>
+              </>
+            ) : (
+              <span className="block truncate text-sm" style={{ color: 'var(--muted)' }}>
+                {order.orderNumber} · {order.customer?.address || '—'}
+              </span>
+            )}
           </div>
           {phone && (
-            <a className="lts__call" href={`tel:${phone}`} aria-label={t('delivery.call')}>
+            <a className="lts__call" href={telHref(phone)} aria-label={t('delivery.call')}>
               <Phone size={19} />
             </a>
           )}

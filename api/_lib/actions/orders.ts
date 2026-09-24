@@ -7,7 +7,7 @@ import { restoreStock } from '../stock.js'
 import { pushOrderSafe } from './linko-orders.js'
 import { clearOrderTracking, refreshCourierTracking } from './location.js'
 import type { Staff } from '../admin-auth.js'
-import { shiftActive } from '../courier-staff.js'
+import { courierPhone, shiftActive } from '../courier-staff.js'
 import { orderLabel } from '../order-number.js'
 
 const STATUSES = [
@@ -531,17 +531,23 @@ export async function orderAssign(staff: Staff, body: Record<string, unknown>) {
   const order = snap.data() as OrderDoc
 
   if (!courierId) {
-    await ref.set({ courierId: null, courierName: null }, { merge: true })
+    await ref.set({ courierId: null, courierName: null, courierPhone: null }, { merge: true })
     return { ok: true, assigned: false, notified: false }
   }
 
   const courierSnap = await db.collection('staff').doc(courierId).get()
   if (!courierSnap.exists) throw new Error('Kuryer topilmadi')
-  const courier = courierSnap.data() as { name?: string; telegramId?: number; active?: boolean }
+  const courier = courierSnap.data() as { name?: string; telegramId?: number; active?: boolean; phone?: string }
   if (courier.active === false) throw new Error('Bu kuryer bloklangan')
 
   await ref.set(
-    { courierId, courierName: courier.name ?? null, assignedAt: new Date().toISOString() },
+    {
+      courierId,
+      courierName: courier.name ?? null,
+      // Admin holatni o'zi «Yetkazilmoqda» qilsa ham mijoz kuryerga qo'ng'iroq qila olsin
+      courierPhone: await courierPhone(courier),
+      assignedAt: new Date().toISOString(),
+    },
     { merge: true },
   )
   await bumpOrdersSignal()
