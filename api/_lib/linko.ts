@@ -278,7 +278,7 @@ export async function linkoProbe(params: { product?: string; order?: string; pat
   ])
 
   // Mahsulot qoldig'ining xom qatorlari — hamma sahifalardan shu mahsulot
-  let balanceRows: unknown[] = []
+  const balanceRows: unknown[] = []
   let balanceSample: unknown = null
   if (product) {
     for (let offset = 0; offset < MAX_RECORDS; offset += PAGE_SIZE) {
