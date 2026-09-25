@@ -3,7 +3,7 @@ import { ChevronLeft, Crosshair, Info, MapPin, MapPinned, Phone, Radio, Receipt 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet'
 import { useI18n, type TranslationKey } from '../../i18n'
-import { TRACKING_FRESH_MS, liveMinutes, remainingKm, useOrderTracking } from '../../lib/tracking'
+import { TRACKING_FRESH_MS, TRACKING_HIDE_MS, liveMinutes, remainingKm, useOrderTracking } from '../../lib/tracking'
 import { formatKm, type Point } from '../../courier/route'
 import type { Order } from '../../types/domain'
 import { formatPhone, telHref } from '../../utils/phone'
@@ -29,6 +29,24 @@ const carIcon = L.divIcon({
   iconSize: [46, 46],
   iconAnchor: [23, 23],
 })
+// Joylashuv biroz eski (3–15 daq) — xira, «jonli» to'lqinsiz
+const carIconStale = L.divIcon({
+  className: 'lts-car-icon',
+  html: `<div class="lts-car is-stale">${CAR_SVG}</div>`,
+  iconSize: [46, 46],
+  iconAnchor: [23, 23],
+})
+
+/** «40 s», «12 daq», «3 soat» — joylashuv qancha oldin kelgani. */
+function agoText(seconds: number, lang: 'uz' | 'ru'): string {
+  if (seconds < 60) return `${seconds} ${lang === 'ru' ? 'с' : 's'}`
+  const m = Math.round(seconds / 60)
+  if (m < 60) return `${m} ${lang === 'ru' ? 'мин' : 'daq'}`
+  const h = Math.round(m / 60)
+  if (h < 48) return `${h} ${lang === 'ru' ? 'ч' : 'soat'}`
+  return `${Math.round(h / 24)} ${lang === 'ru' ? 'дн' : 'kun'}`
+}
+
 const homeIcon = L.divIcon({
   className: '',
   html: `<div class="lts-home">${HOME_SVG}</div>`,
@@ -95,16 +113,21 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
     return () => clearInterval(timer)
   }, [])
 
-  // Yangi joylashuv kelgandagina yangi obyekt — xarita har renderda siljimasin
-  const courier = useMemo<Point | null>(() => (tracking ? { lat: tracking.lat, lng: tracking.lng } : null), [tracking])
   const age = tracking ? now - Date.parse(tracking.at) : Infinity
   const fresh = age < TRACKING_FRESH_MS
+  // Juda eski nuqta — kuryer bu yerda EMAS; xaritada ko'rsatilmaydi
+  const lost = tracking !== null && !(age < TRACKING_HIDE_MS)
+  // Yangi joylashuv kelgandagina yangi obyekt — xarita har renderda siljimasin
+  const courier = useMemo<Point | null>(
+    () => (tracking && !lost ? { lat: tracking.lat, lng: tracking.lng } : null),
+    [tracking, lost],
+  )
   const arrived = onWay && Boolean(order.arrivedAt)
   // Kuryer avval boshqa manzillarga borsa — masofa ular orqali (boshqa
   // mijozlarning joyi ko'rsatilmaydi, faqat soni)
-  const km = tracking && home ? remainingKm(tracking, home) : null
+  const km = tracking && home && !lost ? remainingKm(tracking, home) : null
   const minutes = tracking && home && fresh ? liveMinutes(tracking, home) : null
-  const stopsBefore = tracking?.stopsBefore ?? 0
+  const stopsBefore = tracking && !lost ? tracking.stopsBefore : 0
   // Buyurtmadagi raqam, bo'lmasa kuzatuvdagisi (oldin olingan buyurtmalar uchun)
   const phone = onWay ? order.courierPhone || tracking?.courierPhone || null : null
   const seconds = Math.max(0, Math.round(age / 1000))
@@ -139,7 +162,7 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
             />
           )}
           {home && <Marker position={[home.lat, home.lng]} icon={homeIcon} />}
-          {courier && <Marker position={[courier.lat, courier.lng]} icon={carIcon} zIndexOffset={1000} />}
+          {courier && <Marker position={[courier.lat, courier.lng]} icon={fresh ? carIcon : carIconStale} zIndexOffset={1000} />}
         </MapContainer>
 
         <button className="lts__back" onClick={onClose} aria-label={t('common.back')}>
@@ -178,7 +201,7 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
                   )}
                 </span>
                 <span className="block truncate text-xs" style={{ color: 'var(--faint)' }}>
-                  {order.orderNumber}{km !== null && !arrived ? ` · ${formatKm(km, lang)}` : ''}
+                  {order.orderNumber}{km !== null && !arrived ? ` · ${fresh ? '' : '~'}${formatKm(km, lang)}` : ''}
                 </span>
               </>
             ) : (
@@ -205,17 +228,15 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
             <Info size={14} className="shrink-0" /> {t(note)}
           </p>
         ) : (
-        <p className={'lts__status ' + (fresh ? 'is-live' : '')}>
+        <p className={'lts__status ' + (fresh ? 'is-live' : lost ? 'is-lost' : '')}>
           {tracking ? (
             <>
-              <Radio size={14} />
+              <Radio size={14} className="shrink-0" />
               {fresh
-                ? t('delivery.updated', {
-                    s: seconds < 60
-                      ? `${seconds} ${lang === 'ru' ? 'с' : 's'}`
-                      : `${Math.round(seconds / 60)} ${lang === 'ru' ? 'мин' : 'daq'}`,
-                  })
-                : t('delivery.stale')}
+                ? t('delivery.updated', { s: agoText(seconds, lang) })
+                : lost
+                  ? t('delivery.lost', { ago: agoText(seconds, lang) })
+                  : t('delivery.staleAgo', { ago: agoText(seconds, lang) })}
             </>
           ) : (
             t('delivery.noLocation')

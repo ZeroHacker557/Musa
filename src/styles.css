@@ -4267,6 +4267,10 @@ a { color: inherit; text-decoration: none; }
   font-weight: 700;
 }
 .lts__status.is-live { background: var(--brand-soft); color: var(--brand); }
+.lts__status.is-lost { background: var(--warning-soft); color: var(--warning); }
+/* Joylashuv eskirgan — mashina xira, to'lqinsiz */
+.lts-car.is-stale { filter: grayscale(0.7); opacity: 0.6; }
+.lts-car.is-stale .lts-car__pulse { display: none; }
 /* Ism va raqam: sig'masa raqam ism ostiga tushadi — ism kesilmaydi */
 .lts__who {
   display: flex;

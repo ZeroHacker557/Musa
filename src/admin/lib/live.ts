@@ -417,6 +417,8 @@ export type LinkoSettings = {
   currencyId: number
   lastSyncAt: string | null
   lastReport: string | null
+  /** Avtomatik qayta yuborishning oxirgi natijasi (api/linko-cron.ts). */
+  lastOrderPush?: { at: string; sent: number; failed: number; skipped: number; checked: number; errors?: string[] } | null
 }
 
 export type AllSettings = {

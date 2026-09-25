@@ -530,9 +530,12 @@ type OrderValues = {
 /**
  * Buyurtmalarni Linko'ga yuborish.
  *
- * Linko buyurtmada agent, yetkazuvchi va skladni TALAB qiladi — ularsiz
- * so'rov rad etiladi. Shuning uchun ular shu yerda oldindan tanlanadi
- * va tanlanmaguncha yuborish yoqilmaydi.
+ * Buyurtma agent nomidan, tanlangan sklad hisobidan yoziladi —
+ * yetkazuvchi ixtiyoriy (bo'lmasa Linko'da agentga tushadi).
+ *
+ * Hammasi avtomatik: buyurtma yaratilganda va har holat o'zgarishida
+ * darhol ketadi; har 10 daqiqada esa tushmay qolganlari qayta
+ * yuboriladi (api/linko-cron.ts). Oxirgi natija shu yerda ko'rinadi.
  */
 function OrdersCard({
   settings, status, busy, onSave, onPush,
@@ -543,6 +546,7 @@ function OrdersCard({
     deliveryManId: number
     orderStockId: number
     stockIds: number[]
+    lastOrderPush?: { at: string; sent: number; failed: number; skipped: number; checked: number; errors?: string[] } | null
   }
   status: Status | null
   busy: string
@@ -551,16 +555,15 @@ function OrdersCard({
 }) {
   const [sendOrders, setSendOrders] = useState(settings.sendOrders)
   const [agentId, setAgentId] = useState(String(settings.agentId || ''))
-  const [deliveryManId, setDeliveryManId] = useState(String(settings.deliveryManId || ''))
   const [orderStockId, setOrderStockId] = useState(
     String(settings.orderStockId || settings.stockIds[0] || ''),
   )
 
   const users = status?.users ?? []
   // Linko'da lavozimlar ruscha nomlanadi
-  const couriers = users.filter((u) => /достав|курьер/i.test(u.job))
   const agents = users.filter((u) => !/достав|курьер/i.test(u.job))
-  const ready = Boolean(agentId && deliveryManId && orderStockId)
+  const ready = Boolean(agentId && orderStockId)
+  const auto = settings.lastOrderPush
 
   return (
     <section className="adm-card mt-4 p-4 sm:p-5">
@@ -581,31 +584,17 @@ function OrdersCard({
 
       {!users.length && (
         <p className="mt-3 text-xs" style={{ color: 'var(--faint)' }}>
-          Agent va yetkazuvchi ro‘yxati uchun yuqorida «Ulanishni tekshirish» tugmasini bosing.
+          Agentlar ro‘yxati uchun yuqorida «Ulanishni tekshirish» tugmasini bosing.
         </p>
       )}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
           <label className="adm-label">Agent nomidan</label>
           <select className="adm-input" value={agentId} onChange={(e) => setAgentId(e.target.value)}>
             <option value="">— tanlanmagan —</option>
             {agents.map((u) => (
               <option key={u.id} value={u.id}>{u.name}{u.job ? ` · ${u.job}` : ''}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="adm-label">Yetkazuvchi</label>
-          <select
-            className="adm-input"
-            value={deliveryManId}
-            onChange={(e) => setDeliveryManId(e.target.value)}
-          >
-            <option value="">— tanlanmagan —</option>
-            {couriers.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
         </div>
@@ -632,12 +621,40 @@ function OrdersCard({
           disabled={!ready}
           onChange={(e) => setSendOrders(e.target.checked)}
         />
-        Yangi buyurtmalar avtomatik yuborilsin
+        Buyurtmalar Linko‘ga avtomatik yuborilsin
       </label>
       {!ready && (
         <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
-          Avval agent, yetkazuvchi va skladni tanlang.
+          Avval agent va skladni tanlang.
         </p>
+      )}
+
+      {/* Avtomatik ishlash holati — qo'lda hech narsa bosish shart emas */}
+      {settings.sendOrders && (
+        <div className="adm-linko-auto mt-4">
+          <p className="text-sm font-extrabold">Avtomatik ishlayapti</p>
+          <p className="mt-0.5 text-xs" style={{ color: 'var(--muted)' }}>
+            Buyurtma berilganda va har holat o‘zgarishida darhol yuboriladi. Har 10 daqiqada tushmay
+            qolgan yoki holati yangilanmaganlari o‘zi qayta yuboriladi, qoldiqlar esa Linko’dan yangilanadi.
+          </p>
+          {auto ? (
+            <p className="mt-2 text-xs font-semibold" style={{ color: auto.failed ? 'var(--danger)' : 'var(--brand)' }}>
+              Oxirgi tekshiruv: {new Date(auto.at).toLocaleString('uz-UZ')} —{' '}
+              {auto.failed
+                ? `${auto.failed} ta buyurtma yuborilmadi`
+                : auto.sent
+                  ? `${auto.sent} ta buyurtma yangilandi`
+                  : 'hammasi Linko bilan bir xil'}
+            </p>
+          ) : (
+            <p className="mt-2 text-xs" style={{ color: 'var(--faint)' }}>Birinchi avtomatik tekshiruv kutilmoqda…</p>
+          )}
+          {!!auto?.errors?.length && (
+            <ul className="mt-1.5 text-xs" style={{ color: 'var(--danger)' }}>
+              {auto.errors.map((e) => <li key={e}>• {e}</li>)}
+            </ul>
+          )}
+        </div>
       )}
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -646,7 +663,8 @@ function OrdersCard({
           onClick={() => onSave({
             sendOrders,
             agentId: Number(agentId) || 0,
-            deliveryManId: Number(deliveryManId) || 0,
+            // Yetkazuvchi endi tanlanmaydi — buyurtma agentga tushadi
+            deliveryManId: 0,
             orderStockId: Number(orderStockId) || 0,
           })}
           disabled={busy === 'orders'}
@@ -656,7 +674,7 @@ function OrdersCard({
         </button>
         <button className="adm-btn adm-btn--ghost" onClick={onPush} disabled={busy === 'push'}>
           {busy === 'push' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          Yuborilmaganlarini yuborish (7 kun)
+          Hozir tekshirish (7 kun)
         </button>
       </div>
     </section>

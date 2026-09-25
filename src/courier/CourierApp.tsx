@@ -82,15 +82,18 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
    */
   const lastSent = useRef(0)
   const livePoint = location.status === 'ok' ? location.point : null
+  // Smena 00:00 da o'zi yopiladi, lekin qo'lida buyurtma bo'lsa mijoz
+  // kuryerni ko'rishda davom etishi kerak (server ham shunday qabul qiladi)
+  const sharing = onShift || (data?.active.length ?? 0) > 0
   useEffect(() => {
-    if (!onShift || !livePoint) return
+    if (!sharing || !livePoint) return
     if (Date.now() - lastSent.current < 25_000) return
     lastSent.current = Date.now()
     sendLocation(livePoint).catch(() => {
       // Keyingi o'qishda qayta urinadi
       lastSent.current = 0
     })
-  }, [onShift, livePoint])
+  }, [sharing, livePoint])
 
   /*
    * Yangi buyurtma keldi (17-band): tepadan banner, ovoz va titrash.

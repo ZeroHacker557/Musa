@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { linkoPull } from './_lib/actions/linko.js'
 import { endExpiredShifts } from './_lib/actions/shift.js'
+import { linkoPushOrders } from './_lib/actions/linko-orders.js'
 import { fail } from './_lib/http.js'
 
 /**
@@ -38,9 +39,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     shifts = { error: error instanceof Error ? error.message : 'xato' }
   }
 
+  /*
+   * Buyurtmalar: Linko'ga tushmagan, xato bergan yoki holati eskirgan
+   * (oxirgi 3 kun) — qayta yuboriladi. Odatda buyurtma yaratilganda va
+   * holat o'zgarganda o'zi ketadi; bu — kafolat (Linko vaqtincha
+   * ishlamay qolgan bo'lsa ham keyingi yurishda yetib boradi).
+   */
+  let orders: Record<string, unknown>
+  try {
+    orders = await linkoPushOrders(null, { days: 3 })
+  } catch (error) {
+    console.error('[linko-cron] buyurtmalar qayta yuborilmadi:', error)
+    orders = { error: error instanceof Error ? error.message : 'xato' }
+  }
+
   try {
     const result = await linkoPull(null, { full: req.query.full === '1' })
-    return res.status(200).json({ ...result, shifts })
+    return res.status(200).json({ ...result, shifts, orders })
   } catch (error) {
     // Sinxron yiqilsa do'kon ishlashda davom etadi — faqat log va 200 emas 500
     console.error('[linko-cron] xato:', error)

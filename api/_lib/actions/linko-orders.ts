@@ -82,7 +82,7 @@ function missingSetting(settings: LinkoSettings): string | null {
   if (!settings.baseUrl) return 'Linko manzili kiritilmagan'
   if (!linkoToken()) return 'LINKO_TOKEN sozlanmagan'
   if (!settings.agentId) return 'Agent tanlanmagan (Sozlamalar → Linko)'
-  if (!settings.deliveryManId) return 'Yetkazuvchi tanlanmagan (Sozlamalar → Linko)'
+  // Yetkazuvchi ixtiyoriy — buyurtma agentga tushadi (Abubakr talabi, 2026-09-25)
   if (!settings.orderStockId) return 'Sklad tanlanmagan (Sozlamalar → Linko)'
   return null
 }
@@ -208,7 +208,7 @@ export async function pushOrder(orderId: string, order: OrderDoc): Promise<Resul
       market: market.id ? { linko_id: market.id } : { service_id: market.serviceId },
       stock: { linko_id: settings.orderStockId },
       agent: { linko_id: settings.agentId },
-      delivery_man: { linko_id: settings.deliveryManId },
+      ...(settings.deliveryManId ? { delivery_man: { linko_id: settings.deliveryManId } } : {}),
       ...(settings.priceListId ? { price_list: { linko_id: settings.priceListId } } : {}),
       ...(settings.currencyId ? { linko_currency_id: settings.currencyId } : {}),
       // Chek raqami har kuni #0001 dan boshlanadi — Linko'da sana bilan
@@ -222,7 +222,11 @@ export async function pushOrder(orderId: string, order: OrderDoc): Promise<Resul
       'sync_order/', payload, settings,
     )
     if (body.errors?.length) {
-      const error = `Linko qabul qilmadi: ${JSON.stringify(body.errors).slice(0, 300)}`
+      const raw = JSON.stringify(body.errors)
+      // Linko yetkazuvchini talab qilsa — admin nima qilishni bilsin
+      const error = /delivery_man/i.test(raw) && !settings.deliveryManId
+        ? 'Linko yetkazuvchini talab qilyapti — Linko sozlamasida yetkazuvchi majburiy bo‘lmasligi kerak'
+        : `Linko qabul qilmadi: ${raw.slice(0, 300)}`
       await save({ error, at: new Date().toISOString() })
       return { ok: false, error }
     }
@@ -286,6 +290,8 @@ export async function linkoPushOrder(_staff: unknown, body: Record<string, unkno
  * buyurtmalar shu tariqa tiklanadi.
  */
 export async function linkoPushOrders(_staff: unknown, body: Record<string, unknown>): Promise<Result> {
+  const settings = await readLinkoSettings()
+  if (!settings.sendOrders) return { ok: true, skipped: 'sendOrders', sent: 0, failed: 0 }
   const days = Math.min(90, Math.max(1, Math.round(num(body.days, 7))))
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
@@ -295,6 +301,7 @@ export async function linkoPushOrders(_staff: unknown, body: Record<string, unkn
   let sent = 0
   let failed = 0
   let skipped = 0
+  const errors: string[] = []
 
   for (const doc of snap.docs) {
     const order = doc.data() as OrderDoc
@@ -309,8 +316,14 @@ export async function linkoPushOrders(_staff: unknown, body: Record<string, unkn
 
     const result = await pushOrder(doc.id, order)
     if (result.ok) sent++
-    else failed++
+    else {
+      failed++
+      errors.push(`${order.orderNumber || doc.id}: ${String(result.error || '').slice(0, 120)}`)
+    }
   }
 
-  return { ok: true, sent, failed, skipped, checked: snap.size, days }
+  const summary = { at: new Date().toISOString(), sent, failed, skipped, checked: snap.size, errors: errors.slice(0, 5) }
+  // Panel «Avtomatik yuborish» kartasida oxirgi natija ko'rinadi
+  await db.collection('settings').doc('linko').set({ lastOrderPush: summary }, { merge: true })
+  return { ok: true, ...summary, days }
 }

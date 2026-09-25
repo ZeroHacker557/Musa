@@ -29,6 +29,14 @@ export type Tracking = {
 /** Shundan eski joylashuv «jonli» hisoblanmaydi. */
 export const TRACKING_FRESH_MS = 3 * 60_000
 
+/**
+ * Shundan eski joylashuv mijozga UMUMAN ko'rsatilmaydi. Kuryer jonli
+ * ulashishni o'chirib qo'ysa, oxirgi nuqta bazada qolib ketadi. Ilgari
+ * xarita mashinani o'sha joyda (masalan 12 soat oldingi) chizardi va
+ * mijoz kuryer shu yerda deb o'ylardi.
+ */
+export const TRACKING_HIDE_MS = 15 * 60_000
+
 export function useOrderTracking(orderId: string | null, destination: Point | null): Tracking | null {
   const [tracking, setTracking] = useState<Tracking | null>(null)
 
