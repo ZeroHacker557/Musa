@@ -17,6 +17,11 @@ import { productThumb } from '../../utils/product-image'
 
 type Draft = {
   id?: string
+  /**
+   * Faqat forma uchun: «Set qo'shish» dan ochilgan (yoki tarkibi bor)
+   * mahsulot — set oynasi ko'rinadi. Serverga yuborilmaydi.
+   */
+  kind: 'product' | 'set'
   name: string
   nameRu: string
   nameEn: string
@@ -55,7 +60,11 @@ type Draft = {
   optimized: string[]
 }
 
+/** Setlar kategoriyasi — «Set qo'shish» shunga qo'yadi, yo'q bo'lsa yaratadi. */
+const SET_CATEGORY = 'Setlar'
+
 const EMPTY: Draft = {
+  kind: 'product',
   name: '', nameRu: '', nameEn: '', price: '', oldPrice: '', category: '',
   description: '', descriptionRu: '', descriptionEn: '',
   discount: '', stock: '0', sizes: '', color: '', popular: false, sectionId: '',
@@ -92,6 +101,7 @@ function aligned(product: ProductRow, list: string[] | undefined): string[] {
 function toDraft(product: ProductRow, linko: LinkoRow[]): Draft {
   return {
     id: product.docId,
+    kind: product.bundle?.length ? 'set' : 'product',
     name: product.name,
     nameRu: product.nameRu || '',
     nameEn: product.nameEn || '',
@@ -140,6 +150,11 @@ export function ProductsPage() {
   const save = async () => {
     if (!draft) return
 
+    if (draft.kind === 'set' && !draft.bundle.length) {
+      show('Setga kamida bitta mahsulot qo‘shing (pastdagi «Set tarkibi»)', 'error')
+      return
+    }
+
     // Mavjud bo'lmagan ID bilan mahsulot saqlanib, bog'lanish esa jim
     // o'tib ketmasin — avval tekshiramiz
     const wanted = parseLinkoIds(draft.linkoIds)
@@ -151,6 +166,11 @@ export function ProductsPage() {
 
     setBusy(true)
     try {
+      // Birinchi set — «Setlar» kategoriyasi hali yo'q bo'lsa o'zi yaratiladi
+      if (draft.kind === 'set' && !categories.some((c) => c.name === draft.category)) {
+        await apiPost('action', { action: 'category.save', name: draft.category || SET_CATEGORY, icon: 'package' })
+      }
+
       const { id: productId } = await apiPost<{ id: string }>('action', {
         action: 'product.save',
         id: draft.id,
@@ -170,7 +190,8 @@ export function ProductsPage() {
         color: draft.color,
         popular: draft.popular,
         sectionId: draft.sectionId || null,
-        bundle: draft.bundle,
+        // Oddiy mahsulot formasida tarkib yo'q — bo'sh yuborilsa set emas bo'ladi
+        bundle: draft.kind === 'set' ? draft.bundle : [],
         images: draft.images,
         thumbs: draft.thumbs,
         optimized: draft.optimized,
@@ -197,7 +218,9 @@ export function ProductsPage() {
         )
       }
 
-      show(draft.id ? 'Mahsulot yangilandi' : 'Mahsulot qo‘shildi')
+      show(draft.kind === 'set'
+        ? draft.id ? 'Set yangilandi' : 'Set qo‘shildi'
+        : draft.id ? 'Mahsulot yangilandi' : 'Mahsulot qo‘shildi')
       setDraft(null)
     } catch (error) {
       show(error instanceof Error ? error.message : 'Saqlanmadi', 'error')
@@ -247,8 +270,18 @@ export function ProductsPage() {
             onToast={(message, kind) => show(message, kind)}
           />
           <button
+            className="adm-btn adm-btn--set"
+            onClick={() => setDraft({
+              ...EMPTY,
+              kind: 'set',
+              category: categories.find((c) => c.name.toLowerCase() === SET_CATEGORY.toLowerCase())?.name ?? SET_CATEGORY,
+            })}
+          >
+            <Package size={17} /> Set qo‘shish
+          </button>
+          <button
             className="adm-btn adm-btn--primary"
-            onClick={() => setDraft({ ...EMPTY, category: categories[0]?.name || '' })}
+            onClick={() => setDraft({ ...EMPTY, category: categories.find((c) => c.name !== SET_CATEGORY)?.name || '' })}
           >
             <Plus size={17} /> Qo‘shish
           </button>
@@ -416,6 +449,11 @@ function ProductForm({
   const [uploading, setUploading] = useState(false)
   const [lang, setLang] = useState<(typeof LANGS)[number]['code']>('uz')
   const set = (patch: Partial<Draft>) => onChange({ ...draft, ...patch })
+  const isSet = draft.kind === 'set'
+  // Set kategoriyasi hali yaratilmagan bo'lsa ham ro'yxatda tursin (saqlashda yaratiladi)
+  const categoryOptions = isSet && draft.category && !categories.includes(draft.category)
+    ? [draft.category, ...categories]
+    : categories
 
   /*
    * Yuklash bir necha soniya davom etadi — shu orada admin nomi yoki
@@ -489,7 +527,9 @@ function ProductForm({
   return (
     <Modal
       wide
-      title={draft.id ? 'Mahsulotni tahrirlash' : 'Yangi mahsulot'}
+      title={isSet
+        ? draft.id ? 'Setni tahrirlash' : 'Yangi set'
+        : draft.id ? 'Mahsulotni tahrirlash' : 'Yangi mahsulot'}
       onClose={onClose}
       footer={
         <>
@@ -508,6 +548,15 @@ function ProductForm({
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
+        {/* Set — qanday to'ldirilishi, qadam-baqadam */}
+        {isSet && (
+          <ol className="adm-set-guide sm:col-span-2">
+            <li><b>1</b> Set nomi va <b>set narxi</b> (masalan 199 000) — mijoz shu narxni to‘laydi</li>
+            <li><b>2</b> <b>Linko ID</b> — setning Linko’dagi raqami (narx va qoldiq Linko’dan keladi)</li>
+            <li><b>3</b> <b>Set tarkibi</b> — ichidagi mahsulotlar va soni. Narxga ta’sir qilmaydi</li>
+          </ol>
+        )}
+
         {/* Nom va tavsif — uch tilda. O'zbekcha majburiy, qolganlari bo'sh
             bo'lsa ilova o'zbekchasini ko'rsatadi. */}
         <div className="sm:col-span-2">
@@ -536,7 +585,7 @@ function ProductForm({
                   className="adm-input"
                   value={draft[l.name]}
                   onChange={(e) => set({ [l.name]: e.target.value } as Partial<Draft>)}
-                  placeholder={l.namePlaceholder}
+                  placeholder={isSet ? (l.code === 'ru' ? 'Семейный набор' : l.code === 'en' ? 'Family set' : 'Oilaviy set') : l.namePlaceholder}
                 />
               </Field>
               <Field label={l.code === 'uz' ? 'Tavsif' : `Tavsif — ${l.label.toLowerCase()}`}>
@@ -545,32 +594,45 @@ function ProductForm({
                   rows={3}
                   value={draft[l.description]}
                   onChange={(e) => set({ [l.description]: e.target.value } as Partial<Draft>)}
-                  placeholder={l.descriptionPlaceholder}
+                  placeholder={isSet ? (l.code === 'ru' ? 'Выгодный набор на всю семью' : l.code === 'en' ? 'Great value set for the whole family' : 'Butun oila uchun foydali to‘plam') : l.descriptionPlaceholder}
                 />
               </Field>
             </div>
           ))}
         </div>
 
-        <Field label="Narxi (so‘m)">
+        <Field label={isSet ? 'Set narxi (so‘m)' : 'Narxi (so‘m)'}>
           <input
             className="adm-input"
             inputMode="numeric"
             value={draft.price}
             onChange={(e) => set({ price: e.target.value.replace(/\D/g, '') })}
-            placeholder="45000"
+            placeholder={isSet ? '199000' : '45000'}
           />
         </Field>
 
-        <Field label="Eski narxi — chegirma ko‘rsatish uchun">
-          <input
-            className="adm-input"
-            inputMode="numeric"
-            value={draft.oldPrice}
-            onChange={(e) => set({ oldPrice: e.target.value.replace(/\D/g, '') })}
-            placeholder="50000"
+        {/* Setda eski narx kerak emas — tejash tarkibdan o'zi hisoblanadi */}
+        {!isSet && (
+          <Field label="Eski narxi — chegirma ko‘rsatish uchun">
+            <input
+              className="adm-input"
+              inputMode="numeric"
+              value={draft.oldPrice}
+              onChange={(e) => set({ oldPrice: e.target.value.replace(/\D/g, '') })}
+              placeholder="50000"
+            />
+          </Field>
+        )}
+
+        {isSet && (
+          <BundleField
+            value={draft.bundle}
+            products={products}
+            selfId={draft.id}
+            setPrice={Number(draft.price) || 0}
+            onChange={(bundle) => set({ bundle })}
           />
-        </Field>
+        )}
 
         <Field label="Kategoriya">
           <select
@@ -580,7 +642,7 @@ function ProductForm({
             onChange={(e) => set({ category: e.target.value, sectionId: '' })}
           >
             <option value="">Tanlang...</option>
-            {categories.map((name) => (
+            {categoryOptions.map((name) => (
               <option key={name} value={name}>
                 {name}
               </option>
@@ -615,37 +677,34 @@ function ProductForm({
           />
         </Field>
 
-        <Field label="Vazni — kartochkada nom tagida">
-          <input
-            className="adm-input"
-            value={draft.sizes}
-            onChange={(e) => set({ sizes: e.target.value })}
-            placeholder="500 gr"
-          />
-        </Field>
+        {/* Setda vazn va tur yo'q — tarkibidan ko'rinadi */}
+        {!isSet && (
+          <>
+            <Field label="Vazni — kartochkada nom tagida">
+              <input
+                className="adm-input"
+                value={draft.sizes}
+                onChange={(e) => set({ sizes: e.target.value })}
+                placeholder="500 gr"
+              />
+            </Field>
 
-        <Field label="Turi">
-          <input
-            className="adm-input"
-            value={draft.color}
-            onChange={(e) => set({ color: e.target.value })}
-            placeholder="Mol go‘shti"
-          />
-        </Field>
+            <Field label="Turi">
+              <input
+                className="adm-input"
+                value={draft.color}
+                onChange={(e) => set({ color: e.target.value })}
+                placeholder="Mol go‘shti"
+              />
+            </Field>
+          </>
+        )}
 
         <LinkoField
           value={draft.linkoIds}
           rows={linkoRows}
           productId={draft.id}
           onChange={(linkoIds) => set({ linkoIds })}
-        />
-
-        <BundleField
-          value={draft.bundle}
-          products={products}
-          selfId={draft.id}
-          setPrice={Number(draft.price) || 0}
-          onChange={(bundle) => set({ bundle })}
         />
 
         {/* Bosh sahifa qatori — faqat shu belgilanganlar chiqadi */}
@@ -849,7 +908,7 @@ function BundleField({
 
   return (
     <div className="adm-bundle sm:col-span-2">
-      <p className="adm-label flex items-center gap-1.5"><Package size={14} /> Set tarkibi — mahsulot set bo‘lsa to‘ldiring</p>
+      <p className="adm-label flex items-center gap-1.5"><Package size={14} /> Set tarkibi — ichidagi mahsulotlar</p>
       {value.length > 0 && (
         <ul className="adm-bundle__list">
           {value.map((v) => {
