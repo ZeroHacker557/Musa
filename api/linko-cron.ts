@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { linkoPull } from './_lib/actions/linko.js'
+import { linkoProbe } from './_lib/linko.js'
 import { endExpiredShifts } from './_lib/actions/shift.js'
 import { linkoPushOrders } from './_lib/actions/linko-orders.js'
 import { fail } from './_lib/http.js'
@@ -29,6 +30,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     : String(req.headers['x-cron-secret'] || '')
 
   if (provided !== secret) return fail(res, 401, 'Ruxsat yo‘q', 'FORBIDDEN')
+
+  // Diagnostika — faqat o'qish (qoldiq nega ayirilmayotganini aniqlash uchun)
+  if (req.query.probe === '1') {
+    const one = (v: unknown) => (typeof v === 'string' ? v : undefined)
+    return res.status(200).json(await linkoProbe({
+      product: one(req.query.product), order: one(req.query.order), path: one(req.query.path),
+    }))
+  }
 
   // Smenalar Linko'dan mustaqil: sinxron yiqilsa ham yopilaversin
   let shifts: { ended: number } | { error: string }

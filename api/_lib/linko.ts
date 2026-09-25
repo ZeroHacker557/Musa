@@ -214,3 +214,91 @@ export function tmOf(value: unknown): number {
   const n = Number(value)
   return Number.isFinite(n) ? n : 0
 }
+
+/* ─── Diagnostika (faqat o'qish) ─────────────────────────────── */
+
+type ProbeResult = { path: string; method: string; status: number; body: unknown }
+
+async function probeOne(
+  method: 'GET' | 'OPTIONS',
+  path: string,
+  config: LinkoSettings,
+  limit = 12000,
+): Promise<ProbeResult> {
+  try {
+    const response = await fetch(config.baseUrl + path, {
+      method,
+      headers: { Authorization: `External ${linkoToken()}`, Accept: 'application/json' },
+    })
+    const text = await response.text()
+    let body: unknown = text.slice(0, limit)
+    try {
+      body = JSON.parse(text)
+    } catch {
+      // HTML yoki matn — qisqartirilgan holda qoladi
+    }
+    const json = JSON.stringify(body)
+    if (json.length > limit) body = json.slice(0, limit) + '…'
+    return { path, method, status: response.status, body }
+  } catch (error) {
+    return { path, method, status: 0, body: error instanceof Error ? error.message : 'tarmoq xatosi' }
+  }
+}
+
+/**
+ * Linko qoldiq nega ayirilmayotganini aniqlash uchun — FAQAT O'QISH
+ * (GET/OPTIONS). Hech narsa yozmaydi. api/linko-cron.ts `?probe=1`
+ * orqali, CRON_SECRET bilan chaqiriladi.
+ *
+ *   docs      — API hujjati (qaysi maydon qoldiqni ayiradi)
+ *   root      — mavjud bo'limlar ro'yxati
+ *   syncOrder — sync_order qabul qiladigan maydonlar (OPTIONS)
+ *   balance   — mahsulot qoldig'ining XOM qatori (hamma maydonlar)
+ *   order     — Linko'dagi buyurtma (bir necha taxminiy manzil)
+ */
+export async function linkoProbe(params: { product?: string; order?: string; path?: string }) {
+  const config = await readLinkoSettings()
+  if (!config.baseUrl || !linkoToken()) return { ok: false, error: 'Linko sozlanmagan' }
+  const product = Number(params.product) || 0
+  const order = Number(params.order) || 0
+  const ext = API_PREFIX
+
+  // Ixtiyoriy bitta manzil — faqat Linko API ichida, faqat GET
+  if (params.path) {
+    const safe = /^[a-z0-9_/-]*(\?[a-z0-9_=&.,-]*)?$/i.test(params.path) && !params.path.includes('..')
+    if (!safe) return { ok: false, error: 'Manzil noto‘g‘ri' }
+    return { ok: true, result: await probeOne('GET', '/api/v1/integration/' + params.path.replace(/^\/+/, ''), config, 40000) }
+  }
+
+  const [docs, root, syncOrder, syncOrderGet] = await Promise.all([
+    probeOne('GET', '/api/v1/integration/docs/', config, 40000),
+    probeOne('GET', ext, config),
+    probeOne('OPTIONS', ext + 'sync_order/', config),
+    probeOne('GET', ext + 'sync_order/?limit=2', config),
+  ])
+
+  // Mahsulot qoldig'ining xom qatorlari — hamma sahifalardan shu mahsulot
+  let balanceRows: unknown[] = []
+  let balanceSample: unknown = null
+  if (product) {
+    for (let offset = 0; offset < MAX_RECORDS; offset += PAGE_SIZE) {
+      const page = await probeOne('GET', `${ext}product_balances/?limit=${PAGE_SIZE}&offset=${offset}`, config, 5_000_000)
+      const rows = ((page.body as { results?: { product?: { id?: number } }[] })?.results) ?? []
+      if (!balanceSample && rows[0]) balanceSample = rows[0]
+      balanceRows.push(...rows.filter((r) => Number(r?.product?.id) === product))
+      if (rows.length < PAGE_SIZE) break
+    }
+    balanceRows = balanceRows.slice(0, 20)
+  }
+
+  const orderTries = order
+    ? await Promise.all([
+        probeOne('GET', `${ext}orders/?id=${order}`, config),
+        probeOne('GET', `${ext}orders/${order}/`, config),
+        probeOne('GET', `${ext}order/?id=${order}`, config),
+        probeOne('GET', `${ext}sync_order/?linko_id=${order}`, config),
+      ])
+    : []
+
+  return { ok: true, docs, root, syncOrder, syncOrderGet, balanceSample, balanceRows, orderTries }
+}
