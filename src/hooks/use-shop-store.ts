@@ -121,6 +121,23 @@ export function useShopStore() {
    * bu yerda faqat mijozga to'g'ri ko'rsatish uchun.
    */
   const products = useMemo(() => {
+    const shown = localizeAndPromote()
+    /*
+     * Setlar: tarkibdagi mahsulotlar joriy holati bilan (nomi tanlangan
+     * tilda, narxi aksiya bilan) va «alohida olsangiz» summasi. Tarkibdagi
+     * mahsulot o'chirilgan bo'lsa — shunchaki ko'rsatilmaydi.
+     */
+    const byId = new Map(shown.map((p) => [String(p.id), p]))
+    return shown.map((p) => {
+      if (!p.bundle?.length) return p
+      const bundleItems = p.bundle
+        .map((line) => ({ product: byId.get(String(line.productId)), quantity: line.quantity }))
+        .filter((line): line is { product: Product; quantity: number } => !!line.product)
+      const bundleValue = bundleItems.reduce((sum, line) => sum + line.product.price * line.quantity, 0)
+      return { ...p, bundleItems, bundleValue }
+    })
+
+    function localizeAndPromote(): Product[] {
     // Kategoriyaning ruscha nomi — qidiruvda ishlatiladi
     const categoryRuByName = new Map(
       categories.filter((c) => c.nameRu).map((c) => [c.name.trim().toLowerCase(), c.nameRu as string]),
@@ -154,6 +171,7 @@ export function useShopStore() {
       promotion: { id: promo.id, title: promo.title, percent: promo.percent, endsAt: promo.endsAt },
     }
     })
+    }
   }, [rawProducts, promotions, clock, lang, categories])
 
   /** Hozir ishlayotgan aksiyalar — bosh sahifadagi banner uchun. */
@@ -240,6 +258,24 @@ export function useShopStore() {
 
     const unsubProds = subscribeToProducts(
       (fbProducts) => {
+        // Faqat dev (`?setDemo`): mavjud mahsulotlardan namuna set — productionda kesiladi
+        if (import.meta.env.DEV && new URLSearchParams(location.search).has('setDemo') && fbProducts.length >= 3) {
+          const parts = fbProducts.filter((p) => p.images?.length).slice(0, 3)
+          fbProducts = [{
+            ...parts[0],
+            id: 999001,
+            name: 'Oilaviy set (namuna)',
+            nameRu: 'Семейный набор (пример)',
+            category: 'Setlar',
+            price: 199000,
+            oldPrice: undefined,
+            discount: '',
+            stock: 12,
+            sizes: [],
+            popular: true,
+            bundle: parts.map((p, i) => ({ productId: String(p.id), quantity: i + 1, name: p.name })),
+          }, ...fbProducts]
+        }
         setProducts(fbProducts)
         setLoading(false)
       },

@@ -228,6 +228,8 @@ type RawOrder = OrderDoc & {
       images?: string[]
       thumbs?: string[]
       variantSources?: string[]
+      /** Set bo'lsa — tarkibi (api/orders.ts yozadi). */
+      bundle?: { name?: string; quantity?: number }[]
     }
     quantity?: number
     size?: string | null
@@ -276,6 +278,9 @@ function present(id: string, order: RawOrder, uid: string) {
       price: Number(line.product?.price) || 0,
       size: line.size || null,
       image: thumbOf((line.product ?? {}) as Parameters<typeof thumbOf>[0]),
+      // Set — kuryer nimani yig'ishini ko'rsin
+      bundle: ((line.product as { bundle?: { name?: string; quantity?: number }[] } | undefined)?.bundle ?? [])
+        .map((b) => ({ name: String(b?.name || ''), quantity: Number(b?.quantity) || 1 })),
     })),
     total: Number(order.total) || 0,
     paymentMethod: order.paymentMethod || 'Naqd',

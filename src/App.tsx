@@ -371,6 +371,7 @@ function App() {
               onOpenCart={shop.openCart}
               cartCount={shop.cartCount}
               hideBottomBar={shop.isCartOpen || shop.isSearchOpen}
+              onOpenProduct={shop.openProduct}
             />
           )}
 

@@ -12,6 +12,7 @@ import { ArriveButton } from './CourierOrdersPage'
 import { clock, telHref, timeAgo } from './format'
 import { NavigateButton } from './NavigateButton'
 import { CourierReceipt } from './CourierReceipt'
+import { bundleText } from '../utils/bundle'
 
 type Props = {
   order: CourierOrder | null
@@ -176,6 +177,9 @@ export function OrderDetail({ order, busy, onClose, onTake, onDeliver, onSupport
                     <span className="block text-xs" style={{ color: 'var(--muted)' }}>
                       {item.size ? `${item.size} · ` : ''}{formatPrice(item.price)}
                     </span>
+                    {!!item.bundle?.length && (
+                      <span className="set-lines">📦 {bundleText(item.bundle)}</span>
+                    )}
                   </span>
                   <span className="shrink-0 text-right">
                     <span className="crr-qty">× {item.quantity}</span>

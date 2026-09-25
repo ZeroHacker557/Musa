@@ -36,6 +36,16 @@ export function subscribeToProducts(callback: (products: Product[]) => void, onE
         rating: data.rating || 5,
         reviews: data.reviews || 0,
         sizes: data.sizes || [],
+        // Set tarkibi — bo'sh bo'lsa oddiy mahsulot
+        bundle: Array.isArray(data.bundle) && data.bundle.length
+          ? data.bundle
+              .map((b: { productId?: unknown; quantity?: unknown; name?: unknown }) => ({
+                productId: String(b?.productId ?? ''),
+                quantity: Math.max(1, Number(b?.quantity) || 1),
+                name: String(b?.name || ''),
+              }))
+              .filter((b: { productId: string }) => b.productId)
+          : undefined,
         color: data.color || '',
         description: data.description || '',
         nameRu: data.nameRu || '',

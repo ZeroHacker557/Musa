@@ -1,5 +1,6 @@
 import {
-  ArrowUpDown, Boxes, CircleAlert, CircleCheck, ImagePlus, Link2, Loader2, Pencil, Plus, Search, Star, Trash2, X,
+  ArrowUpDown, Boxes, CircleAlert, CircleCheck, ImagePlus, Link2, Loader2, Minus, Package, Pencil, Plus, Search, Star,
+  Trash2, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { formatPrice } from '../../data'
@@ -37,6 +38,11 @@ type Draft = {
   linkoIds: string
   /** Bosh sahifadagi «Mashhur mahsulotlar» qatorida. */
   popular: boolean
+  /**
+   * Set tarkibi — bazadagi mahsulotlar va soni. Bo'sh bo'lsa oddiy
+   * mahsulot. Narx setning o'z narxi (tarkib narxga ta'sir qilmaydi).
+   */
+  bundle: { productId: string; quantity: number }[]
   /** Bo'lim identifikatori; bo'sh — bo'limsiz. */
   sectionId: string
   /**
@@ -54,6 +60,7 @@ const EMPTY: Draft = {
   description: '', descriptionRu: '', descriptionEn: '',
   discount: '', stock: '0', sizes: '', color: '', popular: false, sectionId: '',
   linkoIds: '',
+  bundle: [],
   images: [], thumbs: [], optimized: [],
 }
 
@@ -101,6 +108,7 @@ function toDraft(product: ProductRow, linko: LinkoRow[]): Draft {
     popular: product.popular === true,
     sectionId: product.sectionId || '',
     linkoIds: linkedTo(linko, product.docId).map((row) => row.linkoId).join(', '),
+    bundle: (product.bundle || []).map((b) => ({ productId: String(b.productId), quantity: b.quantity })),
     images: product.images || [],
     thumbs: aligned(product, product.thumbs),
     optimized: aligned(product, product.optimized),
@@ -162,6 +170,7 @@ export function ProductsPage() {
         color: draft.color,
         popular: draft.popular,
         sectionId: draft.sectionId || null,
+        bundle: draft.bundle,
         images: draft.images,
         thumbs: draft.thumbs,
         optimized: draft.optimized,
@@ -307,6 +316,9 @@ export function ProductsPage() {
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 text-sm font-extrabold">
                   <span className="truncate">{product.name}</span>
+                  {!!product.bundle?.length && (
+                    <span className="adm-set-badge">SET · {product.bundle.reduce((s, b) => s + b.quantity, 0)}</span>
+                  )}
                   {product.popular && (
                     <Star size={13} className="shrink-0" fill="var(--warning)" style={{ color: 'var(--warning)' }} aria-label="Mashhur" />
                   )}
@@ -353,6 +365,7 @@ export function ProductsPage() {
           categories={categories.map((c) => c.name)}
           sections={sections}
           linkoRows={linkoRows}
+          products={products}
           busy={busy}
           onChange={setDraft}
           onSave={save}
@@ -387,12 +400,13 @@ const LANGS = [
 ] as const
 
 function ProductForm({
-  draft, categories, sections, linkoRows, busy, onChange, onSave, onClose, onError,
+  draft, categories, sections, linkoRows, products, busy, onChange, onSave, onClose, onError,
 }: {
   draft: Draft
   categories: string[]
   sections: Section[]
   linkoRows: LinkoRow[]
+  products: ProductRow[]
   busy: boolean
   onChange: (draft: Draft) => void
   onSave: () => void
@@ -626,6 +640,14 @@ function ProductForm({
           onChange={(linkoIds) => set({ linkoIds })}
         />
 
+        <BundleField
+          value={draft.bundle}
+          products={products}
+          selfId={draft.id}
+          setPrice={Number(draft.price) || 0}
+          onChange={(bundle) => set({ bundle })}
+        />
+
         {/* Bosh sahifa qatori — faqat shu belgilanganlar chiqadi */}
         <label
           className="sm:col-span-2 flex cursor-pointer items-center gap-3 rounded-xl border p-3"
@@ -794,6 +816,110 @@ function LinkoField({
         Bog‘langan mahsulotning narxi va qoldig‘i Linko'dan olinadi — yuqoridagi narx saqlashdan keyin almashadi.
         Bo‘shatib saqlansa bog‘lanish uziladi.
       </p>
+    </div>
+  )
+}
+
+/**
+ * Set tarkibi. Mahsulot qidirib qo'shiladi, soni «−/+» bilan. Pastda —
+ * tarkibni alohida olganda qancha bo'lishi va mijoz qancha tejashi.
+ * Set ichiga boshqa set qo'shilmaydi (server ham tekshiradi).
+ */
+function BundleField({
+  value, products, selfId, setPrice, onChange,
+}: {
+  value: { productId: string; quantity: number }[]
+  products: ProductRow[]
+  selfId?: string
+  setPrice: number
+  onChange: (value: { productId: string; quantity: number }[]) => void
+}) {
+  const [query, setQuery] = useState('')
+  const byId = useMemo(() => new Map(products.map((p) => [p.docId, p])), [products])
+  const needle = query.trim().toLowerCase()
+  const options = needle
+    ? products
+        .filter((p) => p.docId !== selfId && !p.bundle?.length && !value.some((v) => v.productId === p.docId))
+        .filter((p) => p.name.toLowerCase().includes(needle))
+        .slice(0, 8)
+    : []
+  const separately = value.reduce((sum, v) => sum + (byId.get(v.productId)?.price ?? 0) * v.quantity, 0)
+  const change = (productId: string, delta: number) =>
+    onChange(value.map((v) => (v.productId === productId ? { ...v, quantity: Math.min(99, Math.max(1, v.quantity + delta)) } : v)))
+
+  return (
+    <div className="adm-bundle sm:col-span-2">
+      <p className="adm-label flex items-center gap-1.5"><Package size={14} /> Set tarkibi — mahsulot set bo‘lsa to‘ldiring</p>
+      {value.length > 0 && (
+        <ul className="adm-bundle__list">
+          {value.map((v) => {
+            const p = byId.get(v.productId)
+            return (
+              <li key={v.productId}>
+                {p && productThumb(p) ? <img src={productThumb(p)} alt="" /> : <span className="adm-bundle__noimg"><Boxes size={16} /></span>}
+                <span className="min-w-0 flex-1">
+                  <b className="block truncate text-sm">{p?.name ?? 'O‘chirilgan mahsulot'}</b>
+                  <span className="text-xs" style={{ color: 'var(--muted)' }}>{p ? formatPrice(p.price) : '—'}</span>
+                </span>
+                <span className="adm-bundle__qty">
+                  <button type="button" onClick={() => change(v.productId, -1)} aria-label="Kamaytirish"><Minus size={13} /></button>
+                  <b>{v.quantity}</b>
+                  <button type="button" onClick={() => change(v.productId, 1)} aria-label="Ko‘paytirish"><Plus size={13} /></button>
+                </span>
+                <button
+                  type="button"
+                  className="adm-icon-btn adm-icon-btn--danger"
+                  onClick={() => onChange(value.filter((x) => x.productId !== v.productId))}
+                  aria-label="Olib tashlash"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      <div className="relative mt-2">
+        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--faint)' }} />
+        <input
+          className="adm-input icon-left"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Setga mahsulot qo‘shish — nomini yozing"
+        />
+        {options.length > 0 && (
+          <ul className="adm-bundle__options">
+            {options.map((p) => (
+              <li key={p.docId}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange([...value, { productId: p.docId, quantity: 1 }])
+                    setQuery('')
+                  }}
+                >
+                  {productThumb(p) ? <img src={productThumb(p)} alt="" /> : <span className="adm-bundle__noimg"><Boxes size={16} /></span>}
+                  <span className="min-w-0 flex-1 truncate text-left">{p.name}</span>
+                  <span className="shrink-0 text-xs" style={{ color: 'var(--muted)' }}>{formatPrice(p.price)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {value.length > 0 && (
+        <p className="adm-bundle__sum">
+          Alohida olsa: <b>{formatPrice(separately)}</b> · Set narxi: <b>{formatPrice(setPrice)}</b>
+          {separately > setPrice && setPrice > 0 && (
+            <> · Mijoz tejaydi: <b style={{ color: 'var(--brand)' }}>{formatPrice(separately - setPrice)}</b></>
+          )}
+          {setPrice > separately && (
+            <span style={{ color: 'var(--warning)' }}> — set narxi tarkibdan qimmat</span>
+          )}
+        </p>
+      )}
     </div>
   )
 }

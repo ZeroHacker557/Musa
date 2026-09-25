@@ -20,6 +20,9 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
   const soldOut = product.stock === 0
   const qty = cartQtyOf(product)
   const weight = product.sizes?.[0]
+  // Set: nechta mahsulot va alohida olinganda qancha bo'lardi
+  const setCount = product.bundleItems?.reduce((sum, line) => sum + line.quantity, 0) ?? 0
+  const setValue = product.bundleValue && product.bundleValue > product.price ? product.bundleValue : null
 
   return (
     // data-fly-source — savatga uchadigan rasm shu kartadan olinadi;
@@ -41,6 +44,8 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
 
       {soldOut ? (
         <span className="product-card-badge muted">{t('product.soldOut')}</span>
+      ) : setCount > 0 ? (
+        <span className="product-card-badge is-set">{t('product.setBadge', { n: setCount })}</span>
       ) : product.discount ? (
         <span className="product-card-badge">{product.discount}</span>
       ) : null}
@@ -79,9 +84,12 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
       <div className="product-card-footer">
         <div className="product-card-price-block">
           <p className="product-card-price">{formatPrice(product.price)}</p>
-          {product.oldPrice && !compact && (
+          {product.oldPrice && !compact ? (
             <p className="product-card-old-price">{formatPrice(product.oldPrice)}</p>
-          )}
+          ) : setValue && !compact ? (
+            // Set — tarkibni alohida olsa qancha bo'lardi
+            <p className="product-card-old-price">{formatPrice(setValue)}</p>
+          ) : null}
         </div>
         {/* Savatga qo'shilgan bo'lsa — shu yerning o'zida «− soni +».
             Mijoz savatni ochmay turib sonini o'zgartira oladi. */}

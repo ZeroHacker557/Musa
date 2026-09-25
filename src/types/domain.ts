@@ -3,11 +3,26 @@ export type AppPage =
   | 'detail' | 'checkout' | 'addresses' | 'profile_edit'
   | 'reviews' | 'notifications' | 'language' | 'support' | 'receipt'
 
+/**
+ * Set tarkibidagi bitta qator. Katalogda `productId` bor; buyurtmada esa
+ * nomi saqlanadi (mahsulot keyin o'chirilsa ham chekda ko'rinsin).
+ */
+export type BundleLine = { productId?: string; quantity: number; name?: string }
+
 export type Product = {
   id: number
   name: string
   price: number
   oldPrice?: number
+  /**
+   * Set (to'plam) bo'lsa — ichidagi mahsulotlar. Narx setning o'z narxi
+   * (`price`), tarkib unga ta'sir qilmaydi.
+   */
+  bundle?: BundleLine[]
+  /** Ilovada hisoblanadi: tarkibdagi mahsulotlar (joriy ma'lumot bilan). */
+  bundleItems?: { product: Product; quantity: number }[]
+  /** Ilovada hisoblanadi: tarkibni alohida sotib olsa qancha bo'lardi. */
+  bundleValue?: number
   category: string
   color?: string
   colors?: string[]

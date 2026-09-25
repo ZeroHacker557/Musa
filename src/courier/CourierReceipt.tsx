@@ -6,6 +6,7 @@ import { BrandLogo } from '../components/brand/BrandLogo'
 import { formatDateTime } from '../utils/date'
 import { useI18n, type TranslationKey } from '../i18n'
 import type { CourierOrder } from './api'
+import { bundleText } from '../utils/bundle'
 
 /**
  * Yetkazilgan buyurtmaning cheki — kuryer tarixidan ochiladi.
@@ -60,6 +61,7 @@ export function CourierReceipt({ order }: { order: CourierOrder }) {
                   {item.size ? `${item.size} · ` : ''}
                   {t('orders.itemCount', { count: item.quantity })} × {formatPrice(item.price)}
                 </p>
+                {!!item.bundle?.length && <p className="set-lines">{t('receipt.setIncludes')} {bundleText(item.bundle)}</p>}
               </div>
               <b className="rcpt__item-sum">{formatPrice(item.price * item.quantity)}</b>
             </div>

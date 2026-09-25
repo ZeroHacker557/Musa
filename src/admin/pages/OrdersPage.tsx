@@ -16,6 +16,7 @@ import { dayKey, inRange, type Range } from '../lib/date-range'
 import { Receipt } from '../components/Receipt'
 import { OrderTimeline } from '../components/OrderTimeline'
 import { OrdersBoard } from '../components/OrdersBoard'
+import { bundleText } from '../../utils/bundle'
 
 type View = 'list' | 'board'
 const VIEW_KEY = 'musa-admin:orders-view'
@@ -564,6 +565,11 @@ function OrderDrawer({
                     {(line.size || line.color) && (
                       <span className="text-xs" style={{ color: 'var(--muted)' }}>
                         {[line.size, line.color].filter(Boolean).join(' • ')}
+                      </span>
+                    )}
+                    {!!line.product?.bundle?.length && (
+                      <span className="mt-0.5 block text-xs" style={{ color: 'var(--warning)' }}>
+                        📦 Set tarkibi: {bundleText(line.product.bundle)}
                       </span>
                     )}
                   </span>

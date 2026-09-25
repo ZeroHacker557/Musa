@@ -225,6 +225,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             thumbs: Array.isArray(data.thumbs) ? data.thumbs : [],
             variantSources: Array.isArray(data.variantSources) ? data.variantSources : [],
             category: String(data.category || ''),
+            // Set — tarkibi nomlari bilan (chek, kuryer va admin nimani yig'ishni ko'rsin)
+            ...(Array.isArray(data.bundle) && data.bundle.length
+              ? {
+                  bundle: (data.bundle as { name?: unknown; quantity?: unknown }[]).map((b) => ({
+                    name: String(b?.name || ''),
+                    quantity: Number(b?.quantity) || 1,
+                  })),
+                }
+              : {}),
           },
           quantity: item.quantity,
           size: item.size ?? null,

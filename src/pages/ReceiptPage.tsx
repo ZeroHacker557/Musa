@@ -7,6 +7,7 @@ import { BrandLogo } from '../components/brand/BrandLogo'
 import { PageTitle } from '../components/layout/PageTitle'
 import { useT, type TranslationKey } from '../i18n'
 import type { Order } from '../types/domain'
+import { bundleText } from '../utils/bundle'
 
 type Props = {
   order: Order
@@ -129,6 +130,9 @@ export function ReceiptPage({ order, onBack, onHome, onReorder }: Props) {
                         {(line.size || line.color) && ' · '}
                         {t('orders.itemCount', { count: qty })} × {formatPrice(price)}
                       </p>
+                      {!!line.product?.bundle?.length && (
+                        <p className="set-lines">{t('receipt.setIncludes')} {bundleText(line.product.bundle)}</p>
+                      )}
                     </div>
                     <b className="rcpt__item-sum">{formatPrice(price * qty)}</b>
                   </div>

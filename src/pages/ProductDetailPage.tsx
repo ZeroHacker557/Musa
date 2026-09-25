@@ -26,12 +26,14 @@ type Props = {
   onToggleLike: (id: number) => void
   onOpenCart: () => void
   cartCount: number
+  /** Set tarkibidagi mahsulot bosilganda — o'sha mahsulot ochiladi. */
+  onOpenProduct?: (product: Product) => void
   /** Savat yoki qidiruv ochiq bo'lsa pastki panel ularni to'sib qo'ymasligi kerak. */
   hideBottomBar?: boolean
 }
 
 export function ProductDetailPage({
-  product, onAddToCart, onBack, likedIds, onToggleLike, onOpenCart, cartCount, hideBottomBar = false,
+  product, onAddToCart, onBack, likedIds, onToggleLike, onOpenCart, cartCount, hideBottomBar = false, onOpenProduct,
 }: Props) {
   const t = useT()
   const [activeImage, setActiveImage] = useState(0)
@@ -229,6 +231,36 @@ export function ProductDetailPage({
             <PromoTimer endsAt={product.promotion.endsAt} />
             <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>{product.promotion.title}</span>
           </div>
+        )}
+
+        {/* Set tarkibi — narx setning o'zi, tarkib nima kirishini ko'rsatadi */}
+        {!!product.bundleItems?.length && (
+          <section className="set-box">
+            <div className="set-box__head">
+              <b>{t('product.setContents')}</b>
+              <span>{t('product.setItems', { n: product.bundleItems.reduce((s, l) => s + l.quantity, 0) })}</span>
+            </div>
+            <ul className="set-box__list">
+              {product.bundleItems.map(({ product: item, quantity }, i) => (
+                <li key={item.id} style={{ animationDelay: `${i * 50}ms` }}>
+                  <button className="set-box__item" onClick={() => onOpenProduct?.(item)} disabled={!onOpenProduct}>
+                    {productThumb(item) ? <img src={productThumb(item)} alt="" loading="lazy" /> : <span className="set-box__noimg" />}
+                    <span className="min-w-0 flex-1 text-left">
+                      <b className="block truncate">{item.name}</b>
+                      <span>{formatPrice(item.price)}{item.sizes?.[0] ? ` · ${item.sizes[0]}` : ''}</span>
+                    </span>
+                    <span className="set-box__qty">×{quantity}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {!!product.bundleValue && product.bundleValue > product.price && (
+              <div className="set-box__sum">
+                <span>{t('product.setSeparately')}: <del>{formatPrice(product.bundleValue)}</del></span>
+                <b>{t('product.setSave', { amount: formatPrice(product.bundleValue - product.price) })}</b>
+              </div>
+            )}
+          </section>
         )}
 
         {soldOut && (

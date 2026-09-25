@@ -27,6 +27,47 @@ function list(value: unknown): string[] {
   return value.map((v) => String(v).trim()).filter(Boolean)
 }
 
+/** Bitta setga ko'pi bilan shuncha xil mahsulot. */
+const MAX_BUNDLE = 30
+
+export type BundleItem = { productId: string; quantity: number; name: string }
+
+/**
+ * Set tarkibi — bazadagi mahsulotlar va soni.
+ *
+ * Set o'zi oddiy mahsulot: o'z narxi (masalan 199 000), o'z Linko ID si
+ * va qoldig'i bor. Tarkib faqat nima kirishini ko'rsatadi — narxga
+ * ta'sir qilmaydi. Tekshiruv: mahsulot mavjud, setning o'zi emas, boshqa
+ * set emas (set ichida set chalkashlik beradi), soni 1–99. Nomi
+ * saqlanadi — buyurtmada kuryer nimani yig'ishini ko'rsin.
+ */
+async function readBundle(value: unknown, selfId: string): Promise<BundleItem[]> {
+  if (!Array.isArray(value) || !value.length) return []
+  const merged = new Map<string, number>()
+  for (const raw of value) {
+    const row = (raw ?? {}) as Record<string, unknown>
+    const productId = text(row.productId) || String(row.productId ?? '').trim()
+    const quantity = Math.round(num(row.quantity, 1))
+    if (!productId || productId === selfId) continue
+    merged.set(productId, Math.min(99, Math.max(1, (merged.get(productId) ?? 0) + Math.max(1, quantity))))
+  }
+  if (merged.size > MAX_BUNDLE) throw new Error(`Setga ko‘pi bilan ${MAX_BUNDLE} xil mahsulot qo‘shiladi`)
+
+  const db = await adminDb()
+  const ids = [...merged.keys()]
+  const snaps = ids.length ? await db.getAll(...ids.map((id) => db.collection('products').doc(id))) : []
+  const items: BundleItem[] = []
+  for (const snap of snaps) {
+    if (!snap.exists) throw new Error('Set tarkibidagi mahsulot topilmadi — ro‘yxatni yangilang')
+    const data = snap.data() as { name?: string; bundle?: unknown[] }
+    if (Array.isArray(data.bundle) && data.bundle.length) {
+      throw new Error(`«${data.name}» o‘zi set — set ichiga set qo‘shilmaydi`)
+    }
+    items.push({ productId: snap.id, quantity: merged.get(snap.id) ?? 1, name: String(data.name || '') })
+  }
+  return items
+}
+
 /** Bot bilan bir xil: 6 xonali tasodifiy raqamli identifikator. */
 function newNumericId(): string {
   return String(Math.floor(Math.random() * 900000) + 100000)
@@ -94,6 +135,9 @@ export async function productSave(body: Record<string, unknown>): Promise<Result
     discount: text(body.discount),
     // Bosh sahifadagi «Mashhur mahsulotlar» qatori
     popular: body.popular === true,
+    // Set bo'lsa — tarkibi (narx o'zgarmaydi, setning o'z narxi). Faqat
+    // forma yuborgan bo'lsa: Excel import va boshqalar tarkibni o'chirmasin
+    ...('bundle' in body ? { bundle: await readBundle(body.bundle, id) } : {}),
     stock,
     // Qoldiq to'ldirildi — keyingi safar ombor signali yana ishlasin
     lowStockAlerted: stock <= LOW_STOCK_AT,

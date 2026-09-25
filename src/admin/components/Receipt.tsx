@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { formatPrice } from '../../data'
 import { BRAND } from '../../config/brand'
 import type { AdminOrder } from '../lib/live'
+import { bundleText } from '../../utils/bundle'
 
 /**
  * Chop etiladigan chek.
@@ -129,7 +130,10 @@ export function Receipt({ order }: { order: AdminOrder }) {
             return (
               <div key={line.cartKey || i} className="rcp__item">
                 <span className="rcp__idx">{i + 1}</span>
-                <span className="rcp__name">{line.product?.name || '—'}</span>
+                <span className="rcp__name">
+                  {line.product?.name || '—'}
+                  {!!line.product?.bundle?.length && <small className="rcp__variant"> ({bundleText(line.product.bundle)})</small>}
+                </span>
                 <span className="rcp__meta">
                   {formatPrice(price)} × <b>{qty}</b>
                   {variant && <span className="rcp__variant"> · {variant}</span>}

@@ -20,7 +20,15 @@ export type CourierOrder = {
     location: { lat: number; lng: number } | null
   }
   /** `image` — kichik nusxa (~480px), faqat tafsilotlar oynasida ko'rinadi. */
-  items: { name: string; quantity: number; price: number; size: string | null; image: string | null }[]
+  items: {
+    name: string
+    quantity: number
+    price: number
+    size: string | null
+    image: string | null
+    /** Set bo'lsa — tarkibi (nimani yig'ish kerak). */
+    bundle?: { name: string; quantity: number }[]
+  }[]
   total: number
   paymentMethod: string
   /** Toshkent sanasi — chek raqami har kuni #0001 dan boshlanadi. */
