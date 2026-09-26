@@ -72,6 +72,9 @@ export function NotificationsPage({ notifications, onBack }: Props) {
                   <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-bold" style={{ color: 'var(--ink)' }}>{notif.title}</h3>
                     <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>{notif.body}</p>
+                    {notif.image && (
+                      <img src={notif.image} alt="" loading="lazy" className="mt-2 max-h-48 w-full rounded-xl object-cover" />
+                    )}
                     <p className="mt-2 text-[10px] font-medium" style={{ color: 'var(--faint)' }}>
                       {formatDateTime(notif.date)}
                     </p>

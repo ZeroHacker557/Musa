@@ -293,7 +293,6 @@ function App() {
                 onSearch={() => shop.setSearchOpen(true)}
                 onNavigate={shop.navigate}
                 onOpenCategory={shop.openCategory}
-                onNotify={shop.notify}
               />
             </div>
           )}

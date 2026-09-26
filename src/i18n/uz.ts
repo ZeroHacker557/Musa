@@ -50,14 +50,6 @@ export const uz = {
   'home.emptyTitle': 'Mahsulotlar tez orada!',
   'home.emptyText': "Admin mahsulot qo'shganda shu yerda ko'rinadi.",
 
-  'benefit.delivery': 'Tez yetkazish',
-  'benefit.deliverySub': "Toshkent bo'ylab 24 soat",
-  'benefit.payment': "Xavfsiz to'lov",
-  'benefit.paymentSub': 'Naqd yoki karta',
-  'benefit.support': '24/7 aloqa',
-  'benefit.supportSub': 'Har doim siz bilan',
-  'benefit.natural': 'Tabiiy tarkib',
-  'benefit.naturalSub': "Sun'iy qo'shimchalarsiz",
 
   // ── Katalog ──
   'catalog.title': 'Mahsulotlar katalogi',

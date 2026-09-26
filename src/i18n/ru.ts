@@ -45,14 +45,6 @@ export const ru: Record<TranslationKey, string> = {
   'home.emptyTitle': 'Товары появятся скоро!',
   'home.emptyText': 'Как только админ добавит товары, они появятся здесь.',
 
-  'benefit.delivery': 'Быстрая доставка',
-  'benefit.deliverySub': 'По Ташкенту за 24 часа',
-  'benefit.payment': 'Безопасная оплата',
-  'benefit.paymentSub': 'Наличные или карта',
-  'benefit.support': 'Связь 24/7',
-  'benefit.supportSub': 'Всегда на связи',
-  'benefit.natural': 'Натуральный состав',
-  'benefit.naturalSub': 'Без искусственных добавок',
 
   // ── Каталог ──
   'catalog.title': 'Каталог товаров',

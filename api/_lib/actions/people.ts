@@ -1,9 +1,10 @@
 import { adminAuth, adminDb } from '../firebase-admin.js'
-import { sendMessage } from '../telegram.js'
+import { sendMedia, sendMessage, sendRows, type AnyButton } from '../telegram.js'
 import { normalizeLang, type Lang } from '../i18n.js'
 import { verifyInitData } from '../telegram-auth.js'
 import type { Staff, StaffRole } from '../admin-auth.js'
 import { canDeliver, syncCourierFlag } from '../courier-staff.js'
+import { miniAppUrl } from './orders.js'
 
 const ROLES: StaffRole[] = ['owner', 'admin', 'courier']
 
@@ -33,6 +34,11 @@ function plain(value: string): string {
     .replace(/&amp;/g, '&')
     .trim()
     .slice(0, 500)
+}
+
+/** Telegram izoh uzunligini teglarsiz sanaydi. */
+function plainLength(value: string): number {
+  return value.replace(/<[^>]+>/g, '').replace(/&(lt|gt|amp|quot|nbsp);/g, 'x').length
 }
 
 /**
@@ -199,11 +205,60 @@ type Segment = 'all' | 'customers' | 'active30'
  * miqdorni yuboradi va keyingi kursorni qaytaradi; admin panel esa
  * tugagunicha takrorlaydi va jarayonni ko'rsatib turadi.
  */
+/** Telegram izoh (caption) chegarasi — undan uzun matn rasmdan keyin alohida ketadi. */
+const CAPTION_MAX = 1024
+const MAX_BUTTONS = 4
+
+type BroadcastMedia = { kind: 'photo' | 'video'; url: string; fileId: string | null }
+type BroadcastButton = { text: string; textRu: string; kind: 'url' | 'app'; url: string }
+
+/** Rasm/video: faqat https havola; `fileId` — oldingi bo'lakda Telegram bergan. */
+function readMedia(value: unknown): BroadcastMedia | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const url = text(raw.url)
+  if (!url) return null
+  if (!/^https:\/\/\S+$/i.test(url)) throw new Error('Rasm/video havolasi noto‘g‘ri')
+  if (raw.type !== 'image' && raw.type !== 'video') throw new Error('Faqat rasm yoki video')
+  const fileId = text(raw.fileId)
+  return {
+    kind: raw.type === 'image' ? 'photo' : 'video',
+    url,
+    fileId: /^[\w-]{10,300}$/.test(fileId) ? fileId : null,
+  }
+}
+
+/** Inline tugmalar: havola yoki mini ilovani ochish. Har biri alohida qatorda. */
+function readButtons(value: unknown): BroadcastButton[] {
+  if (!Array.isArray(value)) return []
+  if (value.length > MAX_BUTTONS) throw new Error(`Ko‘pi bilan ${MAX_BUTTONS} ta tugma`)
+  return value.map((item, index) => {
+    const raw = (item ?? {}) as Record<string, unknown>
+    const label = text(raw.text)
+    const labelRu = text(raw.textRu)
+    const kind = raw.kind === 'app' ? 'app' : 'url'
+    const url = text(raw.url)
+    const n = index + 1
+    if (!label) throw new Error(`${n}-tugmaning matni bo‘sh`)
+    if (label.length > 64 || labelRu.length > 64) throw new Error(`${n}-tugmaning matni juda uzun (64 belgigacha)`)
+    if (kind === 'url' && !/^(https?:\/\/|tg:\/\/)\S+$/i.test(url)) {
+      throw new Error(`${n}-tugmaning havolasi noto‘g‘ri — https:// bilan boshlansin`)
+    }
+    return { text: label, textRu: labelRu, kind, url: kind === 'url' ? url : '' }
+  })
+}
+
 export async function broadcast(actor: Staff, body: Record<string, unknown>) {
   if (actor.role === 'courier') throw new Error('Kuryer ommaviy xabar yubora olmaydi')
 
+  const media = readMedia(body.media)
+  const buttons = readButtons(body.buttons)
+  const app = buttons.some((b) => b.kind === 'app') ? miniAppUrl() : null
+  if (buttons.some((b) => b.kind === 'app') && !app) throw new Error('Mini ilova manzili sozlanmagan (MINI_APP_URL)')
+
   const message = text(body.text)
-  if (!message) throw new Error('Xabar matni bo‘sh')
+  // Rasm/video bo'lsa matnsiz ham yuborsa bo'ladi
+  if (!message && !media) throw new Error('Xabar matni bo‘sh')
   if (message.length > 3500) throw new Error('Xabar juda uzun (3500 belgigacha)')
 
   /*
@@ -215,18 +270,37 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
   if (messageRu.length > 3500) throw new Error('Ruscha xabar juda uzun (3500 belgigacha)')
   const pick = (lang: Lang) => (lang === 'ru' && messageRu ? messageRu : message)
 
+  const rowsFor = (lang: Lang): AnyButton[][] =>
+    buttons.map((b) => {
+      const label = lang === 'ru' && b.textRu ? b.textRu : b.text
+      return [b.kind === 'app' ? { text: label, web_app: { url: app! } } : { text: label, url: b.url }]
+    })
+
   const db = await adminDb()
+  /** Birinchi muvaffaqiyatli yuborishdan keyin — Telegram'dagi fayl (qayta yuklanmaydi). */
+  let mediaId = media?.fileId ?? null
 
   /** Telegram xabari + ilova ichidagi bildirishnoma. */
   const deliver = async (userId: string, lang: Lang) => {
     const body = pick(lang)
-    const result = await sendMessage(userId, body)
+    const rows = rowsFor(lang)
+    let result
+    if (media) {
+      // Izoh 1024 belgidan oshsa: avval rasm, keyin matn tugmalar bilan
+      const fits = plainLength(body) <= CAPTION_MAX
+      const sent = await sendMedia(userId, media.kind, mediaId ?? media.url, fits ? body : '', fits || !body ? rows : [])
+      if (sent.ok && sent.fileId) mediaId = sent.fileId
+      result = sent.ok && !fits && body ? await sendRows(userId, body, rows) : sent
+    } else {
+      result = rows.length ? await sendRows(userId, body, rows) : await sendMessage(userId, body)
+    }
     if (result.ok) {
       // Mijoz xabarni botda o'qimagan bo'lsa ham ilovada ko'radi
       await db.collection('notifications').add({
         userId: Number(userId),
         title: BROADCAST_TITLE[lang],
-        body: plain(body),
+        body: plain(body) || (media?.kind === 'video' ? '🎬' : '🖼'),
+        ...(media?.kind === 'photo' ? { image: media.url } : {}),
         date: new Date().toISOString(),
         read: false,
         type: 'promo',
@@ -258,7 +332,7 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
       else failed++
       await new Promise((resolve) => setTimeout(resolve, 40))
     }
-    return { sent, failed, skipped, processed: body.recipients.length, nextCursor: null }
+    return { sent, failed, skipped, processed: body.recipients.length, nextCursor: null, mediaId }
   }
 
   const segment = (text(body.segment) || 'all') as Segment
@@ -303,6 +377,7 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
     skipped,
     processed: snap.size,
     nextCursor: snap.size === limit && last ? last.id : null,
+    mediaId,
   }
 }
 

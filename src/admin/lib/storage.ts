@@ -37,7 +37,7 @@ export type UploadedImage = {
  * saqlaydi. Brauzer WebP yarata olmasa (eski Safari) — JPEG, oq fon bilan:
  * ilovada rasm baribir oq quti ichida ko'rinadi.
  */
-async function compress(file: File, maxSide: number, quality: number): Promise<Blob> {
+async function compress(file: File, maxSide: number, quality: number, jpegOnly = false): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
   const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
   const width = Math.round(bitmap.width * scale)
@@ -56,7 +56,7 @@ async function compress(file: File, maxSide: number, quality: number): Promise<B
   const encode = (type: string) =>
     new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality))
 
-  const webp = await encode('image/webp')
+  const webp = jpegOnly ? null : await encode('image/webp')
   if (webp && webp.type === 'image/webp') return webp
 
   // WebP qo'llab-quvvatlanmaydi — shaffof joylarni oq bilan to'ldirib JPEG
@@ -135,6 +135,40 @@ export async function uploadAdMedia(file: File): Promise<UploadedAdMedia> {
   if (file.type.startsWith('video/')) {
     if (!AD_VIDEO_TYPES.includes(file.type)) throw new Error('Video MP4 formatida bo‘lsin')
     if (file.size > AD_VIDEO_MAX) throw new Error('Video 40 MB dan katta bo‘lmasin — qisqaroq yoki siqilgan variantini yuklang')
+    const ext = file.type === 'video/webm' ? 'webm' : file.type === 'video/quicktime' ? 'mov' : 'mp4'
+    return { type: 'video', url: await put(`${base}.${ext}`, file, file.type) }
+  }
+
+  throw new Error('Faqat rasm yoki video fayl')
+}
+
+/* ── Ommaviy xabar ──────────────────────────────────────── */
+
+/**
+ * Telegram faylni havoladan o'zi yuklab oladi, lekin cheklov bilan:
+ * rasm 5 MB, video 20 MB gacha. Rasm JPEG — WebP'ni Telegram rasm
+ * sifatida emas, stiker/fayl sifatida ko'rsatishi mumkin.
+ */
+const BROADCAST_VIDEO_MAX = 20 * 1024 * 1024
+
+/**
+ * Ommaviy xabar uchun rasm yoki video. `ads/` papkasiga tushadi —
+ * storage.rules o'sha yerga admin yozishiga allaqachon ruxsat beradi.
+ */
+export async function uploadBroadcastMedia(file: File): Promise<UploadedAdMedia> {
+  const base = `ads/broadcast_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+  if (file.type.startsWith('image/')) {
+    if (file.size > AD_IMAGE_MAX) throw new Error('Rasm 15 MB dan katta bo‘lmasin')
+    const blob = await compress(file, 1600, 0.86, true)
+    return { type: 'image', url: await put(`${base}.jpg`, blob, 'image/jpeg') }
+  }
+
+  if (file.type.startsWith('video/')) {
+    if (!AD_VIDEO_TYPES.includes(file.type)) throw new Error('Video MP4 formatida bo‘lsin')
+    if (file.size > BROADCAST_VIDEO_MAX) {
+      throw new Error('Telegram havoladan 20 MB gacha video qabul qiladi — qisqaroq yoki siqilgan variantini yuklang')
+    }
     const ext = file.type === 'video/webm' ? 'webm' : file.type === 'video/quicktime' ? 'mov' : 'mp4'
     return { type: 'video', url: await put(`${base}.${ext}`, file, file.type) }
   }

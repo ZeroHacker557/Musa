@@ -1,5 +1,8 @@
-import { CheckCircle2, Megaphone, Search, Send, Users, XCircle } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import {
+  CheckCircle2, ExternalLink, ImagePlus, Loader2, Megaphone, Plus, Search, Send, Smartphone, Trash2, Users, X, XCircle,
+} from 'lucide-react'
+import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { uploadBroadcastMedia, type UploadedAdMedia } from '../lib/storage'
 import { apiPost } from '../lib/api'
 import { useCategories, useCustomers, useOrders, useProducts, type CustomerRow } from '../lib/live'
 import { ConfirmDialog } from '../components/Modal'
@@ -29,6 +32,20 @@ const AUDIENCES: { key: Audience; label: string; hint: string }[] = [
 
 type Progress = { sent: number; failed: number; skipped: number; processed: number }
 
+/** Inline tugma: havola yoki mini ilovani ochadi. */
+type ButtonDraft = { kind: 'url' | 'app'; text: string; textRu: string; url: string }
+
+/** Telegram izoh chegarasi — uzunroq matn rasmdan keyin alohida xabar bo'lib ketadi. */
+const CAPTION_MAX = 1024
+const MAX_BUTTONS = 4
+const plainLength = (value: string) => value.replace(/<[^>]+>/g, '').length
+const buttonError = (b: ButtonDraft) =>
+  !b.text.trim()
+    ? 'Tugma matnini yozing'
+    : b.kind === 'url' && !/^(https?:\/\/|tg:\/\/)\S+$/i.test(b.url.trim())
+      ? 'Havola https:// bilan boshlansin'
+      : ''
+
 const DAY = 24 * 60 * 60 * 1000
 const CHUNK = 25
 const displayName = (c: CustomerRow) =>
@@ -51,6 +68,9 @@ export function BroadcastPage() {
   const [manual, setManual] = useState<string[]>([])
   const [days, setDays] = useState('30')
   const [search, setSearch] = useState('')
+  const [media, setMedia] = useState<UploadedAdMedia | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [buttons, setButtons] = useState<ButtonDraft[]>([])
 
   const [confirming, setConfirming] = useState(false)
   const [running, setRunning] = useState(false)
@@ -100,15 +120,21 @@ export function BroadcastPage() {
     const ids = recipients.map((c) => c.id)
     const totals: Progress = { sent: 0, failed: 0, skipped: 0, processed: 0 }
     setProgress({ ...totals })
+    // Birinchi bo'lakdan keyin Telegram fayl id'sini qaytaradi — qolganlariga shu ketadi
+    let mediaId: string | null = null
+    const cleanButtons = buttons.map((b) => ({ ...b, text: b.text.trim(), textRu: b.textRu.trim(), url: b.url.trim() }))
 
     try {
       for (let i = 0; i < ids.length && !cancelled.current; i += CHUNK) {
-        const result = await apiPost<Progress>('action', {
+        const result: Progress & { mediaId?: string | null } = await apiPost('action', {
           action: 'broadcast.send',
           text,
           textRu,
+          media: media ? { ...media, fileId: mediaId } : null,
+          buttons: cleanButtons,
           recipients: ids.slice(i, i + CHUNK),
         })
+        mediaId = result.mediaId ?? mediaId
         totals.sent += result.sent
         totals.failed += result.failed
         totals.skipped += result.skipped
@@ -138,13 +164,63 @@ export function BroadcastPage() {
     .filter((c) => !needle || displayName(c).toLowerCase().includes(needle) || String(c.phone || '').includes(needle))
     .slice(0, 80)
 
-  const blocked = running || !text.trim() || recipients.length === 0
+  const pickMedia = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setUploading(true)
+    try {
+      setMedia(await uploadBroadcastMedia(file))
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'Yuklab bo‘lmadi', 'error')
+    } finally {
+      setUploading(false)
+    }
+  }
+  const editButton = (index: number, patch: Partial<ButtonDraft>) =>
+    setButtons(buttons.map((b, i) => (i === index ? { ...b, ...patch } : b)))
+
+  const buttonsInvalid = buttons.some((b) => buttonError(b))
+  const longCaption = Boolean(media) && Math.max(plainLength(text), plainLength(textRu)) > CAPTION_MAX
+  const blocked = running || uploading || buttonsInvalid || (!text.trim() && !media) || recipients.length === 0
 
   return (
     <>
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <section className="adm-card p-4 sm:p-5">
-          <label className="adm-label" htmlFor="broadcast-text">Xabar matni</label>
+          {/* Rasm yoki video — matn uning izohi bo'lib ketadi */}
+          <p className="adm-label">Rasm yoki video <span style={{ color: 'var(--faint)' }}>(ixtiyoriy)</span></p>
+          {media ? (
+            <div className="adm-bc-media">
+              {media.type === 'image'
+                ? <img src={media.url} alt="" />
+                : <video src={media.url} controls playsInline preload="metadata" />}
+              <button
+                type="button"
+                className="adm-bc-media__remove"
+                onClick={() => setMedia(null)}
+                disabled={running}
+                aria-label="Olib tashlash"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <label className={'adm-bc-add ' + (uploading ? 'is-busy' : '')}>
+              {uploading ? <Loader2 size={20} className="animate-spin" /> : <ImagePlus size={20} />}
+              <span className="text-sm font-bold">{uploading ? 'Yuklanmoqda…' : 'Rasm yoki video yuklash'}</span>
+              <span className="text-xs" style={{ color: 'var(--muted)' }}>Rasm: JPG/PNG · Video: MP4, 20 MB gacha</span>
+              <input
+                type="file"
+                accept="image/*,video/mp4,video/webm,video/quicktime"
+                className="sr-only"
+                onChange={pickMedia}
+                disabled={uploading || running}
+              />
+            </label>
+          )}
+
+          <label className="adm-label mt-4" htmlFor="broadcast-text">Xabar matni</label>
           <textarea
             id="broadcast-text"
             className="adm-input"
@@ -180,6 +256,96 @@ export function BroadcastPage() {
               Bo‘sh qoldirilsa, rus tilidagi mijozlarga ham o‘zbekcha matn boradi
             </p>
             <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{textRu.length} / 3500</p>
+          </div>
+          {longCaption && (
+            <p className="adm-bc-note">
+              Matn {CAPTION_MAX} belgidan uzun — Telegram rasm ostiga buncha matn sig‘dirmaydi.
+              Avval rasm/video, keyin matn tugmalar bilan alohida xabar bo‘lib boradi.
+            </p>
+          )}
+
+          {/* Inline tugmalar — xabar ostida, har biri alohida qatorda */}
+          <p className="adm-label mt-4">
+            Tugmalar <span style={{ color: 'var(--faint)' }}>(ixtiyoriy, {MAX_BUTTONS} tagacha)</span>
+          </p>
+          <div className="flex flex-col gap-2">
+            {buttons.map((b, index) => {
+              const error = buttonError(b)
+              return (
+                <div key={index} className="adm-bc-btn">
+                  <div className="flex items-center gap-2">
+                    <div className="adm-bc-kind">
+                      <button
+                        type="button"
+                        className={b.kind === 'app' ? 'active' : ''}
+                        onClick={() => editButton(index, { kind: 'app' })}
+                      >
+                        <Smartphone size={13} /> Ilovani ochish
+                      </button>
+                      <button
+                        type="button"
+                        className={b.kind === 'url' ? 'active' : ''}
+                        onClick={() => editButton(index, { kind: 'url' })}
+                      >
+                        <ExternalLink size={13} /> Havola
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className="adm-icon-btn adm-icon-btn--danger ml-auto"
+                      onClick={() => setButtons(buttons.filter((_, i) => i !== index))}
+                      aria-label="Tugmani o‘chirish"
+                      disabled={running}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <input
+                      className="adm-input"
+                      value={b.text}
+                      onChange={(e) => editButton(index, { text: e.target.value })}
+                      placeholder="Tugma matni — 🛒 Buyurtma berish"
+                      maxLength={64}
+                      disabled={running}
+                    />
+                    <input
+                      className="adm-input"
+                      value={b.textRu}
+                      onChange={(e) => editButton(index, { textRu: e.target.value })}
+                      placeholder="Ruscha (ixtiyoriy) — 🛒 Заказать"
+                      maxLength={64}
+                      disabled={running}
+                    />
+                    {b.kind === 'url' && (
+                      <input
+                        className="adm-input sm:col-span-2"
+                        value={b.url}
+                        onChange={(e) => editButton(index, { url: e.target.value })}
+                        placeholder="https://instagram.com/…"
+                        inputMode="url"
+                        disabled={running}
+                      />
+                    )}
+                  </div>
+                  {error && (b.text || b.url) ? (
+                    <p className="mt-1 text-xs" style={{ color: 'var(--danger)' }}>{error}</p>
+                  ) : b.kind === 'app' && (
+                    <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>Bosilganda MUSA mini ilovasi ochiladi</p>
+                  )}
+                </div>
+              )
+            })}
+            {buttons.length < MAX_BUTTONS && (
+              <button
+                type="button"
+                className="adm-btn adm-btn--ghost self-start"
+                onClick={() => setButtons([...buttons, { kind: buttons.length ? 'url' : 'app', text: '', textRu: '', url: '' }])}
+                disabled={running}
+              >
+                <Plus size={16} /> Tugma qo‘shish
+              </button>
+            )}
           </div>
 
           <p className="adm-label mt-4">Kimga</p>
@@ -290,11 +456,19 @@ export function BroadcastPage() {
         <section className="flex flex-col gap-4">
           <div className="adm-card p-4">
             <h2 className="text-sm font-extrabold">Ko‘rinishi</h2>
-            <div
-              className="mt-3 whitespace-pre-wrap rounded-2xl rounded-tl-sm p-3 text-sm"
-              style={{ background: 'var(--brand-soft)', color: 'var(--ink)' }}
-            >
-              {text.trim() || 'Xabar matni shu yerda ko‘rinadi...'}
+            <div className="adm-bc-preview mt-3">
+              <div className="adm-bc-preview__bubble">
+                {media && (media.type === 'image'
+                  ? <img src={media.url} alt="" />
+                  : <video src={media.url} muted playsInline preload="metadata" />)}
+                {(text.trim() || !media) && <p>{text.trim() || 'Xabar matni shu yerda ko‘rinadi...'}</p>}
+              </div>
+              {buttons.map((b, i) => (
+                <span key={i} className="adm-bc-preview__btn">
+                  {b.text.trim() || 'Tugma'}
+                  {b.kind === 'url' ? <ExternalLink size={11} /> : <Smartphone size={11} />}
+                </span>
+              ))}
             </div>
           </div>
 

@@ -1,10 +1,6 @@
-import type { LucideIcon } from 'lucide-react'
 import { PromoBanner } from '../components/promo/PromoBanner'
 import type { Promotion } from '../utils/promotions'
-import {
-  ArrowRight, Bell, CircleHelp, CookingPot, Heart, Leaf, Search,
-  ShieldCheck, Truck,
-} from 'lucide-react'
+import { ArrowRight, Bell, CookingPot, Heart, Search } from 'lucide-react'
 import heroProducts from '../images/hero-products.webp'
 import { BrandLogo } from '../components/brand/BrandLogo'
 import { ProductCard } from '../components/product/ProductCard'
@@ -15,15 +11,8 @@ import { MAIN_LINES, categoryLabel, isMainLine } from '../config/categories'
 import { useMemo, useRef } from 'react'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { useReveal } from '../hooks/use-reveal'
-import { useI18n, useT, type TranslationKey } from '../i18n'
+import { useI18n, useT } from '../i18n'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
-
-const benefits: [LucideIcon, TranslationKey, TranslationKey][] = [
-  [Truck, 'benefit.delivery', 'benefit.deliverySub'],
-  [ShieldCheck, 'benefit.payment', 'benefit.paymentSub'],
-  [CircleHelp, 'benefit.support', 'benefit.supportSub'],
-  [Leaf, 'benefit.natural', 'benefit.naturalSub'],
-]
 
 type Props = ProductActions & {
   products: Product[]
@@ -35,12 +24,11 @@ type Props = ProductActions & {
   promotions: Promotion[]
   onOpenCategory: (category: string) => void
   unreadNotificationsCount: number
-  onNotify: (message: string) => void
 }
 
 export function HomePage({
   products, categories, loading, promotions, onSearch, onNavigate,
-  onOpenCategory, unreadNotificationsCount, onNotify, ...productActions
+  onOpenCategory, unreadNotificationsCount, ...productActions
 }: Props) {
   const t = useT()
   const { lang } = useI18n()
@@ -217,34 +205,6 @@ export function HomePage({
           </div>
         </section>
       )}
-
-      {/* Afzalliklar */}
-      <section
-        className="mx-5 mt-6 grid grid-cols-2 rounded-2xl border p-3 sm:mx-10 sm:grid-cols-4"
-        style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}
-        data-reveal
-      >
-        {benefits.map(([Icon, titleKey, subKey]) => (
-          <button
-            onClick={() => onNotify(`${t(titleKey)}: ${t(subKey)}`)}
-            key={titleKey}
-            className="benefit-item"
-          >
-            <span
-              className="grid size-9 shrink-0 place-items-center rounded-full"
-              style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
-            >
-              <Icon size={19} />
-            </span>
-            <p className="text-[11px] font-bold leading-tight sm:text-xs" style={{ color: 'var(--ink)' }}>
-              {t(titleKey)}
-              <small className="mt-0.5 block font-normal" style={{ color: 'var(--muted)' }}>
-                {t(subKey)}
-              </small>
-            </p>
-          </button>
-        ))}
-      </section>
 
       {/* Mashhur mahsulotlar — faqat admin belgilaganlar */}
       {(loading || popular.length > 0 || products.length === 0) && (

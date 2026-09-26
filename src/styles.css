@@ -2532,18 +2532,6 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ====== Benefit ====== */
-.benefit-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  border-radius: var(--r-sm);
-  padding: 0.5rem;
-  text-align: left;
-  color: var(--ink);
-  transition: background-color 0.2s ease;
-}
-.benefit-item:hover { background: var(--brand-soft); }
-
 /* ====== Form fields ====== */
 .field {
   display: flex;

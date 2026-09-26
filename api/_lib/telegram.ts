@@ -124,6 +124,54 @@ export async function sendRows(
   }
 }
 
+export type MediaResult =
+  | { ok: true; messageId: number; fileId: string | null }
+  | { ok: false; error: string }
+
+/**
+ * Rasm yoki video — izoh (caption) va tugmalar bilan.
+ *
+ * `file` — havola yoki Telegram'dagi `file_id`. Birinchi yuborishda havola
+ * beriladi, Telegram faylni yuklab oladi va `file_id` qaytaradi; qolgan
+ * qabul qiluvchilarga shu `file_id` ketadi — fayl qayta yuklanmaydi.
+ */
+export async function sendMedia(
+  chatId: number | string,
+  kind: 'photo' | 'video',
+  file: string,
+  caption: string,
+  rows: AnyButton[][] = [],
+): Promise<MediaResult> {
+  try {
+    const body: Record<string, unknown> = { chat_id: chatId, [kind]: file }
+    if (caption) {
+      body.caption = caption
+      body.parse_mode = 'HTML'
+    }
+    if (kind === 'video') body.supports_streaming = true
+    if (rows.length) body.reply_markup = { inline_keyboard: rows }
+
+    const response = await fetch(`${API}${token()}/${kind === 'photo' ? 'sendPhoto' : 'sendVideo'}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    type FileRef = { file_id: string }
+    const json = (await response.json()) as {
+      ok: boolean
+      description?: string
+      result?: { message_id: number; photo?: FileRef[]; video?: FileRef; animation?: FileRef; document?: FileRef }
+    }
+    if (!json.ok) return { ok: false, error: json.description || 'Telegram rad etdi' }
+    const r = json.result
+    // Rasmda bir nechta o'lcham keladi — eng kattasi oxirida
+    const fileId = kind === 'photo' ? r?.photo?.at(-1)?.file_id : r?.video?.file_id
+    return { ok: true, messageId: r?.message_id ?? 0, fileId: fileId ?? null }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Tarmoq xatosi' }
+  }
+}
+
 /**
  * Yuborilgan xabarning matni va tugmalarini birga almashtiradi.
  *

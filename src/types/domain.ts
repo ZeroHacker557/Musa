@@ -260,6 +260,8 @@ export type Notification = {
   type: 'order' | 'system' | 'promo'
   /** Buyurtma bildirishnomasida — qaysi buyurtma (eski yozuvlarda yo'q). */
   orderId?: string
+  /** Ommaviy xabardagi rasm. */
+  image?: string
 }
 
 export type PromoCode = {
