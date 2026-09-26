@@ -7,6 +7,8 @@ import { TextSkeleton } from '../components/ui/LoadingSkeletons'
 import { categoryIcon } from '../utils/category-icons'
 import { categoryLabel, sectionLabel } from '../config/categories'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
+import { setSwipeInterceptor } from '../hooks/use-swipe-nav'
+import { hapticFeedback } from '../utils/telegram'
 import { useI18n, useT } from '../i18n'
 import type { Category, Product, ProductActions, Section } from '../types/domain'
 import { groupBySection, sortForAll } from '../utils/catalog-groups'
@@ -48,6 +50,33 @@ export function CatalogPage({
   )
 
   useAutoScroll(stripRef, { speed: 16, enabled: displayCategories.length > 3 })
+
+  /*
+   * Ekranni surish: avval kategoriyalar bo'ylab («Barchasi» → birinchi →
+   * … → oxirgisi), chetga yetgandagina keyingi/oldingi sahifaga o'tiladi
+   * (use-swipe-nav). Mahsulotlar surish tomoniga qarab kirib keladi.
+   */
+  const [slide, setSlide] = useState<'next' | 'prev' | null>(null)
+  useEffect(
+    () =>
+      setSwipeInterceptor((direction) => {
+        const index = displayCategories.findIndex((c) => c.name === active)
+        const target = displayCategories[index + direction]
+        if (index === -1 || !target) return false
+        setSlide(direction === 1 ? 'next' : 'prev')
+        setActive(target.name)
+        hapticFeedback('light')
+        // Tanlangan tugma lentada ko'rinsin, ro'yxat boshidan boshlansin
+        requestAnimationFrame(() => {
+          stripRef.current
+            ?.querySelector<HTMLElement>(`[data-cat="${CSS.escape(target.name)}"]`)
+            ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+          if (window.scrollY > 120) window.scrollTo({ top: 0, behavior: 'smooth' })
+        })
+        return true
+      }),
+    [displayCategories, active],
+  )
 
   /*
    * Tartib admin panelda belgilanadi: kategoriya → bo'lim → mahsulot.
@@ -105,8 +134,9 @@ export function CatalogPage({
           const selected = active === category.name
           return (
             <button
-              onClick={() => setActive(category.name)}
+              onClick={() => { setSlide(null); setActive(category.name) }}
               key={category.id}
+              data-cat={category.name}
               aria-pressed={selected}
               className={'category-pill ' + (selected ? 'active' : '')}
             >
@@ -120,7 +150,11 @@ export function CatalogPage({
       </section>
 
       {/* Mahsulotlar */}
-      <section className="px-5 pb-32 pt-2 sm:px-10">
+      {/* Surib kategoriya almashtirilganda mahsulotlar o'sha tomondan kirib keladi */}
+      <section
+        key={active}
+        className={'px-5 pb-32 pt-2 sm:px-10' + (slide ? ` cat-slide-${slide}` : '')}
+      >
         {/* Mahsulotlar kelguncha «Jami 0 ta» emas, skelet */}
         {loading ? (
           <TextSkeleton className="h-5 w-40" />

@@ -1,4 +1,4 @@
-import { Car, MapPin, Phone, Radio, X } from 'lucide-react'
+import { Car, ChevronDown, ChevronRight, MapPin, Phone } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../../i18n'
 import { TRACKING_FRESH_MS, liveMinutes, useOrderTracking } from '../../lib/tracking'
@@ -10,30 +10,73 @@ type Props = {
   onOpen: (order: Order) => void
 }
 
-const HIDDEN_KEY = 'musa:tracker-hidden'
+/** Yig'ilgan holat shu seans davomida eslab qolinadi (qaysi buyurtma, qaysi holat). */
+const MINI_KEY = 'musa:tracker-mini'
 
-function readHidden(): string | null {
+function readMini(): string | null {
   try {
-    return sessionStorage.getItem(HIDDEN_KEY)
+    return sessionStorage.getItem(MINI_KEY)
   } catch {
     return null
   }
 }
 
 /**
- * «Kuryer yo'lda» — mijoz ilovasining pastida suzib turadigan kartochka.
+ * Pastki menyuning haqiqiy balandligi. U yozuvlar sig'ishiga qarab
+ * o'zgaradi (tor ekranda «Bosh sahifa» ikki qatorga tushadi) — kartochka
+ * doim menyuning ustida tursin, unga tegmasin.
+ */
+function useNavHeight(): number | null {
+  const [height, setHeight] = useState<number | null>(null)
+  useEffect(() => {
+    const nav = document.querySelector<HTMLElement>('.bottom-nav')
+    if (!nav || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => setHeight(nav.getBoundingClientRect().height))
+    observer.observe(nav)
+    return () => observer.disconnect()
+  }, [])
+  return height
+}
+
+/** Halqa: r=19 → aylana uzunligi. */
+const RING_R = 19
+const RING_C = 2 * Math.PI * RING_R
+
+/** Mashina va progress halqasi — kartochkada ham, yig'ilgan doirada ham bir xil. */
+function RingIcon({ progress, arrived }: { progress: number; arrived: boolean }) {
+  return (
+    <span className="dlv__ring" aria-hidden="true">
+      <svg viewBox="0 0 44 44">
+        <circle className="dlv__ring-bg" cx="22" cy="22" r={RING_R} />
+        <circle
+          className="dlv__ring-fg"
+          cx="22"
+          cy="22"
+          r={RING_R}
+          strokeDasharray={RING_C}
+          strokeDashoffset={RING_C * (1 - progress)}
+        />
+      </svg>
+      <span className="dlv__ring-icon">
+        {arrived ? <MapPin size={18} strokeWidth={2.4} /> : <Car size={18} strokeWidth={2.4} />}
+      </span>
+    </span>
+  )
+}
+
+/**
+ * «Kuryer yo'lda» — menyu ustida turadigan ixcham kartochka.
  *
- * Buyurtma «Yetkazilmoqda» bo'lishi bilan chiqadi: yo'l chizig'i
- * bo'ylab mashina manzil tomon siljiydi (qancha yo'l qolgani taxminiy
- * vaqtdan hisoblanadi), oxirida manzil belgisi lipillaydi. Kuryer «Yetib
- * keldim» bossa — mashina manzilga yetib to'xtaydi: «Kuryer eshik
- * oldida!».
+ * Buyurtma «Yetkazilmoqda» bo'lishi bilan chiqadi: halqa va ingichka
+ * chiziq kuryer qancha yo'l bosganini ko'rsatadi (taxminiy vaqtdan yoki
+ * jonli joylashuvdan), matnda — qolgan daqiqalar. Kuryer «Yetib keldim»
+ * bossa kartochka tilla rangga o'tadi.
  *
- * Ma'lumot buyurtmaning o'zidan: mijoz o'z buyurtmalarini Firestore'dan
- * jonli o'qiydi, shuning uchun kuryer bosgan zahoti bu yerda ko'rinadi.
+ * Mijozga xalaqit bermasligi uchun «yig'ish» bor: kartochka ekran
+ * burchagidagi kichik doiraga aylanadi, bosilsa yana ochiladi. Kuryer
+ * yetib kelganda o'zi qayta ochiladi — bu muhim xabar.
  *
- * Bir vaqtda bir nechta buyurtma yo'lda bo'lsa — tepada raqamlar
- * chiqadi, mijoz qaysi birini kuzatishni tanlaydi.
+ * Bir nechta buyurtma yo'lda bo'lsa — raqam yonidagi «+N» almashtirgich.
  */
 export function DeliveryTracker({ orders, onOpen }: Props) {
   const { t } = useI18n()
@@ -41,7 +84,7 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
   const [pickedId, setPickedId] = useState<string | null>(null)
   const order = useMemo(() => onWay.find((o) => o.id === pickedId) ?? onWay[0] ?? null, [onWay, pickedId])
 
-  // Daqiqalar sanog'i va mashina joyi vaqt o'tishi bilan yangilanadi
+  // Daqiqalar sanog'i va progress vaqt o'tishi bilan yangilanadi
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!order) return
@@ -56,17 +99,20 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
   }, [order?.customer?.location])
   const tracking = useOrderTracking(order?.id ?? null, home)
 
-  // «×» — shu holat uchun yashiriladi; kuryer yetib kelsa yana chiqadi
+  // Yig'ish shu holat uchun; kuryer yetib kelsa kalit o'zgaradi va kartochka yana ochiladi
   const stateKey = order ? `${order.id}:${order.arrivedAt ? 'arrived' : 'way'}` : ''
-  const [hidden, setHidden] = useState(readHidden)
-  if (!order || hidden === stateKey) return null
+  const [mini, setMini] = useState(readMini)
+  const navHeight = useNavHeight()
+  if (!order) return null
+  const above = navHeight ? { bottom: navHeight + 10 } : undefined
 
-  const hide = () => {
-    setHidden(stateKey)
+  const setMiniFor = (value: string | null) => {
+    setMini(value)
     try {
-      sessionStorage.setItem(HIDDEN_KEY, stateKey)
+      if (value) sessionStorage.setItem(MINI_KEY, value)
+      else sessionStorage.removeItem(MINI_KEY)
     } catch {
-      // saqlanmasa ham shu seansda yashirin qoladi
+      // saqlanmasa ham shu ko'rinishda qoladi
     }
   }
 
@@ -80,80 +126,89 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
   // Kuryer avval boshqa manzil(lar)ga boradi — mijoz nega kutayotganini bilsin
   const stopsBefore = live ? tracking.stopsBefore : Number(order.etaStops) || 0
 
-  // Mashina yo'lning qayerida: olingandan beri o'tgan vaqt / taxminiy vaqt
-  let progress = 0.35
-  // Yetib keldi — mashina manzil belgisining yonida to'xtaydi (ustiga chiqmaydi)
-  if (arrived) progress = 0.9
+  // Qancha yo'l bosildi: olingandan beri o'tgan vaqt / taxminiy vaqt
+  let progress = 0.3
+  if (arrived) progress = 1
   else if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-    // Yo'lda bo'lsa manzilga to'liq yetmaydi — bu «yetib keldim» uchun
-    progress = Math.min(0.82, Math.max(0.08, (now - start) / (end - start)))
+    // Yo'lda bo'lsa to'liq to'lmaydi — to'liq halqa «yetib keldi» uchun
+    progress = Math.min(0.9, Math.max(0.06, (now - start) / (end - start)))
   }
 
   const title = arrived ? t('delivery.arrivedTitle') : t('delivery.onWayTitle')
-  const subtitle = arrived
+  const eta = arrived
     ? t('delivery.arrivedText')
     : minutesLeft === null
       ? t('delivery.onWaySoon')
       : minutesLeft > 0
         ? t('delivery.minutesLeft', { n: minutesLeft })
         : t('delivery.almostThere')
+  const detail = !arrived && stopsBefore > 0
+    ? t('delivery.stopsBefore', { n: stopsBefore })
+    : order.courierName || ''
   const phone = (order.courierPhone || tracking?.courierPhone)?.replace(/[^\d+]/g, '')
+  const index = onWay.findIndex((o) => o.id === order.id)
+  const nextOrder = () => setPickedId(onWay[(index + 1) % onWay.length].id)
+
+  // ── Yig'ilgan: burchakdagi kichik doira ──
+  if (mini === stateKey) {
+    return (
+      <button
+        className={'dlv-bubble ' + (arrived ? 'is-arrived' : '')}
+        onClick={() => setMiniFor(null)}
+        style={above}
+        aria-label={`${title} · ${eta}`}
+      >
+        <RingIcon progress={progress} arrived={arrived} />
+        {!arrived && minutesLeft !== null && minutesLeft > 0 && (
+          <span className="dlv-bubble__eta">{minutesLeft}′</span>
+        )}
+        {live && !arrived && <span className="dlv-bubble__live" />}
+      </button>
+    )
+  }
 
   return (
-    <div className={'dlv ' + (arrived ? 'is-arrived' : '')} role="status" aria-live="polite">
-      {onWay.length > 1 && (
-        <div className="dlv__tabs" role="tablist" aria-label={t('delivery.pickOrder')}>
-          {onWay.map((o) => (
-            <button
-              key={o.id}
-              role="tab"
-              aria-selected={o.id === order.id}
-              className={'dlv__tab ' + (o.id === order.id ? 'is-on' : '')}
-              onClick={() => setPickedId(o.id)}
-            >
-              {o.arrivedAt && <span className="dlv__tab-dot" />}
-              {o.orderNumber}
-            </button>
-          ))}
-        </div>
-      )}
-      <button className="dlv__main" onClick={() => onOpen(order)}>
-        <span className="dlv__road" aria-hidden="true">
-          <span className="dlv__track" />
-          <span className="dlv__done" style={{ width: `${progress * 100}%` }} />
-          <span className="dlv__car" style={{ left: `${progress * 100}%` }}>
-            <Car size={17} strokeWidth={2.4} />
-          </span>
-          <span className="dlv__pin">
-            <MapPin size={18} strokeWidth={2.4} />
-          </span>
-        </span>
-
+    <div className={'dlv ' + (arrived ? 'is-arrived' : '')} style={above} role="status" aria-live="polite">
+      <button className="dlv__main" onClick={() => onOpen(order)} aria-label={t('delivery.follow')}>
+        <RingIcon progress={progress} arrived={arrived} />
         <span className="dlv__text">
-          <b className="dlv__title">
+          <span className="dlv__title">
+            {live && !arrived && <span className="dlv__live-dot" title={t('delivery.live')} />}
             {title}
-            {live && !arrived && (
-              <span className="dlv__live"><Radio size={11} /> {t('delivery.live')}</span>
-            )}
-          </b>
+            <ChevronRight size={15} className="dlv__chev" />
+          </span>
           <span className="dlv__sub">
-            {subtitle}
-            {!arrived && stopsBefore > 0
-              ? ` · ${t('delivery.stopsBefore', { n: stopsBefore })}`
-              : order.courierName ? ` · ${order.courierName}` : ''}
-            {' · '}{order.orderNumber}
+            <b>{eta}</b>
+            {detail && <> · {detail}</>}
+          </span>
+          <span className="dlv__bar" aria-hidden="true">
+            <span style={{ width: `${progress * 100}%` }} />
           </span>
         </span>
       </button>
 
-      {phone && (
-        <a className="dlv__call" href={`tel:${phone}`} aria-label={t('delivery.call')}>
-          <Phone size={17} />
-        </a>
-      )}
-      <button className="dlv__close" onClick={hide} aria-label={t('common.close')}>
-        <X size={15} />
-      </button>
+      <div className="dlv__side">
+        {/* Buyurtma raqami; bir nechta bo'lsa bosib keyingisiga o'tiladi */}
+        <button
+          type="button"
+          className="dlv__num"
+          onClick={onWay.length > 1 ? nextOrder : () => onOpen(order)}
+          aria-label={onWay.length > 1 ? t('delivery.pickOrder') : order.orderNumber}
+        >
+          {order.orderNumber}
+          {onWay.length > 1 && <span className="dlv__more">+{onWay.length - 1}</span>}
+        </button>
+        <div className="flex items-center gap-1.5">
+          {phone && (
+            <a className="dlv__call" href={`tel:${phone}`} aria-label={t('delivery.call')}>
+              <Phone size={16} />
+            </a>
+          )}
+          <button className="dlv__min" onClick={() => setMiniFor(stateKey)} aria-label={t('delivery.minimize')}>
+            <ChevronDown size={17} />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

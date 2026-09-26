@@ -597,6 +597,7 @@ export const uz = {
   'delivery.noLocation': 'Kuryer joylashuvi hali kelmadi — tez orada xaritada paydo bo‘ladi',
   'delivery.receipt': 'Buyurtma cheki',
   'delivery.pickOrder': 'Qaysi buyurtmani kuzatish',
+  'delivery.minimize': 'Yig‘ish',
   'delivery.staleAgo': 'Kuryerning {ago} oldingi joyi — yangilanishi kutilmoqda',
   'delivery.lost': 'Kuryer joylashuvi {ago} dan beri yangilanmayapti — aniq joyini bilish uchun qo‘ng‘iroq qiling',
   'delivery.stopsBefore': 'oldin {n} ta manzil',

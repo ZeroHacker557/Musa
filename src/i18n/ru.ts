@@ -585,6 +585,7 @@ export const ru: Record<TranslationKey, string> = {
   'delivery.noLocation': 'Геопозиция курьера ещё не пришла — скоро появится на карте',
   'delivery.receipt': 'Чек заказа',
   'delivery.pickOrder': 'Какой заказ отслеживать',
+  'delivery.minimize': 'Свернуть',
   'delivery.staleAgo': 'Где был курьер {ago} назад — ждём обновления',
   'delivery.lost': 'Местоположение курьера не обновлялось {ago} — позвоните, чтобы уточнить',
   'delivery.stopsBefore': 'ещё адресов до вас: {n}',

@@ -3729,182 +3729,246 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ====== «Kuryer yo'lda» — mijoz ilovasi (DeliveryTracker) ======
-   Yashil kartochka menyu ustida suzib turadi. Yo'l chizig'i oqib
-   turadi (mashina harakatda), mashina taxminiy vaqtga qarab manzil
-   tomon siljiydi, oxirida manzil belgisi lipillaydi. Kuryer «Yetib
-   keldim» bossa — kartochka tilla rangga o'tadi, mashina to'xtaydi. */
+   Ixcham oq kartochka menyu ustida: chapda progress halqasi ichida
+   mashina, o'rtada holat va qolgan vaqt, ostida ingichka chiziq.
+   «Yig'ish» bosilsa — burchakdagi kichik doiraga aylanadi (.dlv-bubble).
+   Kuryer «Yetib keldim» bossa — tilla rang. */
 .dlv {
+  --dlv-accent: var(--brand);
+  --dlv-soft: var(--brand-soft);
   position: fixed;
   left: 50%;
   bottom: calc(4.9rem + var(--safe-bottom));
   z-index: 30;
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: min(calc(100% - 1.5rem), 520px);
+  align-items: stretch;
+  gap: 0.4rem;
+  width: min(calc(100% - 1.5rem), 480px);
   transform: translateX(-50%);
-  border-radius: 22px;
-  padding: 0.75rem 0.6rem 0.75rem 0.95rem;
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 100%);
-  color: #fff;
-  box-shadow: 0 12px 30px rgb(10 122 61 / 0.35), 0 2px 6px rgb(0 0 0 / 0.08);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 0.55rem 0.55rem 0.55rem 0.6rem;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: var(--ink);
+  box-shadow: 0 10px 28px rgb(4 18 11 / 0.14), 0 1px 3px rgb(0 0 0 / 0.06);
   animation: dlvIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @media (min-width: 640px) {
   .dlv { bottom: calc(5.4rem + var(--safe-bottom)); }
 }
-/* Bir nechta buyurtma yo'lda — qaysi birini kuzatish */
-.dlv { flex-wrap: wrap; }
-.dlv__tabs {
-  display: flex;
-  flex-basis: 100%;
-  gap: 0.35rem;
-  overflow-x: auto;
-  margin: -0.15rem 0 0.1rem;
-  scrollbar-width: none;
-}
-.dlv__tabs::-webkit-scrollbar { display: none; }
-.dlv__tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  flex-shrink: 0;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.16);
-  padding: 0.22rem 0.65rem;
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 800;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-.dlv__tab.is-on { background: #fff; color: var(--brand); }
-.dlv.is-arrived .dlv__tab.is-on { color: var(--gold); }
-.dlv__tab-dot { width: 7px; height: 7px; border-radius: 50%; background: #ffd24d; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.5); }
 .dlv.is-arrived {
-  background: linear-gradient(135deg, #d99b0f 0%, var(--gold) 100%);
-  box-shadow: 0 12px 30px rgb(169 118 10 / 0.38), 0 2px 6px rgb(0 0 0 / 0.08);
+  --dlv-accent: var(--gold);
+  --dlv-soft: color-mix(in srgb, var(--gold) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--line));
+  animation: dlvIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both, dlvGlow 2.4s ease-in-out 0.5s infinite;
 }
+
 .dlv__main {
   display: flex;
   min-width: 0;
   flex: 1;
-  flex-direction: column;
-  gap: 0.55rem;
+  align-items: center;
+  gap: 0.65rem;
   color: inherit;
   text-align: left;
 }
-.dlv__road { position: relative; height: 30px; margin-right: 26px; }
-.dlv__track {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 4px;
-  transform: translateY(-50%);
-  border-radius: 4px;
-  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.5) 0 10px, transparent 10px 18px);
-  background-size: 18px 4px;
-  animation: dlvRoad 0.8s linear infinite;
+
+/* Progress halqasi */
+.dlv__ring { position: relative; display: grid; width: 44px; height: 44px; flex-shrink: 0; place-items: center; }
+.dlv__ring > svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.dlv__ring > svg circle { fill: none; stroke-width: 3.5; }
+.dlv__ring-bg { stroke: var(--dlv-soft, var(--brand-soft)); }
+.dlv__ring-fg {
+  stroke: var(--dlv-accent, var(--brand));
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.dlv__done {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  height: 4px;
-  transform: translateY(-50%);
-  border-radius: 4px;
-  background: #fff;
-  transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.dlv__car {
-  position: absolute;
-  top: 50%;
+.dlv__ring-icon {
   display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #fff;
-  color: var(--brand);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.22);
-  transform: translate(-50%, -50%);
-  transition: left 1.2s cubic-bezier(0.22, 1, 0.36, 1);
-  animation: dlvBounce 0.9s ease-in-out infinite;
-}
-.dlv__pin {
-  position: absolute;
-  right: -26px;
-  top: 50%;
-  display: grid;
-  place-items: center;
   width: 30px;
   height: 30px;
+  place-items: center;
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.18);
-  color: var(--gold-bright);
-  transform: translateY(-50%);
+  background: var(--dlv-soft, var(--brand-soft));
+  color: var(--dlv-accent, var(--brand));
+  animation: dlvDrive 1.1s ease-in-out infinite;
 }
-.dlv__pin::after {
+.is-arrived .dlv__ring-icon { animation: dlvPing 1.6s ease-in-out infinite; }
+
+.dlv__text { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 0.15rem; }
+.dlv__title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.dlv__chev { flex-shrink: 0; color: var(--faint); }
+.dlv__live-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #22c55e;
+}
+.dlv__live-dot::after {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid var(--gold-bright);
+  background: #22c55e;
   content: "";
   animation: dlvPulse 1.6s ease-out infinite;
 }
-.dlv.is-arrived .dlv__track { animation: none; }
-.dlv.is-arrived .dlv__car { animation: none; color: var(--gold); }
-.dlv.is-arrived .dlv__pin { background: #fff; color: var(--danger); }
-.dlv.is-arrived .dlv__pin::after { border-color: #fff; }
-.dlv__text { display: block; min-width: 0; }
-.dlv__title { display: block; font-size: 0.98rem; font-weight: 800; line-height: 1.2; }
 .dlv__sub {
-  display: block;
   overflow: hidden;
-  margin-top: 0.1rem;
+  color: var(--muted);
   font-size: 0.74rem;
   font-weight: 600;
-  opacity: 0.92;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.dlv__call {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
+.dlv__sub b { color: var(--dlv-accent); font-weight: 800; }
+.dlv__bar {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  height: 3px;
+  margin-top: 0.2rem;
+  border-radius: 3px;
+  background: var(--dlv-soft);
+}
+.dlv__bar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 3px;
+  background: var(--dlv-accent);
+  transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Yo'lda — chiziq ustidan yorug'lik yugurib turadi */
+.dlv:not(.is-arrived) .dlv__bar span::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.65), transparent);
+  content: "";
+  animation: dlvShine 1.8s ease-in-out infinite;
+}
+
+.dlv__side {
+  display: flex;
   flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.3rem;
+}
+.dlv__num {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  padding: 0.1rem 0.45rem;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+.dlv__more {
+  border-radius: 999px;
+  background: var(--dlv-accent);
+  padding: 0 0.3rem;
+  color: #fff;
+  font-size: 0.6rem;
+}
+.dlv__call, .dlv__min {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
   border-radius: 50%;
-  background: #fff;
-  color: var(--brand);
-  box-shadow: 0 3px 10px rgb(0 0 0 / 0.15);
+  transition: transform 0.15s ease, background-color 0.2s ease;
+}
+.dlv__call { background: var(--dlv-accent); color: #fff; box-shadow: 0 3px 8px color-mix(in srgb, var(--dlv-accent) 35%, transparent); }
+.dlv__min { background: var(--surface-2); color: var(--muted); }
+.dlv__call:active, .dlv__min:active { transform: scale(0.9); }
+
+/* Yig'ilgan holat — o'ng pastki burchakdagi doira */
+.dlv-bubble {
+  --dlv-accent: var(--brand);
+  --dlv-soft: var(--brand-soft);
+  position: fixed;
+  right: 0.9rem;
+  bottom: calc(5.2rem + var(--safe-bottom));
+  z-index: 30;
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 8px 22px rgb(4 18 11 / 0.18);
+  animation: dlvBubbleIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   transition: transform 0.15s ease;
 }
-.dlv.is-arrived .dlv__call { color: var(--gold); }
-.dlv__call:active { transform: scale(0.9); }
-.dlv__close {
-  display: grid;
-  place-items: center;
-  align-self: flex-start;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 0.16);
+.dlv-bubble:active { transform: scale(0.92); }
+.dlv-bubble.is-arrived { --dlv-accent: var(--gold); --dlv-soft: color-mix(in srgb, var(--gold) 16%, var(--surface)); }
+.dlv-bubble__eta {
+  position: absolute;
+  top: -6px;
+  left: -8px;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: var(--dlv-accent);
+  padding: 0.05rem 0.35rem;
   color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
 }
+.dlv-bubble__live {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: #22c55e;
+}
+@media (min-width: 640px) {
+  .dlv-bubble { bottom: calc(5.7rem + var(--safe-bottom)); }
+}
+
 @keyframes dlvIn {
-  from { opacity: 0; transform: translate(-50%, 24px) scale(0.96); }
+  from { opacity: 0; transform: translate(-50%, 20px) scale(0.97); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
-@keyframes dlvRoad { to { background-position: -18px 0; } }
-@keyframes dlvBounce {
-  0%, 100% { transform: translate(-50%, -50%); }
-  50% { transform: translate(-50%, -62%); }
+@keyframes dlvBubbleIn {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dlvDrive {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes dlvPing {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+@keyframes dlvShine {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@keyframes dlvGlow {
+  0%, 100% { box-shadow: 0 10px 28px rgb(4 18 11 / 0.14), 0 0 0 0 color-mix(in srgb, var(--gold) 35%, transparent); }
+  50% { box-shadow: 0 10px 28px rgb(4 18 11 / 0.14), 0 0 0 6px color-mix(in srgb, var(--gold) 0%, transparent); }
 }
 @keyframes dlvPulse {
   from { opacity: 0.9; transform: scale(1); }
-  to { opacity: 0; transform: scale(1.9); }
+  to { opacity: 0; transform: scale(2.4); }
 }
 
 /* ====== Kuryerni baholash — ekran yarmidagi oyna ====== */
@@ -4197,7 +4261,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dlv, .dlv__track, .dlv__car, .dlv__pin::after, .crt-sheet, .crt-overlay, .crt-star.is-on { animation: none; }
+  .dlv, .dlv-bubble, .dlv__ring-icon, .dlv__live-dot::after, .dlv__bar span::after,
+  .crt-sheet, .crt-overlay, .crt-star.is-on { animation: none; }
 }
 
 /* ====== Kuryer: Telegram jonli joylashuvi ====== */
@@ -4230,18 +4295,6 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ====== «Kuryer qayerda» — mijozning jonli xaritasi ====== */
-.dlv__live {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  margin-left: 0.4rem;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.2);
-  padding: 0.05rem 0.4rem;
-  font-size: 0.62rem;
-  font-weight: 800;
-  vertical-align: 2px;
-}
 .lts {
   position: fixed;
   inset: 0;
@@ -4899,4 +4952,19 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .acf-pin__ring { display: none; }
   .acf-pin__icon, .acf-card, .acf-title, .acf-sub, .acf-actions, .acf-other { animation: none; }
+}
+
+/* Katalog: surib kategoriya almashtirilganda mahsulotlar kirib keladi */
+.cat-slide-next { animation: catSlideNext 0.34s cubic-bezier(0.22, 1, 0.36, 1); }
+.cat-slide-prev { animation: catSlidePrev 0.34s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes catSlideNext {
+  from { opacity: 0; transform: translateX(36px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes catSlidePrev {
+  from { opacity: 0; transform: translateX(-36px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cat-slide-next, .cat-slide-prev { animation: none; }
 }

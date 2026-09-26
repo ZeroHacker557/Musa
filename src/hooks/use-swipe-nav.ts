@@ -10,6 +10,23 @@ import type { AppPage } from '../types/domain'
  */
 export const SWIPE_PAGES: AppPage[] = ['home', 'catalog', 'orders', 'profile']
 
+/**
+ * Sahifa o'zi surishni «ushlab qolishi» mumkin: katalog avval kategoriyalar
+ * bo'ylab yuradi, oxirgisidan keyingina keyingi sahifaga o'tiladi.
+ * `direction`: 1 — keyingi (chapga surildi), -1 — oldingi.
+ * `true` qaytarsa — surish ishlatildi, sahifa almashmaydi.
+ */
+type SwipeInterceptor = (direction: 1 | -1) => boolean
+let interceptor: SwipeInterceptor | null = null
+
+/** Sahifa ochiq turganda o'rnatadi; qaytgan funksiya — olib tashlaydi. */
+export function setSwipeInterceptor(fn: SwipeInterceptor): () => void {
+  interceptor = fn
+  return () => {
+    if (interceptor === fn) interceptor = null
+  }
+}
+
 /** Shu masofadan ko'p surilsa — sahifa almashadi. */
 const MIN_DISTANCE = 70
 /** Gorizontal harakat vertikaldan shuncha marta katta bo'lishi kerak. */
@@ -79,8 +96,10 @@ export function useSwipeNav(
       if (Math.abs(dx) < MIN_DISTANCE) return
       if (Math.abs(dx) < Math.abs(dy) * DIRECTION_RATIO) return
 
-      // Chapga surish — keyingi sahifa (kontent chapga siljiydi)
-      const next = dx < 0 ? index + 1 : index - 1
+      // Chapga surish — keyingi (kontent chapga siljiydi)
+      const direction = dx < 0 ? 1 : -1
+      if (interceptor?.(direction)) return
+      const next = index + direction
       if (next < 0 || next >= SWIPE_PAGES.length) return
       navigate(SWIPE_PAGES[next])
     }
