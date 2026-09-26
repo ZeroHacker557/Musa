@@ -4,7 +4,7 @@ import {
 import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { uploadBroadcastMedia, type UploadedAdMedia } from '../lib/storage'
 import { apiPost } from '../lib/api'
-import { useCategories, useCustomers, useOrders, useProducts, type CustomerRow } from '../lib/live'
+import { useCategories, useCustomers, useOrders, useProducts, useSections, type CustomerRow } from '../lib/live'
 import { ConfirmDialog } from '../components/Modal'
 import { useToast } from '../components/Toast'
 
@@ -32,19 +32,64 @@ const AUDIENCES: { key: Audience; label: string; hint: string }[] = [
 
 type Progress = { sent: number; failed: number; skipped: number; processed: number }
 
-/** Inline tugma: havola yoki mini ilovani ochadi. */
-type ButtonDraft = { kind: 'url' | 'app'; text: string; textRu: string; url: string }
+/** Mini ilovada qayer ochiladi. */
+type Target = 'home' | 'catalog' | 'category' | 'section' | 'product' | 'orders' | 'favorites'
+/** Telegram tugma rangi: '' — odatiy. */
+type ButtonColor = '' | 'success' | 'primary' | 'danger'
+
+/** Inline tugma: havola yoki mini ilovaning kerakli joyini ochadi. */
+type ButtonDraft = {
+  kind: 'url' | 'app'
+  text: string
+  textRu: string
+  url: string
+  target: Target
+  /** Kategoriya nomi, bo'lim id'si yoki mahsulot id'si — `target` ga qarab. */
+  value: string
+  style: ButtonColor
+}
+
+const TARGETS: { key: Target; label: string }[] = [
+  { key: 'home', label: 'Bosh sahifa' },
+  { key: 'catalog', label: 'Katalog' },
+  { key: 'category', label: 'Kategoriya' },
+  { key: 'section', label: 'Bo‘lim' },
+  { key: 'product', label: 'Mahsulot' },
+  { key: 'orders', label: 'Buyurtmalarim' },
+  { key: 'favorites', label: 'Sevimlilar' },
+]
+
+const COLORS: { key: ButtonColor; label: string; swatch: string }[] = [
+  { key: '', label: 'Odatiy', swatch: '#8e99a4' },
+  { key: 'success', label: 'Yashil', swatch: '#2fa84f' },
+  { key: 'primary', label: 'Ko‘k', swatch: '#2f80ed' },
+  { key: 'danger', label: 'Qizil', swatch: '#e5484d' },
+]
+
+/** Serverga ketadigan manzil: api/_lib/actions/people.ts → appLink. */
+function targetOf(b: ButtonDraft): string {
+  if (b.target === 'category') return `cat:${b.value}`
+  if (b.target === 'section') return `sec:${b.value}`
+  if (b.target === 'product') return `product:${b.value}`
+  return b.target
+}
+
+const NEW_BUTTON: ButtonDraft = {
+  kind: 'app', text: '', textRu: '', url: '', target: 'home', value: '', style: '',
+}
 
 /** Telegram izoh chegarasi — uzunroq matn rasmdan keyin alohida xabar bo'lib ketadi. */
 const CAPTION_MAX = 1024
 const MAX_BUTTONS = 4
 const plainLength = (value: string) => value.replace(/<[^>]+>/g, '').length
-const buttonError = (b: ButtonDraft) =>
-  !b.text.trim()
-    ? 'Tugma matnini yozing'
-    : b.kind === 'url' && !/^(https?:\/\/|tg:\/\/)\S+$/i.test(b.url.trim())
-      ? 'Havola https:// bilan boshlansin'
-      : ''
+function buttonError(b: ButtonDraft): string {
+  if (!b.text.trim()) return 'Tugma matnini yozing'
+  if (b.kind === 'url') return /^(https?:\/\/|tg:\/\/)\S+$/i.test(b.url.trim()) ? '' : 'Havola https:// bilan boshlansin'
+  if (b.target === 'category' && !b.value) return 'Kategoriyani tanlang'
+  if (b.target === 'section' && !b.value) return 'Bo‘limni tanlang'
+  if (b.target === 'product' && !b.value) return 'Mahsulotni tanlang'
+  return ''
+}
 
 const DAY = 24 * 60 * 60 * 1000
 const CHUNK = 25
@@ -57,6 +102,7 @@ export function BroadcastPage() {
   const { orders } = useOrders(undefined, 'all')
   const { products } = useProducts()
   const { categories } = useCategories()
+  const { sections } = useSections()
   const { show, node: toast } = useToast()
 
   const [text, setText] = useState('')
@@ -122,7 +168,14 @@ export function BroadcastPage() {
     setProgress({ ...totals })
     // Birinchi bo'lakdan keyin Telegram fayl id'sini qaytaradi — qolganlariga shu ketadi
     let mediaId: string | null = null
-    const cleanButtons = buttons.map((b) => ({ ...b, text: b.text.trim(), textRu: b.textRu.trim(), url: b.url.trim() }))
+    const cleanButtons = buttons.map((b) => ({
+      kind: b.kind,
+      text: b.text.trim(),
+      textRu: b.textRu.trim(),
+      url: b.url.trim(),
+      target: b.kind === 'app' ? targetOf(b) : '',
+      style: b.style,
+    }))
 
     try {
       for (let i = 0; i < ids.length && !cancelled.current; i += CHUNK) {
@@ -177,6 +230,7 @@ export function BroadcastPage() {
       setUploading(false)
     }
   }
+  const sortedProducts = useMemo(() => [...products].sort((a, b) => a.name.localeCompare(b.name)), [products])
   const editButton = (index: number, patch: Partial<ButtonDraft>) =>
     setButtons(buttons.map((b, i) => (i === index ? { ...b, ...patch } : b)))
 
@@ -280,7 +334,7 @@ export function BroadcastPage() {
                         className={b.kind === 'app' ? 'active' : ''}
                         onClick={() => editButton(index, { kind: 'app' })}
                       >
-                        <Smartphone size={13} /> Ilovani ochish
+                        <Smartphone size={13} /> Ilovada ochish
                       </button>
                       <button
                         type="button"
@@ -328,10 +382,71 @@ export function BroadcastPage() {
                       />
                     )}
                   </div>
-                  {error && (b.text || b.url) ? (
-                    <p className="mt-1 text-xs" style={{ color: 'var(--danger)' }}>{error}</p>
-                  ) : b.kind === 'app' && (
-                    <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>Bosilganda MUSA mini ilovasi ochiladi</p>
+
+                  {/* Mini ilovada qayer ochilsin */}
+                  {b.kind === 'app' && (
+                    <>
+                      <p className="adm-bc-sub">Bosilganda ochiladi:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {TARGETS.map((t) => (
+                          <button
+                            key={t.key}
+                            type="button"
+                            className={'adm-chip ' + (b.target === t.key ? 'active' : '')}
+                            onClick={() => editButton(index, { target: t.key, value: '' })}
+                            disabled={running}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                      {b.target === 'category' && (
+                        <select className="adm-input mt-2" value={b.value} onChange={(e) => editButton(index, { value: e.target.value })}>
+                          <option value="">Kategoriyani tanlang…</option>
+                          {categories.map((c) => <option key={String(c.id)} value={c.name}>{c.name}</option>)}
+                        </select>
+                      )}
+                      {b.target === 'section' && (
+                        <select className="adm-input mt-2" value={b.value} onChange={(e) => editButton(index, { value: e.target.value })}>
+                          <option value="">Bo‘limni tanlang…</option>
+                          {/* Kategoriya bo'yicha guruhlangan — bir xil nomli bo'limlar adashmasin */}
+                          {categories.map((c) => {
+                            const list = sections.filter((s) => s.category === c.name)
+                            return list.length ? (
+                              <optgroup key={String(c.id)} label={c.name}>
+                                {list.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                              </optgroup>
+                            ) : null
+                          })}
+                        </select>
+                      )}
+                      {b.target === 'product' && (
+                        <select className="adm-input mt-2" value={b.value} onChange={(e) => editButton(index, { value: e.target.value })}>
+                          <option value="">Mahsulotni tanlang…</option>
+                          {sortedProducts.map((p) => <option key={p.docId} value={String(p.id)}>{p.name}</option>)}
+                        </select>
+                      )}
+                    </>
+                  )}
+
+                  {/* Tugma rangi — Telegram'ning o'zi shu uch rangni beradi */}
+                  <p className="adm-bc-sub">Rangi:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {COLORS.map((c) => (
+                      <button
+                        key={c.key || 'default'}
+                        type="button"
+                        className={'adm-chip inline-flex items-center gap-1.5 ' + (b.style === c.key ? 'active' : '')}
+                        onClick={() => editButton(index, { style: c.key })}
+                        disabled={running}
+                      >
+                        <span className="adm-bc-swatch" style={{ background: c.swatch }} /> {c.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {error && (b.text || b.url || b.target !== 'home') && (
+                    <p className="mt-1.5 text-xs" style={{ color: 'var(--danger)' }}>{error}</p>
                   )}
                 </div>
               )
@@ -340,7 +455,7 @@ export function BroadcastPage() {
               <button
                 type="button"
                 className="adm-btn adm-btn--ghost self-start"
-                onClick={() => setButtons([...buttons, { kind: buttons.length ? 'url' : 'app', text: '', textRu: '', url: '' }])}
+                onClick={() => setButtons([...buttons, { ...NEW_BUTTON }])}
                 disabled={running}
               >
                 <Plus size={16} /> Tugma qo‘shish
@@ -464,7 +579,7 @@ export function BroadcastPage() {
                 {(text.trim() || !media) && <p>{text.trim() || 'Xabar matni shu yerda ko‘rinadi...'}</p>}
               </div>
               {buttons.map((b, i) => (
-                <span key={i} className="adm-bc-preview__btn">
+                <span key={i} className={'adm-bc-preview__btn' + (b.style ? ` is-${b.style}` : '')}>
                   {b.text.trim() || 'Tugma'}
                   {b.kind === 'url' ? <ExternalLink size={11} /> : <Smartphone size={11} />}
                 </span>

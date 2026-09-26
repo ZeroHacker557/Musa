@@ -84,7 +84,24 @@ function loadCart(): CartItems {
  * fragmentga o'z parametrlarini (`tgWebAppData` va boshqalar) qo'shadi,
  * query esa o'zgarmay qoladi.
  */
+/**
+ * Botdagi tugmadan kelgan havola (ommaviy xabar → «Ilovada ochish»):
+ *   ?cat=<kategoriya nomi>  — katalog shu kategoriyada;
+ *   ?sec=<bo'lim id>        — katalog shu bo'limga suriladi;
+ *   ?product=<mahsulot id>  — mahsulot sahifasi.
+ * Server tomoni: api/_lib/actions/people.ts → appLink.
+ */
+const DEEP_LINK = (() => {
+  try {
+    const q = new URLSearchParams(window.location.search)
+    return { cat: q.get('cat'), sec: q.get('sec'), product: q.get('product') }
+  } catch {
+    return { cat: null, sec: null, product: null }
+  }
+})()
+
 function initialPage(): AppPage {
+  if (DEEP_LINK.cat !== null || DEEP_LINK.sec) return 'catalog'
   try {
     const requested = new URLSearchParams(window.location.search).get('page')
     const allowed: AppPage[] = ['home', 'catalog', 'favorites', 'orders', 'profile']
@@ -102,7 +119,7 @@ export function useShopStore() {
   // Telegram BackButton shu tarix bo'yicha ishlaydi (D-03)
   const [history, setHistory] = useState<AppPage[]>([])
   // Bosh sahifadan tanlangan kategoriya katalogga uzatiladi (F-16)
-  const [catalogCategory, setCatalogCategory] = useState<string | null>(null)
+  const [catalogCategory, setCatalogCategory] = useState<string | null>(DEEP_LINK.cat)
   /** Katalog ochilganda shu bo'limga surib boriladi (reklama tugmasidan). */
   const [catalogSection, setCatalogSection] = useState<string | null>(null)
   /** Firestore'dagi xom mahsulotlar. Ekranda — pastdagi `products` (til va aksiya qo'llangan). */
@@ -289,7 +306,18 @@ export function useShopStore() {
       () => {},
     )
 
-    const unsubSections = subscribeToSections(setSections)
+    let sectionLinkHandled = !DEEP_LINK.sec
+    const unsubSections = subscribeToSections((list) => {
+      setSections(list)
+      // Botdagi «bo'limni ochish» tugmasi — birinchi kelganda bir marta
+      if (sectionLinkHandled || !list.length) return
+      sectionLinkHandled = true
+      const section = list.find((s) => s.id === DEEP_LINK.sec)
+      if (section) {
+        setCatalogCategory(section.category)
+        setCatalogSection(section.id)
+      }
+    })
     const unsubPromotions = subscribeToPromotions(setPromotions)
     const timer = window.setInterval(() => setClock(Date.now()), 30_000)
 
@@ -636,6 +664,19 @@ export function useShopStore() {
       })
     }, { scrollTop: 0 })
   }, [page, rememberScroll])
+
+  /*
+   * Mahsulot havolasi mahsulotlar kelgach bir marta ochiladi (bo'lim
+   * havolasi — subscribeToSections ichida). Topilmasa (o'chirilgan) —
+   * ilova odatdagidek ochiladi.
+   */
+  const productLinkHandled = useRef(!DEEP_LINK.product)
+  useEffect(() => {
+    if (productLinkHandled.current || !products.length) return
+    productLinkHandled.current = true
+    const product = products.find((p) => String(p.id) === DEEP_LINK.product)
+    if (product) openProduct(product)
+  }, [products, openProduct])
 
   const toggleLike = useCallback((id: number) => {
     setLikedIds((current) => {

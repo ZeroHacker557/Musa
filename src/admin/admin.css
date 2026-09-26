@@ -903,6 +903,8 @@
   font-weight: 700;
 }
 .adm-bc-kind button.active { background: var(--surface); color: var(--brand); box-shadow: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / 0.1)); }
+.adm-bc-sub { margin: 0.6rem 0 0.35rem; color: var(--muted); font-size: 0.72rem; font-weight: 700; }
+.adm-bc-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
 .adm-bc-preview { display: flex; max-width: 340px; flex-direction: column; gap: 4px; }
 .adm-bc-preview__bubble {
   overflow: hidden;
@@ -925,6 +927,10 @@
   font-size: 0.8rem;
   font-weight: 700;
 }
+/* Telegram tugma ranglari */
+.adm-bc-preview__btn.is-success { background: #2fa84f; color: #fff; }
+.adm-bc-preview__btn.is-primary { background: #2f80ed; color: #fff; }
+.adm-bc-preview__btn.is-danger { background: #e5484d; color: #fff; }
 
 .adm-audience { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
 .adm-audience__item {

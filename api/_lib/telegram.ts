@@ -11,14 +11,20 @@ const API = 'https://api.telegram.org/bot'
 
 export type SendResult = { ok: true; messageId: number } | { ok: false; error: string }
 
-type InlineButton = { text: string; url: string }
+/**
+ * Tugma rangi (Bot API): danger — qizil, success — yashil, primary — ko'k.
+ * Berilmasa — Telegram'ning odatiy rangi.
+ */
+export type ButtonStyle = 'danger' | 'success' | 'primary'
+
+type InlineButton = { text: string; url: string; style?: ButtonStyle }
 /** Bot ichida ishlov beriladigan tugma (bot/bot.py dagi cb_courier). */
 type CallbackButton = { text: string; callback_data: string }
 /**
  * Mini app'ni to'g'ridan-to'g'ri ochadigan tugma. Faqat SHAXSIY chatda
  * ishlaydi — guruhda Telegram uni rad etadi.
  */
-export type WebAppButton = { text: string; web_app: { url: string } }
+export type WebAppButton = { text: string; web_app: { url: string }; style?: ButtonStyle }
 export type AnyButton = InlineButton | CallbackButton | WebAppButton
 
 function token(): string {

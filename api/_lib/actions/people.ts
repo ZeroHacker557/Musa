@@ -1,5 +1,5 @@
 import { adminAuth, adminDb } from '../firebase-admin.js'
-import { sendMedia, sendMessage, sendRows, type AnyButton } from '../telegram.js'
+import { sendMedia, sendMessage, sendRows, type AnyButton, type ButtonStyle } from '../telegram.js'
 import { normalizeLang, type Lang } from '../i18n.js'
 import { verifyInitData } from '../telegram-auth.js'
 import type { Staff, StaffRole } from '../admin-auth.js'
@@ -210,7 +210,31 @@ const CAPTION_MAX = 1024
 const MAX_BUTTONS = 4
 
 type BroadcastMedia = { kind: 'photo' | 'video'; url: string; fileId: string | null }
-type BroadcastButton = { text: string; textRu: string; kind: 'url' | 'app'; url: string }
+type BroadcastButton = {
+  text: string
+  textRu: string
+  kind: 'url' | 'app'
+  url: string
+  /** Mini ilovada qayer ochilishi (faqat `app`): home, catalog, cat:<nom>, sec:<id>, product:<id>… */
+  target: string
+  style: ButtonStyle | null
+}
+
+const STYLES: ButtonStyle[] = ['danger', 'success', 'primary']
+/** `?page=` bilan ochiladigan sahifalar — mini ilovadagi initialPage bilan bir xil. */
+const APP_PAGES = ['catalog', 'favorites', 'orders', 'profile']
+
+/**
+ * Mini ilova havolasi. Parametrlarni ilovaning o'zi o'qiydi
+ * (src/hooks/use-shop-store.ts → DEEP_LINK): `cat`, `sec`, `product`.
+ */
+function appLink(base: string, target: string): string {
+  if (!target || target === 'home') return `${base}/`
+  if (APP_PAGES.includes(target)) return `${base}/?page=${target}`
+  const match = /^(cat|sec|product):(.{1,200})$/s.exec(target)
+  if (!match || !match[2].trim()) throw new Error('Tugma qayerni ochishi noto‘g‘ri tanlangan')
+  return `${base}/?${match[1]}=${encodeURIComponent(match[2].trim())}`
+}
 
 /** Rasm/video: faqat https havola; `fileId` — oldingi bo'lakda Telegram bergan. */
 function readMedia(value: unknown): BroadcastMedia | null {
@@ -244,7 +268,10 @@ function readButtons(value: unknown): BroadcastButton[] {
     if (kind === 'url' && !/^(https?:\/\/|tg:\/\/)\S+$/i.test(url)) {
       throw new Error(`${n}-tugmaning havolasi noto‘g‘ri — https:// bilan boshlansin`)
     }
-    return { text: label, textRu: labelRu, kind, url: kind === 'url' ? url : '' }
+    const target = kind === 'app' ? text(raw.target) || 'home' : ''
+    if (kind === 'app') appLink('https://x', target) // noto'g'ri bo'lsa shu yerda xato beradi
+    const style = STYLES.includes(raw.style as ButtonStyle) ? (raw.style as ButtonStyle) : null
+    return { text: label, textRu: labelRu, kind, url: kind === 'url' ? url : '', target, style }
   })
 }
 
@@ -273,7 +300,10 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
   const rowsFor = (lang: Lang): AnyButton[][] =>
     buttons.map((b) => {
       const label = lang === 'ru' && b.textRu ? b.textRu : b.text
-      return [b.kind === 'app' ? { text: label, web_app: { url: app! } } : { text: label, url: b.url }]
+      const button: AnyButton = b.kind === 'app'
+        ? { text: label, web_app: { url: appLink(app!, b.target) } }
+        : { text: label, url: b.url }
+      return [b.style ? { ...button, style: b.style } : button]
     })
 
   const db = await adminDb()
