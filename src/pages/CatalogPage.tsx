@@ -179,7 +179,7 @@ export function CatalogPage({
                   <span className="catalog-group__count">{group.products.length}</span>
                   <span className="catalog-group__line" aria-hidden="true" />
                 </h2>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                <div className="grid grid-flow-row-dense grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                   {group.products.map((product) => (
                     <ProductCard key={product.id} product={product} {...actions} />
                   ))}
@@ -187,7 +187,7 @@ export function CatalogPage({
               </div>
             ))
           ) : (
-            <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="mt-5 grid grid-flow-row-dense grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {shown.map((product) => (
                 <ProductCard key={product.id} product={product} {...actions} />
               ))}

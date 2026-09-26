@@ -155,7 +155,11 @@ export function ProductDetailPage({
         {/* pd-hero — kartadagi rasm shu yerga kattalashib o'tadi (view-transition.ts) */}
         <div
           data-fly-source
-          className="pd-hero relative mx-auto h-[280px] w-full overflow-hidden rounded-2xl border sm:h-[380px]"
+          className={
+            'pd-hero relative mx-auto w-full overflow-hidden rounded-2xl border '
+            // Set rasmi 16:9 — maydon ham shunday, tepa-pastda oq bo'shliq qolmasin
+            + (product.bundle?.length ? 'aspect-video' : 'h-[280px] sm:h-[380px]')
+          }
           style={{
             // Shaffof PNG'lar uchun fon yuzaning o'zi; ramka chegara bilan beriladi
             background: 'var(--surface)',

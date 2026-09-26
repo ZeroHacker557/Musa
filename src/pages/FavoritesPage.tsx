@@ -38,7 +38,7 @@ export function FavoritesPage({
         {loading ? (
           <ProductGridSkeleton count={Math.min(Math.max(likedIds.length, 2), 6)} />
         ) : favorites.length > 0 ? (
-          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-6 grid grid-flow-row-dense grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {favorites.map((product) => (
               <ProductCard key={product.id} product={product} likedIds={likedIds} {...actions} />
             ))}
