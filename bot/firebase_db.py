@@ -1,6 +1,7 @@
 """
 Firebase Firestore & Storage Integration for Python Telegram Bot
 """
+import json
 import math
 import os
 import uuid
@@ -17,13 +18,26 @@ from config import (
 
 KEY_FILENAME = FIREBASE_KEY_FILE
 
-# Search for service account key file in root or bot dir
-key_path = KEY_FILENAME
-if not os.path.exists(key_path):
-    key_path = os.path.join(os.path.dirname(__file__), "..", KEY_FILENAME)
+
+def _credentials():
+    '''
+    Service account kaliti.
+
+    Serverda (Railway) fayl yo'q — u .gitignore'da. U yerda kalit JSON
+    matni `FIREBASE_SERVICE_ACCOUNT` o'zgaruvchisida turadi. Kompyuterda
+    esa avvalgidek fayldan (loyiha ildizida yoki bot/ papkasida).
+    '''
+    raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
+    if raw:
+        return credentials.Certificate(json.loads(raw))
+    key_path = KEY_FILENAME
+    if not os.path.exists(key_path):
+        key_path = os.path.join(os.path.dirname(__file__), "..", KEY_FILENAME)
+    return credentials.Certificate(key_path)
+
 
 if not firebase_admin._apps:
-    cred = credentials.Certificate(key_path)
+    cred = _credentials()
     firebase_admin.initialize_app(cred, {
         'storageBucket': FIREBASE_STORAGE_BUCKET
     })
