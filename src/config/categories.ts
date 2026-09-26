@@ -1,6 +1,7 @@
 import yarimTayyor from '../images/cat-yarim-tayyor.webp'
 import muzqaymoq from '../images/cat-muzqaymoq.webp'
 import sirok from '../images/cat-sirok.webp'
+import setlar from '../images/cat-setlar.webp'
 import type { Category } from '../types/domain'
 
 /**
@@ -37,6 +38,8 @@ export type MainLine = {
    * o'zgarmaydi — bu faqat ko'rinish: uzun nom chipni cho'zib yuborardi.
    */
   short?: string
+  /** Keng karta (butun qator, 2.2:1) — birinchisi doim keng. */
+  wide?: boolean
 }
 
 export const MAIN_LINES: MainLine[] = [
@@ -62,6 +65,16 @@ export const MAIN_LINES: MainLine[] = [
     icon: 'sirok',
     gradient: 'linear-gradient(135deg, #d9a52a 0%, #7a5406 100%)',
     image: sirok,
+  },
+  {
+    // Admin «Set qo'shish» shu kategoriyaga qo'yadi (ProductsPage → SET_CATEGORY)
+    name: 'Setlar',
+    nameRu: 'Наборы',
+    icon: 'set',
+    gradient: 'linear-gradient(135deg, #f59e0b 0%, #c2410c 100%)',
+    // 1320x600 (2.2:1), yozuv chap pastda
+    image: setlar,
+    wide: true,
   },
 ]
 

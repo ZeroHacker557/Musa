@@ -165,7 +165,7 @@ export function HomePage({
         </div>
       </section>
 
-      {/* Asosiy yo'nalishlar — uchta yirik karta.
+      {/* Asosiy yo'nalishlar — yirik kartalar (birinchisi va Setlar keng).
           Foto qo'yish uchun: MAIN_LINES dagi `image` maydonini to'ldiring
           (src/config/categories.ts) — gradient o'rniga rasm ko'rinadi. */}
       <section className="px-5 pt-8 sm:px-10">
@@ -177,7 +177,7 @@ export function HomePage({
               <button
                 key={line.name}
                 onClick={() => onOpenCategory(line.name)}
-                className={'line-card' + (index === 0 ? ' line-card--wide' : '')}
+                className={'line-card' + (index === 0 || line.wide ? ' line-card--wide' : '')}
                 data-reveal
                 style={{
                   ...(line.image ? { backgroundImage: `url(${line.image})` } : { backgroundImage: line.gradient }),
@@ -185,7 +185,7 @@ export function HomePage({
                 }}
               >
                 {!line.image && (
-                  <Icon className="line-card__icon" size={index === 0 ? 128 : 104} aria-hidden="true" />
+                  <Icon className="line-card__icon" size={index === 0 || line.wide ? 128 : 104} aria-hidden="true" />
                 )}
                 <span className="line-card__title">{categoryLabel(line, lang)}</span>
               </button>
