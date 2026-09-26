@@ -204,7 +204,6 @@ export const uz = {
   'orders.details': 'Tafsilotlar',
   'orders.openMap': 'Xaritadan ochish',
   'orders.reorder': 'Qayta buyurtma',
-  'product.setBadge': 'SET · {n} ta',
   'product.setContents': 'Set tarkibi',
   'product.setItems': '{n} ta mahsulot',
   'product.setSeparately': 'Alohida olsangiz',

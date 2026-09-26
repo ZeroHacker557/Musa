@@ -21,23 +21,6 @@ function readMini(): string | null {
   }
 }
 
-/**
- * Pastki menyuning haqiqiy balandligi. U yozuvlar sig'ishiga qarab
- * o'zgaradi (tor ekranda «Bosh sahifa» ikki qatorga tushadi) — kartochka
- * doim menyuning ustida tursin, unga tegmasin.
- */
-function useNavHeight(): number | null {
-  const [height, setHeight] = useState<number | null>(null)
-  useEffect(() => {
-    const nav = document.querySelector<HTMLElement>('.bottom-nav')
-    if (!nav || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(() => setHeight(nav.getBoundingClientRect().height))
-    observer.observe(nav)
-    return () => observer.disconnect()
-  }, [])
-  return height
-}
-
 /** Halqa: r=19 → aylana uzunligi. */
 const RING_R = 19
 const RING_C = 2 * Math.PI * RING_R
@@ -102,9 +85,7 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
   // Yig'ish shu holat uchun; kuryer yetib kelsa kalit o'zgaradi va kartochka yana ochiladi
   const stateKey = order ? `${order.id}:${order.arrivedAt ? 'arrived' : 'way'}` : ''
   const [mini, setMini] = useState(readMini)
-  const navHeight = useNavHeight()
   if (!order) return null
-  const above = navHeight ? { bottom: navHeight + 10 } : undefined
 
   const setMiniFor = (value: string | null) => {
     setMini(value)
@@ -155,7 +136,6 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
       <button
         className={'dlv-bubble ' + (arrived ? 'is-arrived' : '')}
         onClick={() => setMiniFor(null)}
-        style={above}
         aria-label={`${title} · ${eta}`}
       >
         <RingIcon progress={progress} arrived={arrived} />
@@ -168,7 +148,7 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
   }
 
   return (
-    <div className={'dlv ' + (arrived ? 'is-arrived' : '')} style={above} role="status" aria-live="polite">
+    <div className={'dlv ' + (arrived ? 'is-arrived' : '')} role="status" aria-live="polite">
       <button className="dlv__main" onClick={() => onOpen(order)} aria-label={t('delivery.follow')}>
         <RingIcon progress={progress} arrived={arrived} />
         <span className="dlv__text">

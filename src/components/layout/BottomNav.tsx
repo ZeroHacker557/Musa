@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { Grid2X2, Home, ShoppingBag, ShoppingCart, UserRound } from 'lucide-react'
 import { useT, type TranslationKey } from '../../i18n'
 import type { AppPage } from '../../types/domain'
@@ -36,9 +37,31 @@ type Props = {
 
 export function BottomNav({ page, onNavigate, onOpenCart, cartOpen, cartCount, ordersBadge = 0 }: Props) {
   const t = useT()
+  const ref = useRef<HTMLElement>(null)
+
+  /*
+   * Menyuning haqiqiy balandligi `--nav-h` ga yoziladi. U yozuvlar
+   * sig'ishiga qarab o'zgaradi (tor ekranda «Bosh sahifa» ikki qatorga
+   * tushadi) — menyu ustida suzadigan kartochkalar (Kuryer yo'lda) shunga
+   * tayanadi va menyuni hech qachon to'smaydi.
+   */
+  useEffect(() => {
+    const nav = ref.current
+    if (!nav) return
+    const root = document.documentElement
+    const apply = () => root.style.setProperty('--nav-h', `${Math.ceil(nav.getBoundingClientRect().height)}px`)
+    apply()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(apply)
+    observer.observe(nav)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--nav-h')
+    }
+  }, [])
 
   return (
-    <nav className="bottom-nav">
+    <nav ref={ref} className="bottom-nav">
       {items.map(({ id, labelKey, icon: Icon }) => {
         const isCart = id === 'cart'
         // Savat ochiq bo'lsa faqat savat yonadi — ostidagi sahifa emas

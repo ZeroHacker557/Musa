@@ -197,7 +197,6 @@ export const ru: Record<TranslationKey, string> = {
   'orders.details': 'Подробнее',
   'orders.openMap': 'Открыть на карте',
   'orders.reorder': 'Повторить заказ',
-  'product.setBadge': 'НАБОР · {n} шт',
   'product.setContents': 'Состав набора',
   'product.setItems': 'товаров: {n}',
   'product.setSeparately': 'По отдельности',

@@ -1199,13 +1199,6 @@ a { color: inherit; text-decoration: none; }
   line-height: 1.35;
 }
 
-/* Set (to'plam) */
-.product-card-badge.is-set {
-  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
-  color: #fff;
-  letter-spacing: 0.02em;
-}
-
 .product-card-body {
   display: flex;
   flex-direction: column;
@@ -3738,7 +3731,9 @@ a { color: inherit; text-decoration: none; }
   --dlv-soft: var(--brand-soft);
   position: fixed;
   left: 50%;
-  bottom: calc(4.9rem + var(--safe-bottom));
+  /* Menyu balandligi BottomNav'dan (--nav-h); o'lchanmagan bo'lsa — zaxira
+     qiymat menyudan baland, kartochka baribir uni to'smaydi */
+  bottom: calc(var(--nav-h, calc(5.75rem + var(--safe-bottom))) + 10px);
   z-index: 30;
   display: flex;
   align-items: stretch;
@@ -3754,9 +3749,6 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink);
   box-shadow: 0 10px 28px rgb(4 18 11 / 0.14), 0 1px 3px rgb(0 0 0 / 0.06);
   animation: dlvIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-@media (min-width: 640px) {
-  .dlv { bottom: calc(5.4rem + var(--safe-bottom)); }
 }
 .dlv.is-arrived {
   --dlv-accent: var(--gold);
@@ -3901,7 +3893,7 @@ a { color: inherit; text-decoration: none; }
   --dlv-soft: var(--brand-soft);
   position: fixed;
   right: 0.9rem;
-  bottom: calc(5.2rem + var(--safe-bottom));
+  bottom: calc(var(--nav-h, calc(5.75rem + var(--safe-bottom))) + 10px);
   z-index: 30;
   display: grid;
   width: 56px;
@@ -3937,9 +3929,6 @@ a { color: inherit; text-decoration: none; }
   border: 2px solid var(--surface);
   border-radius: 50%;
   background: #22c55e;
-}
-@media (min-width: 640px) {
-  .dlv-bubble { bottom: calc(5.7rem + var(--safe-bottom)); }
 }
 
 @keyframes dlvIn {

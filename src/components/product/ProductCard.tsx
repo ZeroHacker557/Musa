@@ -23,30 +23,32 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
   // Set: nechta mahsulot va alohida olinganda qancha bo'lardi
   const setCount = product.bundleItems?.reduce((sum, line) => sum + line.quantity, 0) ?? 0
   const setValue = product.bundleValue && product.bundleValue > product.price ? product.bundleValue : null
+  // Set kartochkasi toza turadi: yurakcha va chegirma foizi faqat set sahifasining ichida
+  const isSet = setCount > 0 || Boolean(product.bundle?.length)
 
   return (
     // data-fly-source — savatga uchadigan rasm shu kartadan olinadi;
     // data-product-id — orqaga qaytishda rasm shu kartaga qaytib kiradi
     <article className={'product-card group ' + (compact ? 'compact' : '')} data-fly-source data-product-id={product.id}>
-      <button
-        className={'product-card-like ' + (favourite ? 'liked' : '')}
-        onClick={(e) => {
-          e.stopPropagation()
-          // Qo'shilayotganda — yurakchalar sochiladi (olib tashlashda emas)
-          if (!favourite) heartBurst(e.currentTarget)
-          onToggleLike(product.id)
-        }}
-        aria-label={t('favorites.title')}
-        aria-pressed={favourite}
-      >
-        <Heart size={18} fill={favourite ? 'currentColor' : 'none'} />
-      </button>
+      {!isSet && (
+        <button
+          className={'product-card-like ' + (favourite ? 'liked' : '')}
+          onClick={(e) => {
+            e.stopPropagation()
+            // Qo'shilayotganda — yurakchalar sochiladi (olib tashlashda emas)
+            if (!favourite) heartBurst(e.currentTarget)
+            onToggleLike(product.id)
+          }}
+          aria-label={t('favorites.title')}
+          aria-pressed={favourite}
+        >
+          <Heart size={18} fill={favourite ? 'currentColor' : 'none'} />
+        </button>
+      )}
 
       {soldOut ? (
         <span className="product-card-badge muted">{t('product.soldOut')}</span>
-      ) : setCount > 0 ? (
-        <span className="product-card-badge is-set">{t('product.setBadge', { n: setCount })}</span>
-      ) : product.discount ? (
+      ) : product.discount && !isSet ? (
         <span className="product-card-badge">{product.discount}</span>
       ) : null}
 
@@ -71,7 +73,10 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
         <div className="product-card-info">
           <h3 className="product-card-name">{product.name}</h3>
           {/* Vazni bo'lmasa ham joy qoladi — qatordagi kartochkalar bir tekis turadi */}
-          <p className="product-card-weight">{weight}</p>
+          <p className="product-card-weight">
+            {/* Setda vazn o'rniga — ichida nechta mahsulot borligi */}
+            {setCount > 0 ? t('product.setItems', { n: setCount }) : weight}
+          </p>
           {!compact && (
             <p className="product-card-rating">
               <Star size={14} fill="var(--warning)" style={{ color: 'var(--warning)' }} />
