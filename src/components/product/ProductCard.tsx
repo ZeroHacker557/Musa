@@ -25,6 +25,8 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
   const setValue = product.bundleValue && product.bundleValue > product.price ? product.bundleValue : null
   // Set kartochkasi toza turadi: yurakcha va chegirma foizi faqat set sahifasining ichida
   const isSet = setCount > 0 || Boolean(product.bundle?.length)
+  /** Raqam valyutasiz — set yorlig'ida joy tor. */
+  const digits = (amount: number) => Math.round(amount).toLocaleString('ru-RU').replace(/\s/g, ' ')
 
   return (
     // data-fly-source — savatga uchadigan rasm shu kartadan olinadi;
@@ -87,15 +89,28 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
       </button>
 
       <div className="product-card-footer">
-        <div className="product-card-price-block">
-          <p className="product-card-price">{formatPrice(product.price)}</p>
-          {product.oldPrice && !compact ? (
-            <p className="product-card-old-price">{formatPrice(product.oldPrice)}</p>
-          ) : setValue && !compact ? (
-            // Set — tarkibni alohida olsa qancha bo'lardi
-            <p className="product-card-old-price">{formatPrice(setValue)}</p>
-          ) : null}
-        </div>
+        {isSet ? (
+          /* Set: sariq narx yorlig'i, tepasida — tarkibni alohida olsa qancha
+             bo'lardi (qo'lda chizilgandek o'chirilgan). Mijoz farqni darrov ko'radi. */
+          <div className="product-card-price-block set-price">
+            {setValue && !compact && (
+              <p className="set-price__was">
+                {t('product.setWas')} <s>{digits(setValue)}</s>
+              </p>
+            )}
+            {/* Kartochkada joy tor — yorliqda faqat raqam, to'liq narx ekran o'quvchi uchun */}
+            <p className="set-price__tag" aria-label={formatPrice(product.price)}>
+              {digits(product.price)}
+            </p>
+          </div>
+        ) : (
+          <div className="product-card-price-block">
+            <p className="product-card-price">{formatPrice(product.price)}</p>
+            {product.oldPrice && !compact && (
+              <p className="product-card-old-price">{formatPrice(product.oldPrice)}</p>
+            )}
+          </div>
+        )}
         {/* Savatga qo'shilgan bo'lsa — shu yerning o'zida «− soni +».
             Mijoz savatni ochmay turib sonini o'zgartira oladi. */}
         {qty > 0 ? (

@@ -200,6 +200,7 @@ export const ru: Record<TranslationKey, string> = {
   'product.setContents': 'Состав набора',
   'product.setItems': 'товаров: {n}',
   'product.setSeparately': 'По отдельности',
+  'product.setWas': 'Отдельно',
   'product.setSave': 'Экономия {amount}',
   'receipt.setIncludes': 'Состав:',
   'orders.reorderDone': 'Добавлено в корзину: {count}',

@@ -207,6 +207,7 @@ export const uz = {
   'product.setContents': 'Set tarkibi',
   'product.setItems': '{n} ta mahsulot',
   'product.setSeparately': 'Alohida olsangiz',
+  'product.setWas': 'Alohida',
   'product.setSave': '{amount} tejaysiz',
   'receipt.setIncludes': 'Tarkibi:',
   'orders.reorderDone': '{count} ta mahsulot savatga qo‘shildi',
