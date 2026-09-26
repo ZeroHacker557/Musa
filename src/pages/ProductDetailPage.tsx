@@ -4,7 +4,9 @@ import { heartBurst } from '../utils/burst'
 import { PromoTimer } from '../components/promo/PromoTimer'
 import { productOriginal, productPhoto, productThumb } from '../utils/product-image'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, Heart, Minus, MessageSquare, Plus, ShoppingCart, Star, Truck, UserRound, ZoomIn } from 'lucide-react'
+import {
+  ArrowLeft, Heart, Minus, MessageSquare, Plus, ShoppingBag, ShoppingCart, Star, Truck, UserRound, ZoomIn,
+} from 'lucide-react'
 import { formatPrice } from '../data'
 import { hapticSuccess, getTelegramUser, showAlert } from '../utils/telegram'
 import { ProductImage } from '../components/product/ProductImage'
@@ -426,7 +428,7 @@ export function ProductDetailPage({
             paddingBottom: 'calc(1rem + var(--safe-bottom))',
           }}
         >
-          <div className="mx-auto flex max-w-[1120px] items-center gap-3">
+          <div className="mx-auto flex max-w-[1120px] items-center gap-2 sm:gap-3">
             <div className="hidden sm:block">
               <b className="text-xl" style={{ color: 'var(--ink)' }}>{formatPrice(product.price)}</b>
             </div>
@@ -450,11 +452,24 @@ export function ProductDetailPage({
                 <Plus size={18} />
               </button>
             </div>
-            <button onClick={handleAddToCart} disabled={soldOut} className="btn-primary ml-auto flex-1 py-3.5">
-              <ShoppingCart size={20} />
-              <span className="text-sm sm:text-base">
+            <button onClick={handleAddToCart} disabled={soldOut} className="btn-primary pd-add ml-auto flex-1 py-3.5">
+              <ShoppingCart size={19} />
+              <span className="truncate text-sm sm:text-base">
                 {soldOut ? t('product.soldOut') : t('product.addToCart')}
               </span>
+            </button>
+            {/* Savat — soni ustida; qo'shilgan mahsulot rasmi aynan shu yerga uchadi */}
+            <button
+              type="button"
+              onClick={onOpenCart}
+              className={'pd-cart ' + (cartCount > 0 ? 'has-items' : '')}
+              data-cart-target="primary"
+              aria-label={`${t('cart.title')}${cartCount ? ` (${cartCount})` : ''}`}
+            >
+              <ShoppingBag size={22} strokeWidth={2.2} />
+              {cartCount > 0 && (
+                <span key={cartCount} className="pd-cart__badge">{cartCount > 99 ? '99+' : cartCount}</span>
+              )}
             </button>
           </div>
         </div>,

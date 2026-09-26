@@ -387,6 +387,7 @@ function App() {
               onNavigate={shop.navigate}
               lastUsedAddress={shop.myOrders[0]?.customer?.address}
               onEditAddress={(addressId) => shop.openAddresses(null, addressId)}
+              onAddAddress={() => shop.openAddresses('here')}
             />
           )}
 

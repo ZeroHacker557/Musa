@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FreeDeliveryBar } from '../components/cart/FreeDeliveryBar'
 import { useFreeDelivery } from '../hooks/use-free-delivery'
 import { productThumb } from '../utils/product-image'
@@ -12,8 +12,34 @@ import { getPaymentSettings, getDeliverySettings } from '../lib/firebase'
 import { apiErrorText } from '../utils/api-error'
 import { apiPost } from '../lib/api'
 import { useT } from '../i18n'
-import type { AppPage, DeliverySettings, OrderForm, PaymentSettings, Product, UserProfile } from '../types/domain'
+import type { Address, AppPage, DeliverySettings, OrderForm, PaymentSettings, Product, UserProfile } from '../types/domain'
 import { PageTitle } from '../components/layout/PageTitle'
+import { AddressConfirmSheet } from '../components/checkout/AddressConfirmSheet'
+
+/*
+ * Sahifa har ochilganda qayta yaratiladi, shuning uchun «oldin qaysi
+ * manzillar bor edi» va «qaysi biri tanlangan edi» modul darajasida
+ * eslab qolinadi: manzil sahifasidan qaytilganda yangi qo'shilgani o'zi
+ * tanlanadi, tahrirlangani (matni o'zgargan bo'lsa ham) tanlovdan tushmaydi.
+ */
+let knownAddressIds: Set<string> | null = null
+let pickedAddressId: string | null = null
+
+/**
+ * DEV: `?addrDemo` — Telegram'siz brauzerda profil yuklanmaydi; tasdiqlash
+ * oynasini ko'rish uchun namunaviy manzillar. Production'da `null`.
+ */
+const DEMO_PROFILE: UserProfile | null =
+  import.meta.env.DEV && new URLSearchParams(location.search).has('addrDemo')
+    ? {
+        id: 1,
+        first_name: 'Test',
+        addresses: [
+          { id: 'd1', name: 'Uy', address: 'Toshkent, Chilonzor tumani, Bunyodkor ko‘chasi, 12-uy, 45-xonadon', location: { lat: 41.28, lng: 69.2 } },
+          { id: 'd2', name: 'Ish', address: 'Toshkent, Mirzo Ulug‘bek, Buyuk Ipak Yo‘li 7', location: { lat: 41.33, lng: 69.33 } },
+        ],
+      } as UserProfile
+    : null
 
 type AppliedPromo = {
   code: string
@@ -36,12 +62,15 @@ type Props = {
   lastUsedAddress?: string
   /** Manzilni tahrirlash sahifasini ochadi. */
   onEditAddress: (addressId: string) => void
+  /** Yangi manzil — joylashuv darhol so'raladi. */
+  onAddAddress: () => void
 }
 
 export function CheckoutPage({
-  profile, cartProducts, cartTotal, orderForm, onUpdateForm, onSubmit, isSubmitting, onBack, onNavigate,
-  lastUsedAddress, onEditAddress,
+  cartProducts, cartTotal, orderForm, onUpdateForm, onSubmit, isSubmitting, onBack, onNavigate,
+  profile: realProfile, lastUsedAddress, onEditAddress, onAddAddress,
 }: Props) {
+  const profile = realProfile ?? DEMO_PROFILE
   const t = useT()
   const [copied, setCopied] = useState(false)
   /* Qabul qiluvchi boshqa odammi — qo'shimcha maydonlar shunga qarab ochiladi */
@@ -55,6 +84,8 @@ export function CheckoutPage({
   const [payment, setPayment] = useState<PaymentSettings | null>(null)
   const [delivery, setDelivery] = useState<DeliverySettings | null>(null)
   const { text: freeText } = useFreeDelivery()
+  /** «Manzilingizni tasdiqlaysizmi?» — sahifaga har kirganda bir marta. */
+  const [confirming, setConfirming] = useState(true)
 
   // useMemo: har renderdagi yangi bo'sh massiv effektlarni qayta ishga tushirmasin
   const addresses = useMemo(() => profile?.addresses || [], [profile?.addresses])
@@ -126,17 +157,37 @@ export function CheckoutPage({
     onUpdateForm('promoCode', undefined)
   }
 
+  const chooseAddress = useCallback((address: Address) => {
+    pickedAddressId = address.id
+    onUpdateForm('address', address.address)
+    onUpdateForm('location', address.location)
+  }, [onUpdateForm])
+
   /*
-   * Manzil O'ZI tanlanadi: oxirgi buyurtmada ishlatilgani, u topilmasa —
-   * birinchi qo'shilgani. Mijozning ko'pchiligida bitta manzil bor va
-   * uni har safar qo'lda belgilash ortiqcha ish edi.
+   * Manzil O'ZI tanlanadi. Tartib:
+   *   1) manzil sahifasida hozirgina qo'shilgani;
+   *   2) formada turgani (tahrirlangan bo'lsa — yangilangan matni bilan);
+   *   3) oxirgi buyurtmadagisi, bo'lmasa birinchisi.
+   * Mijozning ko'pchiligida bitta manzil bor — uni har safar qo'lda
+   * belgilash ortiqcha ish edi.
    */
   useEffect(() => {
-    if (orderForm.address || addresses.length === 0) return
-    const pick = addresses.find((a) => a.address === lastUsedAddress) ?? addresses[0]
-    onUpdateForm('address', pick.address)
-    onUpdateForm('location', pick.location)
-  }, [addresses, lastUsedAddress, orderForm.address, onUpdateForm])
+    if (addresses.length === 0) return
+    const fresh = knownAddressIds ? addresses.find((a) => !knownAddressIds!.has(a.id)) : undefined
+    knownAddressIds = new Set(addresses.map((a) => a.id))
+    const current =
+      addresses.find((a) => a.address === orderForm.address) ??
+      addresses.find((a) => a.id === pickedAddressId)
+    const pick = fresh ?? current ?? addresses.find((a) => a.address === lastUsedAddress) ?? addresses[0]
+    const sameSpot =
+      pick.address === orderForm.address &&
+      pick.location?.lat === orderForm.location?.lat &&
+      pick.location?.lng === orderForm.location?.lng
+    if (!sameSpot) chooseAddress(pick)
+    else pickedAddressId = pick.id
+  }, [addresses, lastUsedAddress, orderForm.address, orderForm.location, chooseAddress])
+
+  const selectedAddressId = addresses.find((a) => a.address === orderForm.address)?.id ?? null
 
   const isValid = Boolean(orderForm.name.trim() && orderForm.phone.trim() && orderForm.address.trim())
   const canSubmit = isValid && !isSubmitting && !belowMin
@@ -346,8 +397,7 @@ export function CheckoutPage({
                           // Tanlangan manzil qayta bosilsa — uni tahrirlashga o'tamiz:
                           // mijoz ko'pincha aynan shu manzilni to'g'rilamoqchi bo'ladi
                           if (isSelected) return onEditAddress(addr.id)
-                          onUpdateForm('address', addr.address)
-                          onUpdateForm('location', addr.location)
+                          chooseAddress(addr)
                         }}
                         /* 2px chegara va yon chiziq — 1px juda nozik edi,
                            mijoz qaysi manzil tanlanganini ilg'amasdi. */
@@ -569,6 +619,18 @@ export function CheckoutPage({
 
         <p className="mt-3 text-center text-xs" style={{ color: 'var(--faint)' }}>{t('checkout.disclaimer')}</p>
       </div>
+
+      {/* Profil yuklangach — aks holda «manzil yo'q» deb noto'g'ri chiqardi */}
+      {confirming && profile && (
+        <AddressConfirmSheet
+          addresses={addresses}
+          selectedId={selectedAddressId}
+          onSelect={chooseAddress}
+          onConfirm={() => setConfirming(false)}
+          onEdit={(id) => { setConfirming(false); onEditAddress(id) }}
+          onAddNew={() => { setConfirming(false); onAddAddress() }}
+        />
+      )}
     </>
   )
 }

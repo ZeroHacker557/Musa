@@ -10,9 +10,18 @@
 
 const TARGET = '[data-cart-target]'
 
-/** Ekranda ko'rinib turgan savat belgisi (pastki menyu yoki sahifa tepasidagi). */
+/**
+ * Ekranda ko'rinib turgan savat belgisi (pastki menyu yoki sahifa tepasidagi).
+ * `data-cart-target="primary"` — asosiysi (mahsulot sahifasi pastidagi savat):
+ * ko'rinib turgan bo'lsa, boshqalaridan oldin shu tanlanadi.
+ */
 function visibleTarget(): HTMLElement | null {
-  for (const el of document.querySelectorAll<HTMLElement>(TARGET)) {
+  const all = [...document.querySelectorAll<HTMLElement>(TARGET)]
+  const ordered = [
+    ...all.filter((el) => el.dataset.cartTarget === 'primary'),
+    ...all.filter((el) => el.dataset.cartTarget !== 'primary'),
+  ]
+  for (const el of ordered) {
     const r = el.getBoundingClientRect()
     if (r.width && r.height && r.bottom > 0 && r.top < innerHeight) return el
   }

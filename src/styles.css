@@ -581,20 +581,6 @@ a { color: inherit; text-decoration: none; }
   max-height: 300px;
 }
 
-/* Sarlavha ostidagi parda — foto qo'yilganda ham matn o'qiladi.
-   Ikki qatlam: pastdan yuqoriga va chapdan o'ngga. Mahsulot fotolari
-   kompozitsiyasida bo'sh joy chapda, sarlavha ham o'sha yerda — shu
-   tufayli chap parda matnni ajratadi, mahsulotni esa ochiq qoldiradi. */
-.line-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(to top, rgb(0 0 0 / 0.58) 0%, rgb(0 0 0 / 0.2) 42%, transparent 72%),
-    linear-gradient(to right, rgb(0 0 0 / 0.34) 0%, transparent 58%);
-  pointer-events: none;
-}
-
 .line-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-md);
@@ -4701,4 +4687,216 @@ a { color: inherit; text-decoration: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .crr-incoming, .crr-incoming__icon { animation: none; }
+}
+
+/* ====== Mahsulot sahifasi: pastki paneldagi savat ====== */
+.pd-add { min-width: 0; }
+/* Tor ekranda matn sig'ishi uchun belgi yashiriladi */
+@media (max-width: 380px) {
+  .pd-add svg { display: none; }
+}
+.pd-cart {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border: 1.5px solid var(--brand-line);
+  border-radius: var(--r-md);
+  background: var(--brand-soft);
+  color: var(--brand);
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+.pd-cart:active { transform: scale(0.94); }
+.pd-cart.has-items { border-color: var(--brand); }
+.pd-cart__badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: var(--brand);
+  padding: 0 5px;
+  color: var(--brand-ink);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  animation: badgePop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ====== Rasmiylashtirish: «Manzilingizni tasdiqlaysizmi?» ====== */
+.acf-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(4 18 11 / 0.5);
+  backdrop-filter: blur(4px);
+  animation: overlayIn 0.26s ease;
+}
+.acf-overlay.leaving { animation: overlayOut 0.22s ease forwards; }
+.acf-sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  overflow-y: auto;
+  border-radius: 28px 28px 0 0;
+  background: var(--surface);
+  padding: 0.75rem 1.25rem calc(1.15rem + var(--safe-bottom));
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  animation: sheetUp 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.acf-sheet.leaving { animation: sheetDown 0.22s ease forwards; }
+.acf-grip { display: block; width: 42px; height: 4px; margin: 0 auto 1.1rem; border-radius: 4px; background: var(--line); }
+
+/* Pulsatsiyalanuvchi joy belgisi */
+.acf-pin {
+  position: relative;
+  display: grid;
+  width: 76px;
+  height: 76px;
+  margin: 0 auto;
+  place-items: center;
+}
+.acf-pin__icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 100%);
+  color: #fff;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--brand) 38%, transparent);
+  animation: acfDrop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.12s both;
+}
+.acf-pin__ring {
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: var(--brand);
+  opacity: 0;
+  animation: acfPulse 2.2s ease-out 0.6s infinite;
+}
+.acf-pin__ring--late { animation-delay: 1.7s; }
+@keyframes acfDrop {
+  0% { opacity: 0; transform: translateY(-26px) scale(0.6); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes acfPulse {
+  0% { opacity: 0.35; transform: scale(0.85); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+
+.acf-title {
+  margin-top: 0.9rem;
+  color: var(--ink);
+  font-size: 1.2rem;
+  font-weight: 800;
+  animation: fadeInUp 0.4s ease 0.08s both;
+}
+.acf-sub {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  animation: fadeInUp 0.4s ease 0.14s both;
+}
+
+.acf-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.1rem;
+  border: 2px solid var(--brand);
+  border-radius: 18px;
+  background: var(--brand-soft);
+  padding: 0.8rem 0.9rem;
+  animation: acfCard 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
+}
+.acf-card__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--brand);
+}
+.acf-card__name { display: block; color: var(--brand); font-size: 0.95rem; }
+.acf-card__addr {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 0.1rem;
+  color: var(--ink-2);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.acf-card__check { flex-shrink: 0; color: var(--brand); }
+@keyframes acfCard {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.acf-others { margin-top: 0.9rem; text-align: left; }
+.acf-others__label { margin-bottom: 0.4rem; color: var(--faint); font-size: 0.72rem; font-weight: 700; }
+.acf-other {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 0.6rem 0.75rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.15s ease;
+  animation: fadeInUp 0.35s ease both;
+}
+.acf-other b { color: var(--ink); }
+.acf-other:hover { border-color: var(--brand-line); background: var(--surface-2); }
+.acf-other:active { transform: scale(0.98); }
+
+.acf-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 1.2rem;
+  animation: fadeInUp 0.4s ease 0.24s both;
+}
+.acf-confirm { width: 100%; padding: 0.95rem; font-size: 1rem; }
+.acf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+.acf-ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 0.8rem 0.5rem;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 700;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.15s ease;
+}
+.acf-ghost:hover { border-color: var(--brand-line); background: var(--surface-2); }
+.acf-ghost:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .acf-pin__ring { display: none; }
+  .acf-pin__icon, .acf-card, .acf-title, .acf-sub, .acf-actions, .acf-other { animation: none; }
 }
