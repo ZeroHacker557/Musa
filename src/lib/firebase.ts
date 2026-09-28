@@ -151,6 +151,8 @@ export async function getPaymentSettings(): Promise<PaymentSettings> {
       cardOwner: String(data.cardOwner || PAYMENT_FALLBACK.cardOwner),
       online: data.online === true,
       onlineProviders: Array.isArray(data.onlineProviders) ? data.onlineProviders.map(String) : [],
+      onlineTestOnly: data.onlineTestOnly === true,
+      onlineTesters: Array.isArray(data.onlineTesters) ? data.onlineTesters.map(Number) : [],
     }
   } catch (error) {
     console.error("[Firebase] To'lov sozlamalarini o'qib bo'lmadi:", error)

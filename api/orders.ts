@@ -132,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
    */
   const online = order.customer.paymentMethod === 'Onlayn'
   if (online) {
-    const settings = await onlineSettings()
+    const settings = await onlineSettings(userId)
     if (!settings.enabled || !order.customer.paymentProvider || !settings.providers.includes(order.customer.paymentProvider)) {
       return fail(res, 400, 'Onlayn to‘lov hozircha mavjud emas', 'ONLINE_DISABLED')
     }

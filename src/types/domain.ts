@@ -164,6 +164,9 @@ export type PaymentSettings = {
   /** Onlayn to'lov (WLCM) yoqilganmi va qaysi usullar ko'rinadi. */
   online?: boolean
   onlineProviders?: string[]
+  /** Sinov rejimi: onlayn to'lovni faqat shu Telegram ID'lar ko'radi. */
+  onlineTestOnly?: boolean
+  onlineTesters?: number[]
 }
 
 export type DeliverySettings = {

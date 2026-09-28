@@ -81,8 +81,29 @@ export async function settingsSave(actor: Staff, body: Record<string, unknown>) 
       const off = active ? onlineProviders.filter((p) => !active.includes(p)) : []
       if (off.length) throw new Error(`Bu usullar hozir WLCM'da faol emas: ${off.join(', ')}`)
     }
-    await db.collection('settings').doc('payment').set({ online, onlineProviders }, { merge: true })
-    return { ok: true }
+
+    /*
+     * Sinov rejimi: onlayn to'lovni faqat ega va adminlar ko'radi (sandbox
+     * kalitlari bilan jonli saytda sinash uchun — mijozlar sezmaydi).
+     * Ularning Telegram ID'lari shu yerda yig'iladi: mijoz ilovasi staff
+     * to'plamini o'qiy olmaydi, sozlama hujjatini esa o'qiydi.
+     */
+    const onlineTestOnly = body.onlineTestOnly === true
+    let onlineTesters: number[] = []
+    if (onlineTestOnly) {
+      const staff = await db.collection('staff').where('role', 'in', ['owner', 'admin']).get()
+      onlineTesters = staff.docs
+        .map((doc) => doc.data() as { telegramId?: number; active?: boolean })
+        .filter((s) => s.active !== false && Number(s.telegramId) > 0)
+        .map((s) => Number(s.telegramId))
+      if (online && !onlineTesters.length) throw new Error('Sinov rejimi uchun Telegram ID si bor admin kerak')
+    }
+
+    await db.collection('settings').doc('payment').set(
+      { online, onlineProviders, onlineTestOnly, onlineTesters },
+      { merge: true },
+    )
+    return { ok: true, testers: onlineTesters.length }
   }
 
   if (section === 'delivery') {

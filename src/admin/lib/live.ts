@@ -428,6 +428,7 @@ export type AllSettings = {
     /** Onlayn to'lov (WLCM) yoqilganmi va mijozga ko'rinadigan usullar. */
     online?: boolean
     onlineProviders?: string[]
+    onlineTestOnly?: boolean
   }
   delivery: { fee: number; freeFrom: number; minOrder: number }
   courier: CourierSettings

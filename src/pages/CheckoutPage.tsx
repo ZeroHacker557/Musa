@@ -197,9 +197,12 @@ export function CheckoutPage({
    * Onlayn to'lov (WLCM) — admin yoqqan bo'lsa. Mavjud usullar admin
    * tanlagani va ilovaning ro'yxati kesishmasi, ilova tartibida.
    */
+  // Sinov rejimida — faqat ega/adminlar (server ham tekshiradi)
+  const onlineAllowed = Boolean(payment?.online)
+    && (!payment?.onlineTestOnly || (profile ? payment.onlineTesters?.includes(Number(profile.id)) === true : false))
   const onlineProviders = useMemo(
-    () => PAY_PROVIDERS.filter((p) => payment?.online && payment.onlineProviders?.includes(p.id)),
-    [payment],
+    () => (onlineAllowed ? PAY_PROVIDERS.filter((p) => payment?.onlineProviders?.includes(p.id)) : []),
+    [payment, onlineAllowed],
   )
   const onlineOn = onlineProviders.length > 0
 

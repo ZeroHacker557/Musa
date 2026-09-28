@@ -58,10 +58,17 @@ export function readProvider(value: unknown): WlcmProvider | null {
   return (WLCM_PROVIDERS as readonly string[]).includes(v) ? (v as WlcmProvider) : null
 }
 
-/** Admin sozlamasi: onlayn to'lov yoqilganmi va qaysi usullar. */
-export async function onlineSettings(): Promise<{ enabled: boolean; providers: WlcmProvider[] }> {
+/**
+ * Admin sozlamasi: onlayn to'lov yoqilganmi va qaysi usullar.
+ * `userId` — kim so'rayapti: sinov rejimida faqat ega/adminlarga ochiq.
+ */
+export async function onlineSettings(userId?: number): Promise<{ enabled: boolean; providers: WlcmProvider[] }> {
   const db = await adminDb()
   const data = (await db.collection('settings').doc('payment').get()).data() || {}
+  const testers: number[] = Array.isArray(data.onlineTesters) ? data.onlineTesters.map(Number) : []
+  if (data.onlineTestOnly === true && !(userId && testers.includes(userId))) {
+    return { enabled: false, providers: [] }
+  }
   const providers = (Array.isArray(data.onlineProviders) ? data.onlineProviders : [])
     .map(readProvider)
     .filter((p): p is WlcmProvider => p !== null)

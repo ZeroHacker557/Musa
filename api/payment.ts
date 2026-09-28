@@ -75,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (order.paidAt) return fail(res, 400, 'Buyurtma allaqachon to‘langan', 'ALREADY_PAID')
   if (order.status !== AWAITING_PAYMENT) return fail(res, 400, 'Buyurtma to‘lov kutmayapti', 'NOT_AWAITING')
 
-  const online = await onlineSettings()
+  const online = await onlineSettings(Number(uid))
   if (!online.enabled) return fail(res, 400, 'Onlayn to‘lov hozircha o‘chiq', 'ONLINE_DISABLED')
   const provider = readProvider(req.body?.provider) ?? readProvider(order.payment?.provider)
   if (!provider || !online.providers.includes(provider)) return fail(res, 400, 'To‘lov usuli tanlanmagan', 'BAD_PROVIDER')

@@ -41,7 +41,7 @@ export function SettingsPage() {
           onSave={save}
         />
         <OnlinePaymentCard
-          key={`online:${settings.payment.online}|${(settings.payment.onlineProviders || []).join(',')}`}
+          key={`online:${settings.payment.online}|${settings.payment.onlineTestOnly}|${(settings.payment.onlineProviders || []).join(',')}`}
           settings={settings.payment}
           busy={busy === 'online'}
           onSave={save}
@@ -152,13 +152,15 @@ function PaymentCard({
 function OnlinePaymentCard({
   settings, busy, onSave, onError, onOk,
 }: {
-  settings: { online?: boolean; onlineProviders?: string[] }
+  settings: { online?: boolean; onlineProviders?: string[]; onlineTestOnly?: boolean }
   busy: boolean
   onSave: SaveFn
   onError: (message: string) => void
   onOk: (message: string) => void
 }) {
   const [online, setOnline] = useState(settings.online === true)
+  // Yangi sozlashda sinov rejimi yoqilgan holda boshlanadi — xavfsizroq
+  const [testOnly, setTestOnly] = useState(settings.onlineTestOnly ?? true)
   // Sandbox'da hozircha faqat Payme va Click faol
   const [providers, setProviders] = useState<string[]>(settings.onlineProviders?.length ? settings.onlineProviders : ['payme', 'click'])
   const [checking, setChecking] = useState(false)
@@ -227,6 +229,13 @@ function OnlinePaymentCard({
         <span>Mijozlarga ko‘rsatish</span>
         <input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} className="size-5" />
       </label>
+      <label className="mt-2 flex items-center justify-between gap-3 text-sm">
+        <span>
+          <b>Sinov rejimi</b>
+          <span className="block text-xs" style={{ color: 'var(--muted)' }}>Faqat ega va adminlar ko‘radi — mijozlar sezmaydi</span>
+        </span>
+        <input type="checkbox" checked={testOnly} onChange={(e) => setTestOnly(e.target.checked)} className="size-5" />
+      </label>
 
       <p className="adm-label mt-3">To‘lov usullari</p>
       <div className="flex flex-wrap gap-2">
@@ -258,7 +267,7 @@ function OnlinePaymentCard({
         </button>
         <button
           className="adm-btn adm-btn--primary"
-          onClick={() => onSave('online', { online, onlineProviders: providers })}
+          onClick={() => onSave('online', { online, onlineProviders: providers, onlineTestOnly: testOnly })}
           disabled={busy}
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash
