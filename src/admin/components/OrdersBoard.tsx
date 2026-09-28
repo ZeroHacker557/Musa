@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { formatPrice } from '../../data'
 import type { OrderStatus } from '../../types/domain'
 import { datedNumber } from '../../utils/order-label'
+import { isCashPayment } from '../../utils/payment'
 import type { AdminOrder } from '../lib/live'
 
 type Column = { status: OrderStatus; title: string; tone: string }
@@ -222,9 +223,9 @@ export function OrdersBoard({
                       {order.customer?.name || '—'}{order.customer?.address ? ` · ${order.customer.address}` : ''}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
-                      {order.paymentMethod === 'Karta'
-                        ? <CreditCard size={13} style={{ color: 'var(--info)' }} />
-                        : <Banknote size={13} style={{ color: 'var(--brand)' }} />}
+                      {isCashPayment(order.paymentMethod)
+                        ? <Banknote size={13} style={{ color: 'var(--brand)' }} />
+                        : <CreditCard size={13} style={{ color: 'var(--info)' }} />}
                       <b className="text-sm">{formatPrice(order.total)}</b>
                       {order.courierName && (
                         <span className="adm-board__courier"><Bike size={11} /> {order.courierName}</span>

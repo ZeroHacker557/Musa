@@ -8,6 +8,7 @@ import { PageTitle } from '../components/layout/PageTitle'
 import { useT, type TranslationKey } from '../i18n'
 import type { Order } from '../types/domain'
 import { bundleText } from '../utils/bundle'
+import { isCashPayment } from '../utils/payment'
 
 type Props = {
   order: Order
@@ -43,11 +44,11 @@ export function ReceiptPage({ order, onBack, onHome, onReorder }: Props) {
 
   const lines = order.products || []
   const subtotal = order.subtotal ?? lines.reduce((sum, l) => sum + (l.product?.price || 0) * (l.quantity || 0), 0)
-  const paid = order.paymentMethod !== 'Karta' || order.paymentStatus === 'Tolangan'
+  const paid = isCashPayment(order.paymentMethod) || order.paymentStatus === 'Tolangan'
   const delivered = order.status === 'Yetkazildi'
   const cancelled = order.status === 'Bekor qilingan' || order.status === 'Rad etildi'
 
-  const payStatus = order.paymentMethod === 'Karta'
+  const payStatus = !isCashPayment(order.paymentMethod)
     ? t(`payStatus.${order.paymentStatus ?? 'Kutilmoqda'}` as TranslationKey)
     : t('payStatus.Naqd')
 

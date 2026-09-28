@@ -17,6 +17,7 @@ import { Receipt } from '../components/Receipt'
 import { OrderTimeline } from '../components/OrderTimeline'
 import { OrdersBoard } from '../components/OrdersBoard'
 import { bundleText } from '../../utils/bundle'
+import { AWAITING_PAYMENT, providerLabel } from '../../utils/payment'
 
 type View = 'list' | 'board'
 const VIEW_KEY = 'musa-admin:orders-view'
@@ -37,6 +38,12 @@ const ALL_STATUSES: OrderStatus[] = [
   'Bekor qilingan',
   'Rad etildi',
 ]
+
+/** Filtr chiplari: to'lov kutilayotganlar ham ko'rinsin (holatini qo'lda qo'yib bo'lmaydi). */
+const FILTER_STATUSES: OrderStatus[] = [AWAITING_PAYMENT, ...ALL_STATUSES]
+
+/** To'lanmagan onlayn buyurtmani faqat yopish mumkin — server ham tekshiradi. */
+const AWAITING_ALLOWED: OrderStatus[] = ['Bekor qilingan', 'Rad etildi']
 
 /** Kuryer faqat shu ikkitasini qo'ya oladi — server ham buni tekshiradi. */
 const COURIER_STATUSES: OrderStatus[] = ['Yetkazilmoqda', 'Yetkazildi']
@@ -138,7 +145,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
 
   const counts = useMemo(() => {
     const map = new Map<Filter, number>([['all', inPeriod.length]])
-    for (const status of ALL_STATUSES) {
+    for (const status of FILTER_STATUSES) {
       map.set(status, inPeriod.filter((o) => o.status === status).length)
     }
     return map
@@ -256,7 +263,9 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
       {/* Holat filtrlari */}
       {view === 'list' && (
       <div className="scrollbar-none mt-3 flex gap-2 overflow-x-auto pb-1">
-        {(['all', ...ALL_STATUSES] as Filter[]).map((key) => (
+        {(['all', ...FILTER_STATUSES] as Filter[]).map((key) => (
+          // Bo'sh «To'lov kutilmoqda» chipi ko'rinmasin — onlayn to'lov kam
+          key === AWAITING_PAYMENT && !counts.get(key) ? null : (
           <button
             key={key}
             onClick={() => setFilter(key)}
@@ -270,6 +279,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
             {key === 'all' ? 'Barchasi' : key}
             <span className="ml-1.5 opacity-60">{counts.get(key) ?? 0}</span>
           </button>
+          )
         ))}
       </div>
       )}
@@ -374,7 +384,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
       {open && (
         <OrderDrawer
           order={open}
-          allowed={allowed}
+          allowed={open.status === AWAITING_PAYMENT ? AWAITING_ALLOWED.filter((s) => allowed.includes(s)) : allowed}
           busy={busyId === open.id}
           canAssign={can(staff.role, 'admin')}
           couriers={couriers}
@@ -602,6 +612,7 @@ function OrderDrawer({
             </div>
             <p className="mt-1.5 text-xs" style={{ color: 'var(--muted)' }}>
               To‘lov: {order.paymentMethod || '—'}
+              {order.paymentProvider ? ` (${providerLabel(order.paymentProvider)})` : ''}
               {order.paymentStatus ? ` • ${order.paymentStatus}` : ''}
             </p>
           </section>

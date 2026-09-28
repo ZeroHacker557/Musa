@@ -12,6 +12,7 @@ import { getTelegramUser, hapticSelection } from '../utils/telegram'
 import { updateUserProfile } from '../lib/firebase'
 import { auth } from '../lib/auth'
 import type { CashHandover, CourierOrder, CourierOverview } from './api'
+import { isCashPayment } from '../utils/payment'
 
 type Period = 'today' | 'week' | 'month'
 
@@ -242,7 +243,7 @@ export function CourierProfilePage({
         ) : (
           <ul className="crr-history">
             {data.recent.map((order) => {
-              const cash = order.paymentMethod !== 'Karta'
+              const cash = isCashPayment(order.paymentMethod)
               return (
                 <li key={order.id}>
                   <button className="crr-history__row" onClick={() => onOpenOrder(order)}>

@@ -14,6 +14,7 @@ import type { AppPage, CartRow, Category, Order, OrderForm, Product, Section, Us
 import { hapticError, hapticFeedback, hapticSuccess, initTelegram } from '../utils/telegram'
 import { applyTheme, getStoredTheme, storeTheme, type ThemeMode } from '../utils/theme'
 import { heroTransition } from '../utils/view-transition'
+import { openPayment } from '../utils/payment'
 import { useT } from '../i18n'
 
 /** Pastki menyudagi asosiy sahifalar — ularga o'tganda tarix tozalanadi. */
@@ -230,6 +231,9 @@ export function useShopStore() {
     checkoutTimer.current = null
     setCheckoutDone(false)
   }, [])
+  /** Onlayn to'lov kutilayotgan buyurtma — «To'lov kutilmoqda» oynasi (PaymentWaitingSheet). */
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null)
+  const closePayment = useCallback(() => setPayingOrderId(null), [])
   const [isSubmitting, setSubmitting] = useState(false)
   const [authReady, setAuthReady] = useState(false)
   const [theme, setThemeState] = useState<ThemeMode>(getStoredTheme)
@@ -773,6 +777,33 @@ export function useShopStore() {
    * o'chirilgan yoki tugagan mahsulot o'tkazib yuboriladi va mijozga
    * aytiladi. Savat darhol ochiladi — ikki bosishda rasmiylashtirish.
    */
+  /** To'lov o'tdi — kutish oynasi yopilib, «Buyurtma qabul qilindi» chiqadi. */
+  const finishPayment = useCallback(() => {
+    setPayingOrderId(null)
+    setCheckoutDone(true)
+    hapticSuccess()
+    if (checkoutTimer.current) clearTimeout(checkoutTimer.current)
+    checkoutTimer.current = setTimeout(() => setCheckoutDone(false), 6000)
+  }, [])
+
+  /** Kutish oynasidan: to'lov holatini server WLCM'dan so'rasin (xato — jim, keyingi urinishda). */
+  const checkPayment = useCallback(() => {
+    if (!payingOrderId) return
+    apiPost('/api/payment', { orderId: payingOrderId, check: true }).catch(() => {})
+  }, [payingOrderId])
+
+  /** «Buyurtmalarim» dagi «To'lash» — yangi to'lov sahifasi (eskisi eskirgan bo'lishi mumkin). */
+  const payOrder = useCallback(async (order: Order) => {
+    try {
+      const result = await apiPost<{ checkoutUrl: string | null }>('/api/payment', { orderId: order.id })
+      setPayingOrderId(order.id)
+      if (result.checkoutUrl) openPayment(result.checkoutUrl)
+    } catch (error) {
+      hapticError()
+      notify(apiErrorText(error, t, 'checkout.failed', formatPrice))
+    }
+  }, [notify, t])
+
   const reorder = useCallback((order: Order) => {
     let added = 0
     let skipped = 0
@@ -851,8 +882,10 @@ export function useShopStore() {
     if (!orderKeyRef.current) orderKeyRef.current = newOrderKey()
 
     setSubmitting(true)
+    const online = orderForm.paymentMethod === 'Onlayn'
+    let created: { id: string; checkoutUrl?: string | null }
     try {
-      await apiPost<{ id: string; orderNumber: string; total: number }>('/api/orders', {
+      created = await apiPost<{ id: string; orderNumber: string; total: number; checkoutUrl?: string | null }>('/api/orders', {
         clientOrderId: orderKeyRef.current,
         items: cartProducts.map(({ product, quantity, size, color }) => ({
           productId: product.id,
@@ -867,6 +900,8 @@ export function useShopStore() {
           location: orderForm.location,
           comment: orderForm.comment,
           paymentMethod: orderForm.paymentMethod,
+          // Onlayn to'lovda — qaysi ilova orqali (Click, Payme, Uzum)
+          paymentProvider: online ? orderForm.paymentProvider : undefined,
           // Buyurtmani boshqa odam oladigan bo'lsa
           recipientName: orderForm.recipientName?.trim() || '',
           recipientPhone: orderForm.recipientPhone?.trim() || '',
@@ -885,7 +920,24 @@ export function useShopStore() {
 
     orderKeyRef.current = null
     setCartItems({})
-    setOrderForm({ name: '', phone: '', address: '', location: null, comment: '', paymentMethod: 'Naqd' })
+    // Onlayn to'lovni tanlagan mijozga keyingi safar ham shu usul turadi
+    setOrderForm({
+      name: '', phone: '', address: '', location: null, comment: '',
+      paymentMethod: online ? 'Onlayn' : 'Naqd',
+      paymentProvider: online ? orderForm.paymentProvider : undefined,
+    })
+
+    /*
+     * Onlayn to'lov: buyurtma «To'lov kutilmoqda» — to'lov sahifasi
+     * ochiladi, ilovada kutish oynasi turadi. «Qabul qilindi» animatsiyasi
+     * to'lov o'tgach chiqadi (finishPayment).
+     */
+    if (created.checkoutUrl) {
+      setPayingOrderId(created.id)
+      openPayment(created.checkoutUrl)
+      return true
+    }
+
     setCheckoutDone(true)
     hapticSuccess()
     notify(t('checkout.success'))
@@ -918,7 +970,8 @@ export function useShopStore() {
     cartItems, cartCount, cartTotal, cartProducts,
     likedIds, selectedProduct,
     isSearchOpen, isCartOpen, query, searchResults, toast, cartPrompt,
-    myOrders, ordersReady, checkoutDone, dismissCheckout, reorder, isSubmitting, authReady, isAuthenticated, orderForm, userProfile,
+    myOrders, ordersReady, checkoutDone, dismissCheckout, reorder,
+    payingOrderId, closePayment, finishPayment, payOrder, checkPayment, isSubmitting, authReady, isAuthenticated, orderForm, userProfile,
     notifications, unreadNotificationsCount, unseenOrdersCount,
     catalogCategory, catalogSection, openCategory,
     theme, setTheme, toggleTheme,

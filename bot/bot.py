@@ -1105,7 +1105,8 @@ async def cmd_today(message: Message):
     if r["delivered"]:
         lines += ["", "<b>Yetkazilganlar:</b>"]
         for o in r["delivered"][-15:]:
-            pay = "💳" if o.get("paymentMethod") == "Karta" else "💵"
+            # Karta va onlayn (WLCM) — naqdsiz
+            pay = "💵" if (o.get("paymentMethod") or "Naqd") == "Naqd" else "💳"
             lines.append(f"{o['_at']:%H:%M} · {db.order_display_id(o)} · {db.format_price(o.get('total') or 0)} {pay}")
         if len(r["delivered"]) > 15:
             lines.append(f"<i>… va yana {len(r['delivered']) - 15} ta</i>")

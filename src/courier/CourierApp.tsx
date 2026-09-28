@@ -17,6 +17,7 @@ import { confirmAction } from './format'
 import { createOrderActions, useCourierData, useCourierLocation } from './use-courier'
 import { playChime, unlockChime } from './chime'
 import type { TranslationKey } from '../i18n'
+import { isCashPayment } from '../utils/payment'
 
 type Props = {
   /** Bot xabaridagi «Ilovada ochish» — shu buyurtma ajratib ko'rsatiladi. */
@@ -424,7 +425,7 @@ function DeliverSheet({
   if (order && order !== shown) setShown(order)
   if (!mounted || !shown) return null
 
-  const cash = shown.paymentMethod !== 'Karta'
+  const cash = isCashPayment(shown.paymentMethod)
 
   return (
     <div className={'crr-sheet-overlay ' + (leaving ? 'leaving' : '')} onClick={onCancel}>

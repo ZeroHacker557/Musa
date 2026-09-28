@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, ExternalLink, MapPin, Radio, RotateCcw, ShoppingBag } from 'lucide-react'
+import { ChevronRight, CreditCard, ExternalLink, Loader2, MapPin, Radio, RotateCcw, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '../data'
 import { openBotDeepLink } from '../utils/telegram'
 import { formatOrderDate } from '../utils/date'
@@ -8,6 +8,7 @@ import { PageHeader } from '../components/layout/PageHeader'
 import { OrderListSkeleton } from '../components/ui/LoadingSkeletons'
 import { useT, type TranslationKey } from '../i18n'
 import type { Order, OrderStatus } from '../types/domain'
+import { AWAITING_PAYMENT, providerLabel } from '../utils/payment'
 
 
 const TABS: { id: string; labelKey: TranslationKey }[] = [
@@ -18,6 +19,7 @@ const TABS: { id: string; labelKey: TranslationKey }[] = [
 ]
 
 function statusColor(status: string): string {
+  if (status === AWAITING_PAYMENT) return 'var(--warning)'
   if (status === 'Bekor qilingan' || status === 'Rad etildi') return 'var(--danger)'
   if (status === 'Yetkazilmoqda') return 'var(--warning)'
   if (status === 'Yetkazildi') return 'var(--success)'
@@ -41,23 +43,27 @@ type Props = {
   onOpenMap: (order: Order) => void
   /** «Qayta buyurtma» — mahsulotlar savatga solinadi. */
   onReorder: (order: Order) => void
+  /** Onlayn to'lov kutilayotgan buyurtma — to'lov sahifasini ochadi. */
+  onPay: (order: Order) => Promise<void>
   onBack: () => void
 }
 
 /** Mijoz faqat shu statuslardagi buyurtmani bekor qila oladi. */
 export function OrdersPage({
   orders, ordersReady, authReady, isAuthenticated, onSearch, onFavorites,
-  onGoToCatalog, onOpenReceipt, onOpenMap, onReorder, onBack,
+  onGoToCatalog, onOpenReceipt, onOpenMap, onReorder, onPay, onBack,
 }: Props) {
   const t = useT()
   const [active, setActive] = useState('all')
+  /** Qaysi buyurtma uchun to'lov sahifasi ochilmoqda — tugma band. */
+  const [payingId, setPayingId] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     if (active === 'all') return orders
     if (active === 'cancelled') {
       return orders.filter((o) => o.status === 'Bekor qilingan' || o.status === 'Rad etildi')
     }
-    if (active === 'new') return orders.filter((o) => o.status === 'Yangi')
+    if (active === 'new') return orders.filter((o) => o.status === 'Yangi' || o.status === AWAITING_PAYMENT)
     return orders.filter(
       (o) => o.status === 'Qabul qilindi' || o.status === 'Yetkazilmoqda' || o.status === 'Yetkazildi',
     )
@@ -184,6 +190,25 @@ export function OrdersPage({
                 >
                   {onWay ? <Radio size={15} /> : <MapPin size={15} />}
                   {onWay ? t('orders.trackOnMap') : t('orders.openMap')}
+                </button>
+              )}
+
+              {/* Onlayn to'lov kutilmoqda — yangi to'lov sahifasi */}
+              {order.status === AWAITING_PAYMENT && (
+                <button
+                  className="btn-primary w-full py-3 text-sm"
+                  disabled={payingId === order.id}
+                  onClick={async () => {
+                    setPayingId(order.id)
+                    try {
+                      await onPay(order)
+                    } finally {
+                      setPayingId(null)
+                    }
+                  }}
+                >
+                  {payingId === order.id ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
+                  {t('orders.payNow', { provider: providerLabel(order.payment?.provider ?? order.paymentProvider) || 'Payme' })}
                 </button>
               )}
 

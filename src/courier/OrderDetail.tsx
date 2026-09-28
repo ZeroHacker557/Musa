@@ -13,6 +13,7 @@ import { clock, telHref, timeAgo } from './format'
 import { NavigateButton } from './NavigateButton'
 import { CourierReceipt } from './CourierReceipt'
 import { bundleText } from '../utils/bundle'
+import { isCashPayment } from '../utils/payment'
 
 type Props = {
   order: CourierOrder | null
@@ -49,7 +50,7 @@ export function OrderDetail({ order, busy, onClose, onTake, onDeliver, onSupport
   if (!mounted || !shown) return null
 
   const c = shown.customer
-  const cash = shown.paymentMethod !== 'Karta'
+  const cash = isCashPayment(shown.paymentMethod)
   const status =
     shown.status === 'Yetkazildi' ? 'done' : shown.status === 'Yetkazilmoqda' ? 'active' : 'new'
   const phone = c.recipientPhone || c.phone

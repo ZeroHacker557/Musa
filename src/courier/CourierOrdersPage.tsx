@@ -18,6 +18,7 @@ import {
   type Point, type RouteStop,
 } from './route'
 import type { LocationState } from './use-courier'
+import { isCashPayment } from '../utils/payment'
 
 export type CourierTab = 'new' | 'active' | 'done'
 
@@ -459,7 +460,7 @@ function OrderCard({
   }, [focused])
 
   const c = order.customer
-  const cash = order.paymentMethod !== 'Karta'
+  const cash = isCashPayment(order.paymentMethod)
   const delivered = order.status === 'Yetkazildi'
   const phone = c.recipientPhone || c.phone
   const who = c.recipientName || c.name

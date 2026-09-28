@@ -1,4 +1,5 @@
-import { CreditCard, Loader2, Send, Truck, Users2 } from 'lucide-react'
+import { CreditCard, Loader2, PlugZap, Send, Smartphone, Truck, Users2, Webhook } from 'lucide-react'
+import { PAY_PROVIDERS } from '../../utils/payment'
 import { useState } from 'react'
 import { apiPost } from '../lib/api'
 import { useSettings } from '../lib/live'
@@ -38,6 +39,14 @@ export function SettingsPage() {
           settings={settings.payment}
           busy={busy === 'payment'}
           onSave={save}
+        />
+        <OnlinePaymentCard
+          key={`online:${settings.payment.online}|${(settings.payment.onlineProviders || []).join(',')}`}
+          settings={settings.payment}
+          busy={busy === 'online'}
+          onSave={save}
+          onError={(m) => show(m, 'error')}
+          onOk={(m) => show(m)}
         />
         <DeliveryCard
           key={`del:${settings.delivery.fee}|${settings.delivery.freeFrom}|${settings.delivery.minOrder}`}
@@ -130,6 +139,131 @@ function PaymentCard({
       >
         {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash
       </button>
+    </Section>
+  )
+}
+
+/**
+ * Onlayn to'lov (WLCM: Click, Payme, Uzum, Paylov).
+ * Kalitlar serverda (Vercel muhit o'zgaruvchilari) — bu yerda faqat
+ * yoqish va mijozga ko'rinadigan usullar. «Tekshirish» kalitlar
+ * ishlayotganini ko'rsatadi (kalitlarning o'zi ko'rinmaydi).
+ */
+function OnlinePaymentCard({
+  settings, busy, onSave, onError, onOk,
+}: {
+  settings: { online?: boolean; onlineProviders?: string[] }
+  busy: boolean
+  onSave: SaveFn
+  onError: (message: string) => void
+  onOk: (message: string) => void
+}) {
+  const [online, setOnline] = useState(settings.online === true)
+  // Sandbox'da hozircha faqat Payme va Click faol
+  const [providers, setProviders] = useState<string[]>(settings.onlineProviders?.length ? settings.onlineProviders : ['payme', 'click'])
+  const [checking, setChecking] = useState(false)
+  const [status, setStatus] = useState<string | null>(null)
+  const [hooking, setHooking] = useState(false)
+
+  /** Webhook manzilini WLCM'ga ro'yxatdan o'tkazish (sir — serverdagi WLCM_WEBHOOK_SECRET). */
+  const connectWebhook = async () => {
+    setHooking(true)
+    try {
+      const result = await apiPost<{ url: string; id: number | null }>('action', { action: 'payment.webhook' })
+      setStatus(`Webhook ulandi: ${result.url}`)
+      onOk('Webhook ulandi')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ulab bo‘lmadi'
+      setStatus(message)
+      onError(message)
+    } finally {
+      setHooking(false)
+    }
+  }
+
+  const toggle = (id: string) =>
+    setProviders((list) => (list.includes(id) ? list.filter((p) => p !== id) : [...list, id]))
+
+  const check = async () => {
+    setChecking(true)
+    setStatus(null)
+    try {
+      const result = await apiPost<{
+        ok: boolean
+        configured: boolean
+        sandbox?: boolean
+        message?: string
+        partner?: { id: number | null; name: string | null; active: boolean | null }
+        activeProviders?: string[]
+        webhookSecret?: boolean
+      }>('action', { action: 'payment.check' })
+      if (!result.configured) {
+        setStatus(result.message || 'Kalitlar sozlanmagan')
+        onError(result.message || 'Kalitlar sozlanmagan')
+        return
+      }
+      const text = `${result.sandbox ? 'Sinov (sandbox)' : 'Ishchi'} · ${result.partner?.name || 'hamkor'} (#${result.partner?.id ?? '—'})` +
+        (result.partner?.active === false ? ' — faol emas' : '') +
+        ` · faol usullar: ${(result.activeProviders || []).join(', ') || '—'}` +
+        (result.webhookSecret ? '' : ' · ⚠️ WLCM_WEBHOOK_SECRET yo‘q')
+      setStatus(text)
+      onOk('Ulanish ishlayapti')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Tekshirib bo‘lmadi'
+      setStatus(message)
+      onError(message)
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <Section
+      title="Onlayn to‘lov"
+      icon={Smartphone}
+      hint="Click, Payme, Uzum — WLCM orqali. Yoqilsa mijoz buyurtmada «Onlayn» ni ko‘radi"
+    >
+      <label className="flex items-center justify-between gap-3 text-sm font-bold">
+        <span>Mijozlarga ko‘rsatish</span>
+        <input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} className="size-5" />
+      </label>
+
+      <p className="adm-label mt-3">To‘lov usullari</p>
+      <div className="flex flex-wrap gap-2">
+        {PAY_PROVIDERS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className={'adm-chip ' + (providers.includes(p.id) ? 'active' : '')}
+            onClick={() => toggle(p.id)}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {status && (
+        <p className="mt-3 rounded-xl px-3 py-2 text-xs font-semibold" style={{ background: 'var(--surface-2)', color: 'var(--ink-2)' }}>
+          {status}
+        </p>
+      )}
+
+      <button className="adm-btn adm-btn--ghost mt-4 w-full" onClick={connectWebhook} disabled={hooking}>
+        {hooking ? <Loader2 size={16} className="animate-spin" /> : <Webhook size={16} />} Webhookni ulash
+      </button>
+
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button className="adm-btn adm-btn--ghost" onClick={check} disabled={checking}>
+          {checking ? <Loader2 size={16} className="animate-spin" /> : <PlugZap size={16} />} Tekshirish
+        </button>
+        <button
+          className="adm-btn adm-btn--primary"
+          onClick={() => onSave('online', { online, onlineProviders: providers })}
+          disabled={busy}
+        >
+          {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash
+        </button>
+      </div>
     </Section>
   )
 }

@@ -1,5 +1,6 @@
 import type { AdminOrder, ProductRow } from './live'
 import type { SheetSpec } from './xlsx'
+import { isCashPayment } from '../../utils/payment'
 
 /**
  * Savdo hisoboti — hisob-kitob.
@@ -128,8 +129,9 @@ export function buildReport(orders: AdminOrder[], products: ProductRow[], period
   for (const o of delivered) {
     const row = rowOf(o)
     row.delivered++
-    if (o.paymentMethod === 'Karta') row.card += Number(o.total) || 0
-    else row.cash += Number(o.total) || 0
+    // Karta va onlayn — naqdsiz
+    if (isCashPayment(o.paymentMethod)) row.cash += Number(o.total) || 0
+    else row.card += Number(o.total) || 0
 
     const taken = Date.parse(o.takenAt || '')
     const done = Date.parse(o.deliveredAt || '')
@@ -163,7 +165,7 @@ export function buildReport(orders: AdminOrder[], products: ProductRow[], period
     }))
     .sort((a, b) => b.delivered - a.delivered)
 
-  const payments = (['Naqd', 'Karta'] as const).map((method) => {
+  const payments = (['Naqd', 'Karta', 'Onlayn'] as const).map((method) => {
     const list = valid.filter((o) => (o.paymentMethod || 'Naqd') === method)
     return { method, orders: list.length, revenue: list.reduce((s, o) => s + (Number(o.total) || 0), 0) }
   })

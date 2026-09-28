@@ -9,8 +9,17 @@ import { clearOrderTracking, refreshCourierTracking } from './location.js'
 import type { Staff } from '../admin-auth.js'
 import { courierPhone, shiftActive } from '../courier-staff.js'
 import { orderLabel } from '../order-number.js'
+import { isCashPayment } from '../pay-method.js'
+
+/**
+ * Onlayn to'lov kutilayotgan buyurtma. Xodimlarga hali ko'rinmaydi va
+ * kuryerga ketmaydi — to'lov o'tgach (webhook) «Yangi» bo'ladi, o'tmasa
+ * bekor qilinadi (api/_lib/actions/payments.ts).
+ */
+export const AWAITING_PAYMENT = 'To‘lov kutilmoqda'
 
 const STATUSES = [
+  AWAITING_PAYMENT,
   'Yangi',
   'Qabul qilindi',
   'Yetkazilmoqda',
@@ -30,6 +39,7 @@ const COURIER_ALLOWED: Status[] = ['Yetkazilmoqda', 'Yetkazildi']
  */
 const CUSTOMER_TEXT: Record<Lang, Record<Status, (n: string) => string>> = {
   uz: {
+    [AWAITING_PAYMENT]: (n) => `💳 <b>${n}</b> buyurtmangiz to‘lovni kutmoqda.`,
     'Yangi': (n) => `🆕 <b>${n}</b> buyurtmangiz qabul qilindi.`,
     'Qabul qilindi': (n) => `✅ <b>${n}</b> buyurtmangiz tasdiqlandi va tayyorlanmoqda.`,
     'Yetkazilmoqda': (n) => `🚚 <b>${n}</b> buyurtmangiz yo‘lga chiqdi. Kuryer tez orada bog‘lanadi.`,
@@ -38,6 +48,7 @@ const CUSTOMER_TEXT: Record<Lang, Record<Status, (n: string) => string>> = {
     'Rad etildi': (n) => `⛔️ <b>${n}</b> buyurtmangiz rad etildi. Batafsil ma’lumot uchun bog‘laning.`,
   },
   ru: {
+    [AWAITING_PAYMENT]: (n) => `💳 Заказ <b>${n}</b> ожидает оплаты.`,
     'Yangi': (n) => `🆕 Ваш заказ <b>${n}</b> принят.`,
     'Qabul qilindi': (n) => `✅ Ваш заказ <b>${n}</b> подтверждён и готовится.`,
     'Yetkazilmoqda': (n) => `🚚 Ваш заказ <b>${n}</b> в пути. Курьер скоро свяжется с вами.`,
@@ -50,6 +61,7 @@ const CUSTOMER_TEXT: Record<Lang, Record<Status, (n: string) => string>> = {
 /** Ilova ichidagi bildirishnoma — `src/i18n/ru.ts` dagi «status.*» bilan bir xil. */
 const STATUS_NAME: Record<Lang, Record<Status, string>> = {
   uz: {
+    [AWAITING_PAYMENT]: 'To‘lov kutilmoqda',
     'Yangi': 'Yangi',
     'Qabul qilindi': 'Qabul qilindi',
     'Yetkazilmoqda': 'Yetkazilmoqda',
@@ -58,6 +70,7 @@ const STATUS_NAME: Record<Lang, Record<Status, string>> = {
     'Rad etildi': 'Rad etildi',
   },
   ru: {
+    [AWAITING_PAYMENT]: 'Ожидает оплаты',
     'Yangi': 'Новый',
     'Qabul qilindi': 'Принят',
     'Yetkazilmoqda': 'Доставляется',
@@ -362,6 +375,7 @@ export function orderSummary(id: string, order: OrderDoc): string {
 /** Holat yorliqlari uchun belgi. */
 function statusIcon(status: Status): string {
   const icons: Record<Status, string> = {
+    [AWAITING_PAYMENT]: '💳',
     'Yangi': '🆕',
     'Qabul qilindi': '✅',
     'Yetkazilmoqda': '🚚',
@@ -377,6 +391,8 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
   const status = body.status as Status
   if (!orderId) throw new Error('orderId kerak')
   if (!STATUSES.includes(status)) throw new Error('Holat noto‘g‘ri')
+  // «To'lov kutilmoqda» ni faqat server qo'yadi (buyurtma yaratilganda)
+  if (status === AWAITING_PAYMENT) throw new Error('Bu holatni qo‘lda qo‘yib bo‘lmaydi')
 
   const db = await adminDb()
   const ref = db.collection('orders').doc(orderId)
@@ -392,6 +408,11 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
   }
 
   if (order.status === status) return { ok: true, notified: false, unchanged: true }
+
+  // To'lanmagan onlayn buyurtmani faqat bekor qilish yoki rad etish mumkin
+  if (order.status === AWAITING_PAYMENT && status !== 'Bekor qilingan' && status !== 'Rad etildi') {
+    throw new Error('Onlayn to‘lov hali o‘tmagan — buyurtmani tasdiqlab bo‘lmaydi')
+  }
 
   const now = new Date().toISOString()
   const by = { uid: staff.uid, name: staff.name, role: staff.role }
@@ -413,7 +434,7 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
 function cashFields(order: OrderDoc, status: Status, now: string): Record<string, unknown> {
   if (status === 'Yetkazildi') {
     const fields: Record<string, unknown> = { deliveredAt: now }
-    if (order.courierId && order.paymentMethod !== 'Karta' && !order.cashStatus) {
+    if (order.courierId && isCashPayment(order.paymentMethod) && !order.cashStatus) {
       fields.cashStatus = 'held'
       fields.cashCourierId = order.courierId
     }
@@ -470,6 +491,10 @@ export async function applyStatusEffects(
     await clearDispatchButtons(orderId, order, options.closeLabel ?? `❌ ${status}`)
     // Buyurtma yopildi — band qilingan miqdor omborga qaytadi
     await restoreStock(orderId)
+    // Onlayn to'langan buyurtma — pul avtomatik qaytmaydi, adminlar qaytarishi kerak
+    if (order.paymentMethod === 'Onlayn' && (order as { paidAt?: string }).paidAt) {
+      await alertRefund(orderId, order)
+    }
   } else if (status === 'Yetkazilmoqda' || status === 'Yetkazildi') {
     // Boshqa kuryerlardagi nusxa «… oldi» ga aylanadi va tugmasi o'chadi
     await updateCourierMessages(orderId, order, status)
@@ -526,6 +551,17 @@ export async function applyStatusEffects(
   await bumpOrdersSignal()
 
   return { notified }
+}
+
+/** Onlayn to'langan buyurtma yopildi — pulni WLCM kabineti orqali qaytarish kerak. */
+async function alertRefund(orderId: string, order: OrderDoc): Promise<void> {
+  try {
+    const text = `💸 <b>${escapeHtml(orderLabel(order, orderId))}</b> — onlayn to‘langan buyurtma bekor qilindi.\n` +
+      `Pulni mijozga qaytaring (${Number(order.total) || 0} so‘m, WLCM kabineti orqali).`
+    for (const chatId of await adminTargets()) await sendMessage(chatId, text)
+  } catch (error) {
+    console.error('[orders] qaytarish ogohlantirishi ketmadi:', error)
+  }
 }
 
 /**

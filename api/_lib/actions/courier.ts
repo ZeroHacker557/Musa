@@ -12,6 +12,7 @@ import {
 import { canDeliver, courierPhone, shiftActive, tashkentMidnight } from '../courier-staff.js'
 import { CodedError } from '../errors.js'
 import { orderLabel, tashkentDay } from '../order-number.js'
+import { isCashPayment } from '../pay-method.js'
 
 /**
  * Kuryer amallari — mini app'dagi kuryer sahifasi uchun.
@@ -190,7 +191,7 @@ export async function courierDeliver(staff: Staff, body: Body) {
        * Faqat shu paytdan yetkazilganlarga qo'yiladi: eski buyurtmalar
        * belgisiz qoladi, aks holda butun tarix «qarz» bo'lib chiqardi.
        */
-      ...(data.paymentMethod === 'Karta' ? {} : { cashStatus: 'held', cashCourierId: staff.uid }),
+      ...(isCashPayment(data.paymentMethod) ? { cashStatus: 'held', cashCourierId: staff.uid } : {}),
     })
     return { outcome: 'done' as DeliverOutcome, order: data }
   })
@@ -330,8 +331,9 @@ function bucket(orders: RawOrder[], since: number): Bucket {
     if (!Number.isFinite(at) || at < since) continue
     result.delivered++
     const total = Number(order.total) || 0
-    if (order.paymentMethod === 'Karta') result.card += total
-    else result.cash += total
+    // Karta va onlayn — naqdsiz
+    if (isCashPayment(order.paymentMethod)) result.cash += total
+    else result.card += total
   }
   return result
 }

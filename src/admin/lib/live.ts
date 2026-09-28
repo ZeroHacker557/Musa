@@ -422,7 +422,13 @@ export type LinkoSettings = {
 }
 
 export type AllSettings = {
-  payment: { cardNumber: string; cardOwner: string }
+  payment: {
+    cardNumber: string
+    cardOwner: string
+    /** Onlayn to'lov (WLCM) yoqilganmi va mijozga ko'rinadigan usullar. */
+    online?: boolean
+    onlineProviders?: string[]
+  }
   delivery: { fee: number; freeFrom: number; minOrder: number }
   courier: CourierSettings
   linko: LinkoSettings

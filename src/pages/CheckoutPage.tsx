@@ -3,8 +3,8 @@ import { FreeDeliveryBar } from '../components/cart/FreeDeliveryBar'
 import { useFreeDelivery } from '../hooks/use-free-delivery'
 import { productThumb } from '../utils/product-image'
 import {
-  ArrowLeft, Banknote, Check, Copy, CreditCard, Loader2, MapPin, Pencil,
-  MessageSquare, Phone, Send, ShoppingBag, Tag, User, UserRound,
+  ArrowLeft, Banknote, Check, Copy, CreditCard, Loader2, Lock, MapPin, Pencil,
+  MessageSquare, Phone, Send, ShoppingBag, Smartphone, Tag, User, UserRound,
 } from 'lucide-react'
 import { formatPrice } from '../data'
 import { hapticFeedback } from '../utils/telegram'
@@ -15,6 +15,7 @@ import { useT } from '../i18n'
 import type { Address, AppPage, DeliverySettings, OrderForm, PaymentSettings, Product, UserProfile } from '../types/domain'
 import { PageTitle } from '../components/layout/PageTitle'
 import { AddressConfirmSheet } from '../components/checkout/AddressConfirmSheet'
+import { PAY_PROVIDERS, providerLabel } from '../utils/payment'
 
 /*
  * Sahifa har ochilganda qayta yaratiladi, shuning uchun «oldin qaysi
@@ -29,6 +30,9 @@ let pickedAddressId: string | null = null
  * DEV: `?addrDemo` — Telegram'siz brauzerda profil yuklanmaydi; tasdiqlash
  * oynasini ko'rish uchun namunaviy manzillar. Production'da `null`.
  */
+/** DEV: `?payDemo` — onlayn to'lov tanlovini sozlamasiz ko'rish. Production'da `false`. */
+const PAY_DEMO = import.meta.env.DEV && new URLSearchParams(location.search).has('payDemo')
+
 const DEMO_PROFILE: UserProfile | null =
   import.meta.env.DEV && new URLSearchParams(location.search).has('addrDemo')
     ? {
@@ -92,7 +96,7 @@ export function CheckoutPage({
 
   useEffect(() => {
     let alive = true
-    getPaymentSettings().then((s) => alive && setPayment(s))
+    getPaymentSettings().then((s) => alive && setPayment(PAY_DEMO ? { ...s, online: true, onlineProviders: ['payme', 'click', 'uzum'] } : s))
     getDeliverySettings().then((s) => alive && setDelivery(s))
     return () => { alive = false }
   }, [])
@@ -188,6 +192,25 @@ export function CheckoutPage({
   }, [addresses, lastUsedAddress, orderForm.address, orderForm.location, chooseAddress])
 
   const selectedAddressId = addresses.find((a) => a.address === orderForm.address)?.id ?? null
+
+  /*
+   * Onlayn to'lov (WLCM) — admin yoqqan bo'lsa. Mavjud usullar admin
+   * tanlagani va ilovaning ro'yxati kesishmasi, ilova tartibida.
+   */
+  const onlineProviders = useMemo(
+    () => PAY_PROVIDERS.filter((p) => payment?.online && payment.onlineProviders?.includes(p.id)),
+    [payment],
+  )
+  const onlineOn = onlineProviders.length > 0
+
+  // Onlayn tanlangan-u o'chirilgan (yoki usul yo'q) bo'lsa — naqdga qaytamiz
+  useEffect(() => {
+    if (payment === null || orderForm.paymentMethod !== 'Onlayn') return
+    if (!onlineOn) onUpdateForm('paymentMethod', 'Naqd')
+    else if (!onlineProviders.some((p) => p.id === orderForm.paymentProvider)) {
+      onUpdateForm('paymentProvider', onlineProviders[0].id)
+    }
+  }, [payment, onlineOn, onlineProviders, orderForm.paymentMethod, orderForm.paymentProvider, onUpdateForm])
 
   const isValid = Boolean(orderForm.name.trim() && orderForm.phone.trim() && orderForm.address.trim())
   const canSubmit = isValid && !isSubmitting && !belowMin
@@ -536,13 +559,22 @@ export function CheckoutPage({
             {([
               { id: 'Naqd' as const, Icon: Banknote, label: t('checkout.cash'), sub: t('checkout.cashSub') },
               { id: 'Karta' as const, Icon: CreditCard, label: t('checkout.card'), sub: t('checkout.cardSub') },
+              ...(onlineOn
+                ? [{ id: 'Onlayn' as const, Icon: Smartphone, label: t('checkout.online'), sub: t('checkout.onlineSub') }]
+                : []),
             ]).map(({ id, Icon, label, sub }) => {
               const selected = orderForm.paymentMethod === id
               return (
                 <button
                   key={id}
                   type="button"
-                  onClick={() => onUpdateForm('paymentMethod', id)}
+                  onClick={() => {
+                    onUpdateForm('paymentMethod', id)
+                    // Onlayn — birinchi usul o'zi tanlanadi
+                    if (id === 'Onlayn' && !onlineProviders.some((p) => p.id === orderForm.paymentProvider)) {
+                      onUpdateForm('paymentProvider', onlineProviders[0]?.id)
+                    }
+                  }}
                   className="flex flex-1 flex-col items-center gap-2 rounded-2xl border-2 py-4 transition"
                   style={{
                     borderColor: selected ? 'var(--brand)' : 'var(--line)',
@@ -558,6 +590,33 @@ export function CheckoutPage({
               )
             })}
           </div>
+
+          {/* Onlayn: qaysi ilova orqali */}
+          {orderForm.paymentMethod === 'Onlayn' && onlineOn && (
+            <div className="pay-providers" style={{ animation: 'fadeInUp 0.25s ease' }}>
+              <p className="pay-providers__title">{t('checkout.payWith')}</p>
+              <div className="pay-providers__grid">
+                {onlineProviders.map((p) => {
+                  const on = orderForm.paymentProvider === p.id
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={'pay-provider ' + (on ? 'is-on' : '')}
+                      style={{ ['--pc' as string]: p.color }}
+                      onClick={() => { hapticFeedback('light'); onUpdateForm('paymentProvider', p.id) }}
+                      aria-pressed={on}
+                    >
+                      <span className="pay-provider__dot" aria-hidden="true">{p.label[0]}</span>
+                      {p.label}
+                      {on && <Check size={15} strokeWidth={3} className="pay-provider__check" />}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="pay-providers__note"><Lock size={12} /> {t('checkout.onlineNote')}</p>
+            </div>
+          )}
 
           {orderForm.paymentMethod === 'Karta' && (
             <div
@@ -606,6 +665,8 @@ export function CheckoutPage({
         <button onClick={() => { if (!isSubmitting) onSubmit() }} disabled={!canSubmit} className="btn-primary mt-8 w-full py-4">
           {isSubmitting ? (
             <><Loader2 size={20} className="animate-spin" />{t('checkout.submitting')}</>
+          ) : orderForm.paymentMethod === 'Onlayn' && orderForm.paymentProvider ? (
+            <><Lock size={19} />{t('checkout.payNow', { provider: providerLabel(orderForm.paymentProvider) })}</>
           ) : (
             <><Send size={20} />{t('checkout.submit')}</>
           )}

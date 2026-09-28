@@ -10,7 +10,7 @@ import { broadcast, staffDelete, staffLinkTelegram, staffSave } from '../_lib/ac
 import { catalogLayout, sectionDelete, sectionSave } from '../_lib/actions/sections.js'
 import { promotionDelete, promotionSave } from '../_lib/actions/promotions.js'
 import { adSave } from '../_lib/actions/ads.js'
-import { settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
+import { paymentCheck, paymentWebhook, settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
 import {
   linkoAutoLink, linkoLink, linkoPing, linkoPull, linkoSettingsSave, linkoStatus,
 } from '../_lib/actions/linko.js'
@@ -80,6 +80,8 @@ const HANDLERS: Record<string, Handler> = {
 
   // Sozlamalar
   'settings.save': settingsSave,
+  'payment.check': paymentCheck,
+  'payment.webhook': paymentWebhook,
   'settings.testGroup': settingsTestGroup,
 
   /*

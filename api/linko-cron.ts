@@ -3,6 +3,7 @@ import { linkoPull } from './_lib/actions/linko.js'
 import { linkoProbe } from './_lib/linko.js'
 import { endExpiredShifts } from './_lib/actions/shift.js'
 import { linkoPushOrders } from './_lib/actions/linko-orders.js'
+import { expireUnpaidOrders } from './_lib/actions/payments.js'
 import { fail } from './_lib/http.js'
 
 /**
@@ -48,6 +49,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     shifts = { error: error instanceof Error ? error.message : 'xato' }
   }
 
+  // To'lanmay qolgan onlayn buyurtmalar bekor, qoldiq omborga qaytadi
+  let unpaid: Record<string, unknown>
+  try {
+    unpaid = await expireUnpaidOrders()
+  } catch (error) {
+    console.error('[linko-cron] to‘lanmaganlar bekor qilinmadi:', error)
+    unpaid = { error: error instanceof Error ? error.message : 'xato' }
+  }
+
   /*
    * Buyurtmalar: Linko'ga tushmagan, xato bergan yoki holati eskirgan
    * (oxirgi 3 kun) — qayta yuboriladi. Odatda buyurtma yaratilganda va
@@ -64,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const result = await linkoPull(null, { full: req.query.full === '1' })
-    return res.status(200).json({ ...result, shifts, orders })
+    return res.status(200).json({ ...result, shifts, orders, unpaid })
   } catch (error) {
     // Sinxron yiqilsa do'kon ishlashda davom etadi — faqat log va 200 emas 500
     console.error('[linko-cron] xato:', error)

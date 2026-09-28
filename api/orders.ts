@@ -1,5 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { LOW_STOCK_AT, bumpOrdersSignal, notifyLowStock, notifyNewOrder } from './_lib/actions/orders.js'
+import {
+  AWAITING_PAYMENT, LOW_STOCK_AT, bumpOrdersSignal, notifyLowStock, notifyNewOrder,
+} from './_lib/actions/orders.js'
+import { onlineSettings, readProvider, startPayment } from './_lib/actions/payments.js'
+import { restoreStock } from './_lib/stock.js'
+import type { WlcmProvider } from './_lib/wlcm.js'
 import { pushOrderSafe } from './_lib/actions/linko-orders.js'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
@@ -21,7 +26,9 @@ type IncomingOrder = {
     address: string
     location: { lat: number; lng: number } | null
     comment: string
-    paymentMethod: 'Naqd' | 'Karta'
+    paymentMethod: 'Naqd' | 'Karta' | 'Onlayn'
+    /** Onlayn to'lovda — Click / Payme / Uzum / Paylov. */
+    paymentProvider?: WlcmProvider | null
     /** Buyurtmani boshqa odam oladigan bo'lsa. */
     recipientName?: string
     recipientPhone?: string
@@ -46,7 +53,11 @@ function readOrder(body: unknown): IncomingOrder {
   const address = String(customer.address || '').trim()
   if (!name || !phone || !address) throw new Error("Ism, telefon va manzil to'ldirilishi shart")
 
-  const paymentMethod = customer.paymentMethod === 'Karta' ? 'Karta' : 'Naqd'
+  const paymentMethod = customer.paymentMethod === 'Karta' || customer.paymentMethod === 'Onlayn'
+    ? customer.paymentMethod
+    : 'Naqd'
+  const paymentProvider = paymentMethod === 'Onlayn' ? readProvider(customer.paymentProvider) : null
+  if (paymentMethod === 'Onlayn' && !paymentProvider) throw new Error("To'lov usulini tanlang")
 
   return {
     items: items.map((item) => {
@@ -71,6 +82,7 @@ function readOrder(body: unknown): IncomingOrder {
           : null,
       comment: String(customer.comment || '').slice(0, 500),
       paymentMethod,
+      paymentProvider,
       recipientName: String(customer.recipientName || '').trim().slice(0, 120),
       recipientPhone: String(customer.recipientPhone || '').trim().slice(0, 40),
     },
@@ -112,6 +124,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const db = await adminDb()
   const userId = Number(uid)
+
+  /*
+   * Onlayn to'lov: admin yoqqan va kalitlar sozlangan bo'lishi shart.
+   * Buyurtma «To'lov kutilmoqda» bo'lib yaratiladi — xodimlarga to'lov
+   * o'tgandan keyingina ko'rinadi (api/_lib/actions/payments.ts).
+   */
+  const online = order.customer.paymentMethod === 'Onlayn'
+  if (online) {
+    const settings = await onlineSettings()
+    if (!settings.enabled || !order.customer.paymentProvider || !settings.providers.includes(order.customer.paymentProvider)) {
+      return fail(res, 400, 'Onlayn to‘lov hozircha mavjud emas', 'ONLINE_DISABLED')
+    }
+  }
 
   try {
     const result = await db.runTransaction(async (tx) => {
@@ -155,6 +180,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             discount: Number(data.discount) || 0,
             deliveryFee: Number(data.deliveryFee) || 0,
             duplicate: true,
+            // Takroriy so'rov — avval yaratilgan to'lov sahifasi qaytadi
+            checkoutUrl: data.status === AWAITING_PAYMENT ? (data.payment?.checkoutUrl ?? null) : null,
           }
         }
       }
@@ -323,9 +350,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         promoCode: appliedPromo,
         deliveryFee: appliedDelivery,
         total,
-        status: 'Yangi',
+        status: online ? AWAITING_PAYMENT : 'Yangi',
         paymentMethod: order.customer.paymentMethod,
-        paymentStatus: order.customer.paymentMethod === 'Karta' ? 'Kutilmoqda' : null,
+        paymentStatus: order.customer.paymentMethod === 'Naqd' ? null : 'Kutilmoqda',
+        paymentProvider: order.customer.paymentProvider ?? null,
         customer: { ...order.customer, promoCode: appliedPromo },
         clientOrderId: order.clientOrderId ?? null,
         userId,
@@ -341,13 +369,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         deliveryFee: appliedDelivery,
         duplicate: false,
         lowStock,
+        checkoutUrl: null as string | null,
       }
     })
+
+    // ── Onlayn to'lov: to'lov sahifasi ──────────────────────────
+    if (online && !result.duplicate) {
+      const snap = await db.collection('orders').doc(result.id).get()
+      try {
+        const payment = await startPayment(result.id, snap.data() || {}, order.customer.paymentProvider as WlcmProvider)
+        return res.status(200).json({
+          id: result.id,
+          orderNumber: result.orderNumber,
+          total: result.total,
+          discount: result.discount,
+          deliveryFee: result.deliveryFee,
+          duplicate: false,
+          checkoutUrl: payment.checkoutUrl,
+        })
+      } catch (error) {
+        // To'lov sahifasi ochilmadi — buyurtma bekor, qoldiq qaytadi, savat mijozda qoladi
+        console.error('[orders] to‘lov yaratilmadi:', error)
+        await db.collection('orders').doc(result.id).set({
+          status: 'Bekor qilingan',
+          statusUpdatedAt: new Date().toISOString(),
+          paymentStatus: 'Rad etildi',
+          cancelReason: 'payment_start_failed',
+          // Mijoz qayta bossa yangi buyurtma yaratilsin (eski kalit band bo'lmasin)
+          clientOrderId: null,
+        }, { merge: true })
+        await restoreStock(result.id)
+        return fail(res, 502, 'To‘lov sahifasini ochib bo‘lmadi, keyinroq urinib ko‘ring', 'PAYMENT_START')
+      }
+    }
 
     // Xodimlarga xabar — javobni kutmasdan emas, ATAYLAB kutib.
     // Serverless funksiya javob qaytargach to'xtaydi va "orqa fonda"
     // boshlangan ish bajarilmay qolishi mumkin.
-    if (!result.duplicate) {
+    if (!result.duplicate && !online) {
       const snap = await db.collection('orders').doc(result.id).get()
       await notifyNewOrder(result.id, snap.data() || {})
       // Kuryer ilovalari (smenadagilar) ro'yxatni yangilaydi
@@ -370,6 +429,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       discount: result.discount,
       deliveryFee: result.deliveryFee,
       duplicate: result.duplicate,
+      checkoutUrl: result.checkoutUrl ?? null,
     })
   } catch (error) {
     const raw = error instanceof Error ? error.message : ''

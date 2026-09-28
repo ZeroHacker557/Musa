@@ -101,7 +101,9 @@ export type Category = {
   order?: number
 }
 
-export type OrderStatus = 'Yangi' | 'Qabul qilindi' | 'Yetkazilmoqda' | 'Yetkazildi' | 'Bekor qilingan' | 'Rad etildi'
+export type OrderStatus =
+  | 'To‘lov kutilmoqda'
+  | 'Yangi' | 'Qabul qilindi' | 'Yetkazilmoqda' | 'Yetkazildi' | 'Bekor qilingan' | 'Rad etildi'
 
 export type Order = {
   /** Firestore hujjat identifikatori — barcha texnik havolalar shu bo'yicha. */
@@ -120,8 +122,15 @@ export type Order = {
   /** Yakuniy summa: subtotal - discount + deliveryFee. */
   total: number
   status: OrderStatus
-  paymentMethod?: 'Naqd' | 'Karta'
-  paymentStatus?: 'Tolangan' | 'Kutilmoqda' | 'Rad etildi'
+  paymentMethod?: 'Naqd' | 'Karta' | 'Onlayn'
+  paymentStatus?: 'Tolangan' | 'Kutilmoqda' | 'Rad etildi' | 'Qaytarildi' | 'Tekshirish kerak'
+  /** Onlayn to'lov: qaysi usul (click, payme, uzum, paylov). */
+  paymentProvider?: string | null
+  /** Onlayn to'lov sahifasi (server yozadi). */
+  payment?: { provider?: string; checkoutUrl?: string | null; state?: number } | null
+  paidAt?: string | null
+  /** Nega bekor qilingan: payment_timeout, payment_cancelled… */
+  cancelReason?: string | null
   customer: OrderForm
   userId?: number
   username?: string
@@ -152,6 +161,9 @@ export type NewOrder = Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'notifie
 export type PaymentSettings = {
   cardNumber: string
   cardOwner: string
+  /** Onlayn to'lov (WLCM) yoqilganmi va qaysi usullar ko'rinadi. */
+  online?: boolean
+  onlineProviders?: string[]
 }
 
 export type DeliverySettings = {
@@ -169,7 +181,9 @@ export type OrderForm = {
   address: string
   location: { lat: number; lng: number } | null
   comment: string
-  paymentMethod: 'Naqd' | 'Karta'
+  paymentMethod: 'Naqd' | 'Karta' | 'Onlayn'
+  /** Onlayn to'lovda tanlangan usul. */
+  paymentProvider?: string
   promoCode?: string
   /**
    * Buyurtmani boshqa odam oladigan bo'lsa — uning ismi va raqami.

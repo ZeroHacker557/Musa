@@ -1324,6 +1324,8 @@ def courier_today(uid: str) -> dict:
         print(f"[ERR] courier_today: {e}")
 
     delivered.sort(key=lambda o: o["_at"])
-    cash = sum(int(o.get("total") or 0) for o in delivered if o.get("paymentMethod") != "Karta")
-    card = sum(int(o.get("total") or 0) for o in delivered if o.get("paymentMethod") == "Karta")
+    # Naqd — faqat «Naqd» (va bo'sh); karta o'tkazmasi va onlayn to'lov — naqdsiz
+    is_cash = lambda o: (o.get("paymentMethod") or "Naqd") == "Naqd"
+    cash = sum(int(o.get("total") or 0) for o in delivered if is_cash(o))
+    card = sum(int(o.get("total") or 0) for o in delivered if not is_cash(o))
     return {"date": start, "delivered": delivered, "on_way": on_way, "waiting": waiting, "cash": cash, "card": card}

@@ -9,6 +9,7 @@ import { SplashAd } from './components/promo/SplashAd'
 import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
 import { DeliveryTracker } from './components/order/DeliveryTracker'
+import { PaymentWaitingSheet } from './components/order/PaymentWaitingSheet'
 import { CourierRatingSheet, type CourierRatingPayload } from './components/order/CourierRatingSheet'
 import { apiPost } from './lib/api'
 import type { Order } from './types/domain'
@@ -231,6 +232,16 @@ function App() {
           />
         )}
 
+        {/* Onlayn to'lov — to'lov sahifasi ochiq turganda natijani kutadi */}
+        {shop.payingOrderId && (
+          <PaymentWaitingSheet
+            order={shop.myOrders.find((o) => o.id === shop.payingOrderId) ?? null}
+            onPaid={shop.finishPayment}
+            onClose={shop.closePayment}
+            onCheck={shop.checkPayment}
+          />
+        )}
+
         {/* «Kuryer yo'lda» — pastda, menyu ustida. To'liq ekranli sahifalarda,
             savat ochiq yoki savat taklifi turganda ko'rinmaydi. */}
         {!FULLSCREEN_PAGES.includes(shop.page) && !shop.isCartOpen && !shop.cartPrompt && (
@@ -258,7 +269,7 @@ function App() {
         {/* Kuryerni baholash — reklama va manzil taklifi yopilgach */}
         <CourierRatingSheet
           orders={trackedOrders}
-          blocked={adVisible || shop.askAddress || shop.checkoutDone || shop.isCartOpen}
+          blocked={adVisible || shop.askAddress || shop.checkoutDone || shop.isCartOpen || shop.payingOrderId !== null}
           submit={rateCourier}
         />
 
@@ -340,6 +351,7 @@ function App() {
                 onOpenReceipt={shop.openReceipt}
                 onOpenMap={(order) => setTrackOrderId(order.id)}
                 onReorder={shop.reorder}
+                onPay={shop.payOrder}
                 onBack={shop.goBack}
               />
             </div>

@@ -1,5 +1,6 @@
 import { adminDb } from '../firebase-admin.js'
 import { linkoPost, linkoToken, readLinkoSettings, type LinkoSettings } from '../linko.js'
+import { isCashPayment } from '../pay-method.js'
 
 /**
  * Buyurtmalarni Linko'ga yuborish.
@@ -145,6 +146,15 @@ export async function pushOrder(orderId: string, order: OrderDoc): Promise<Resul
   const settings = await readLinkoSettings()
   if (!settings.sendOrders) return { ok: false, skipped: 'sendOrders' }
 
+  /*
+   * Onlayn to'lov: to'lanmagan buyurtma hali buyurtma emas. To'lov
+   * kutilayotganda yoki to'lanmay bekor bo'lganda Linko'ga yubormaymiz
+   * (u yerda yaratilmagan bo'lsa — keyin ham kerak emas).
+   */
+  const unpaidOnline = (order as { paymentMethod?: string }).paymentMethod === 'Onlayn'
+    && !(order as { paidAt?: string }).paidAt
+  if (unpaidOnline && !order.linko?.orderId) return { ok: false, skipped: 'unpaid' }
+
   const db = await adminDb()
   const save = (data: Record<string, unknown>) =>
     db.collection('orders').doc(orderId).set({ linko: data }, { merge: true })
@@ -195,7 +205,7 @@ export async function pushOrder(orderId: string, order: OrderDoc): Promise<Resul
     const market = await syncMarket(order, settings)
 
     // ── Buyurtma ──
-    const cash = text(order.paymentMethod) !== 'Karta'
+    const cash = isCashPayment(text(order.paymentMethod))
     const payload = [{
       service_id: `musa-${orderId}`,
       ...(order.linko?.orderId ? { linko_id: order.linko.orderId } : {}),
@@ -316,6 +326,7 @@ export async function linkoPushOrders(_staff: unknown, body: Record<string, unkn
 
     const result = await pushOrder(doc.id, order)
     if (result.ok) sent++
+    else if (result.skipped) skipped++
     else {
       failed++
       errors.push(`${order.orderNumber || doc.id}: ${String(result.error || '').slice(0, 120)}`)

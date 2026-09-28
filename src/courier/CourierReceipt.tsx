@@ -7,6 +7,7 @@ import { formatDateTime } from '../utils/date'
 import { useI18n, type TranslationKey } from '../i18n'
 import type { CourierOrder } from './api'
 import { bundleText } from '../utils/bundle'
+import { isCashPayment } from '../utils/payment'
 
 /**
  * Yetkazilgan buyurtmaning cheki — kuryer tarixidan ochiladi.
@@ -18,7 +19,7 @@ import { bundleText } from '../utils/bundle'
 export function CourierReceipt({ order }: { order: CourierOrder }) {
   const { t } = useI18n()
   const subtotal = order.subtotal || order.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
-  const card = order.paymentMethod === 'Karta'
+  const card = !isCashPayment(order.paymentMethod)
   const paid = !card || order.paymentStatus === 'Tolangan'
   const payStatus = card
     ? t(`payStatus.${order.paymentStatus ?? 'Kutilmoqda'}` as TranslationKey)
