@@ -21,8 +21,11 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
  * bo'lsa server rad etadi.
  */
 
-/** Mijozga ko'rsatiladigan to'lov usullari (karta raqami bilan to'lov — ilovada emas). */
-export const WLCM_PROVIDERS = ['click', 'payme', 'uzum', 'paylov'] as const
+/**
+ * To'lov usullari. `card` — Uzcard/Humo karta raqami ilovaning o'zida
+ * kiritiladi va SMS kod bilan tasdiqlanadi (createCardCheckout + confirmCard).
+ */
+export const WLCM_PROVIDERS = ['click', 'payme', 'uzum', 'paylov', 'card'] as const
 export type WlcmProvider = (typeof WLCM_PROVIDERS)[number]
 
 /** To'lov holatlari (docs.wlcm.uz/states). */
@@ -148,6 +151,79 @@ export async function createCheckout(input: {
     state: Number(data?.state ?? 0),
     externalId: String(data?.external_id || input.externalId),
   }
+}
+
+export type CardCheckout = {
+  orderId: number | null
+  externalId: string
+  state: number
+  transactionId: string
+  cid: string
+  /** Kod yuborilgan raqam — yulduzchali (+9989*****67). */
+  otpPhone: string | null
+}
+
+/**
+ * Karta bilan to'lov: karta raqami va muddati (YYMM, masalan 2909 — 2029-yil
+ * sentyabr; sandbox'da tekshirildi) yuboriladi, egasiga SMS kod ketadi.
+ *
+ * MUHIM: karta ma'lumoti hech qayerga yozilmaydi va xatoga qo'shilmaydi —
+ * WLCM'ning 422 javobi kiritilgan qiymatlarni qaytaradi, shuning uchun xato
+ * matni bu yerda umumiy qilib almashtiriladi.
+ */
+export async function createCardCheckout(input: {
+  externalId: string
+  amountSum: number
+  cardNumber: string
+  expireYYMM: string
+  returnUrl: string
+}): Promise<CardCheckout> {
+  let data: {
+    order_id?: number
+    external_id?: string
+    state?: number
+    transaction_id?: string | null
+    cid?: string | null
+    otp_sent_phone?: string | null
+  }
+  try {
+    data = await request('POST', '/integrations/checkout', {
+      external_id: input.externalId,
+      amount: Math.round(input.amountSum * 100),
+      payment_provider: 'card',
+      card_number: input.cardNumber,
+      expire_date: input.expireYYMM,
+      return_url: input.returnUrl,
+    })
+  } catch (error) {
+    const status = error instanceof WlcmError ? error.status : 0
+    const detail = error instanceof WlcmError ? (error.body as { detail?: unknown } | null)?.detail : null
+    // Faqat raqamsiz qisqa matn qoladi — karta raqami xatoga tushmasin
+    const safe = typeof detail === 'string' && !/\d{4}/.test(detail) ? detail.slice(0, 120) : 'card_rejected'
+    throw new WlcmError(`WLCM ${status}: ${safe}`, status, { detail: safe })
+  }
+  if (!data?.transaction_id || !data?.cid) throw new WlcmError('WLCM: karta sessiyasi ochilmadi', 0, null)
+  return {
+    orderId: typeof data.order_id === 'number' ? data.order_id : null,
+    externalId: String(data.external_id || input.externalId),
+    state: Number(data.state ?? 0),
+    transactionId: String(data.transaction_id),
+    cid: String(data.cid),
+    otpPhone: data.otp_sent_phone ? String(data.otp_sent_phone) : null,
+  }
+}
+
+/**
+ * SMS kodni tasdiqlash. `alreadyPaid` — oldin tasdiqlangan (takroriy bosish).
+ * Noto'g'ri yoki eskirgan kod — `invalid_otp` (400).
+ */
+export async function confirmCard(input: { transactionId: string; cid: string; otp: string }): Promise<{ success: boolean; alreadyPaid: boolean }> {
+  const data = await request<{ success?: boolean; message?: string | null }>('POST', '/integrations/payment/card/confirm', {
+    transaction_id: input.transactionId,
+    cid: input.cid,
+    otp: input.otp,
+  })
+  return { success: data?.success === true, alreadyPaid: data?.message === 'Already paid' }
 }
 
 /** Hamkor ma'lumoti — kalitlar ishlayotganini tekshirish uchun. */

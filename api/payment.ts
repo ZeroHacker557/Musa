@@ -2,7 +2,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail } from './_lib/http.js'
 import { AWAITING_PAYMENT } from './_lib/actions/orders.js'
-import { checkPayment, handleWebhook, onlineSettings, readProvider, startPayment } from './_lib/actions/payments.js'
+import {
+  checkPayment, confirmCardPayment, handleWebhook, onlineSettings, readProvider, startPayment,
+} from './_lib/actions/payments.js'
+import { CodedError } from './_lib/errors.js'
 import type { WebhookPayload } from './_lib/wlcm.js'
 
 /**
@@ -15,6 +18,8 @@ import type { WebhookPayload } from './_lib/wlcm.js'
  *        — mijoz to'lanmagan buyurtmasini qayta to'laydi (yangi sahifa)
  *   POST /api/payment  {orderId, check: true}
  *        — to'lov holatini WLCM'dan so'rash (kutish oynasi, webhook kechiksa)
+ *   POST /api/payment  {orderId, otp}
+ *        — karta bilan to'lovda SMS kodni tasdiqlash
  *   GET  /api/payment?return=<orderId>
  *        — to'lovdan keyin mijoz qaytadigan sahifa («Telegram'ga qayting»)
  */
@@ -72,12 +77,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // Karta: SMS kodni tasdiqlash
+  if (req.body?.otp !== undefined) {
+    try {
+      const result = await confirmCardPayment(orderId, String(req.body.otp))
+      return res.status(200).json(result)
+    } catch (error) {
+      if (error instanceof CodedError) return fail(res, 400, error.message, error.code)
+      console.error('[payment] SMS kod tasdiqlanmadi:', error instanceof Error ? error.message : 'xato')
+      return fail(res, 502, 'Kodni tekshirib bo‘lmadi, qayta urinib ko‘ring', 'PAYMENT_START')
+    }
+  }
+
   if (order.paidAt) return fail(res, 400, 'Buyurtma allaqachon to‘langan', 'ALREADY_PAID')
   if (order.status !== AWAITING_PAYMENT) return fail(res, 400, 'Buyurtma to‘lov kutmayapti', 'NOT_AWAITING')
 
   const online = await onlineSettings(Number(uid))
   if (!online.enabled) return fail(res, 400, 'Onlayn to‘lov hozircha o‘chiq', 'ONLINE_DISABLED')
-  const provider = readProvider(req.body?.provider) ?? readProvider(order.payment?.provider)
+  /*
+   * Qayta to'lash — to'lov sahifasi orqali. Karta bilan boshlangan buyurtmada
+   * karta ma'lumoti saqlanmagan, shuning uchun Payme sahifasi ochiladi (u ham
+   * Uzcard/Humo kartani qabul qiladi).
+   */
+  const requested = readProvider(req.body?.provider) ?? readProvider(order.payment?.provider)
+  const provider = requested === 'card'
+    ? (['payme', 'click'] as const).find((p) => online.providers.includes(p)) ?? null
+    : requested
   if (!provider || !online.providers.includes(provider)) return fail(res, 400, 'To‘lov usuli tanlanmagan', 'BAD_PROVIDER')
 
   try {

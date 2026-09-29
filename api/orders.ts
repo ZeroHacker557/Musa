@@ -2,7 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
   AWAITING_PAYMENT, LOW_STOCK_AT, bumpOrdersSignal, notifyLowStock, notifyNewOrder,
 } from './_lib/actions/orders.js'
-import { onlineSettings, readProvider, startPayment } from './_lib/actions/payments.js'
+import { onlineSettings, readCard, readProvider, startCardPayment, startPayment } from './_lib/actions/payments.js'
+import { WlcmError } from './_lib/wlcm.js'
 import { restoreStock } from './_lib/stock.js'
 import type { WlcmProvider } from './_lib/wlcm.js'
 import { pushOrderSafe } from './_lib/actions/linko-orders.js'
@@ -131,6 +132,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
    * o'tgandan keyingina ko'rinadi (api/_lib/actions/payments.ts).
    */
   const online = order.customer.paymentMethod === 'Onlayn'
+  /*
+   * Karta bilan to'lov (Uzcard/Humo): raqam va muddat faqat shu so'rov
+   * davomida xotirada — buyurtmaga ham, logga ham yozilmaydi.
+   */
+  const card = online && order.customer.paymentProvider === 'card' ? readCard(req.body?.card) : null
+  if (online && order.customer.paymentProvider === 'card' && !card) {
+    return fail(res, 400, 'Karta raqami yoki muddati noto‘g‘ri', 'CARD_INVALID')
+  }
   if (online) {
     const settings = await onlineSettings(userId)
     if (!settings.enabled || !order.customer.paymentProvider || !settings.providers.includes(order.customer.paymentProvider)) {
@@ -180,8 +189,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             discount: Number(data.discount) || 0,
             deliveryFee: Number(data.deliveryFee) || 0,
             duplicate: true,
-            // Takroriy so'rov — avval yaratilgan to'lov sahifasi qaytadi
+            // Takroriy so'rov — avval yaratilgan to'lov sahifasi (yoki SMS kod oynasi) qaytadi
             checkoutUrl: data.status === AWAITING_PAYMENT ? (data.payment?.checkoutUrl ?? null) : null,
+            needsOtp: data.status === AWAITING_PAYMENT && data.payment?.provider === 'card',
+            otpPhone: data.payment?.otpPhone ?? null,
+            cardMask: data.payment?.cardMask ?? null,
           }
         }
       }
@@ -370,6 +382,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         duplicate: false,
         lowStock,
         checkoutUrl: null as string | null,
+        needsOtp: false,
+        otpPhone: null as string | null,
+        cardMask: null as string | null,
       }
     })
 
@@ -377,7 +392,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (online && !result.duplicate) {
       const snap = await db.collection('orders').doc(result.id).get()
       try {
-        const payment = await startPayment(result.id, snap.data() || {}, order.customer.paymentProvider as WlcmProvider)
+        const payment = card
+          ? await startCardPayment(result.id, snap.data() || {}, card)
+          : await startPayment(result.id, snap.data() || {}, order.customer.paymentProvider as WlcmProvider)
         return res.status(200).json({
           id: result.id,
           orderNumber: result.orderNumber,
@@ -386,10 +403,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           deliveryFee: result.deliveryFee,
           duplicate: false,
           checkoutUrl: payment.checkoutUrl,
+          // Karta: SMS kod yuborildi — ilova kod oynasini ochadi
+          needsOtp: Boolean(card),
+          otpPhone: payment.otpPhone ?? null,
+          cardMask: payment.cardMask ?? null,
         })
       } catch (error) {
-        // To'lov sahifasi ochilmadi — buyurtma bekor, qoldiq qaytadi, savat mijozda qoladi
-        console.error('[orders] to‘lov yaratilmadi:', error)
+        // To'lov sahifasi ochilmadi — buyurtma bekor, qoldiq qaytadi, savat mijozda qoladi.
+        // Karta xatosida faqat holat kodi yoziladi (karta ma'lumoti logga tushmasin).
+        if (card) console.error('[orders] karta to‘lovi ochilmadi:', error instanceof WlcmError ? error.message : 'xato')
+        else console.error('[orders] to‘lov yaratilmadi:', error)
         await db.collection('orders').doc(result.id).set({
           status: 'Bekor qilingan',
           statusUpdatedAt: new Date().toISOString(),
@@ -399,6 +422,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           clientOrderId: null,
         }, { merge: true })
         await restoreStock(result.id)
+        // Karta rad etildi (4xx) — mijoz ma'lumotni tekshirsin
+        if (card && error instanceof WlcmError && error.status >= 400 && error.status < 500) {
+          return fail(res, 400, 'Karta qabul qilinmadi — raqam va muddatni tekshiring', 'CARD_REJECTED')
+        }
         return fail(res, 502, 'To‘lov sahifasini ochib bo‘lmadi, keyinroq urinib ko‘ring', 'PAYMENT_START')
       }
     }
@@ -430,6 +457,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       deliveryFee: result.deliveryFee,
       duplicate: result.duplicate,
       checkoutUrl: result.checkoutUrl ?? null,
+      needsOtp: result.needsOtp ?? false,
+      otpPhone: result.otpPhone ?? null,
+      cardMask: result.cardMask ?? null,
     })
   } catch (error) {
     const raw = error instanceof Error ? error.message : ''

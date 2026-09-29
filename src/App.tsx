@@ -10,6 +10,7 @@ import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
 import { DeliveryTracker } from './components/order/DeliveryTracker'
 import { PaymentWaitingSheet } from './components/order/PaymentWaitingSheet'
+import { CardOtpSheet } from './components/payment/CardOtpSheet'
 import { CourierRatingSheet, type CourierRatingPayload } from './components/order/CourierRatingSheet'
 import { apiPost } from './lib/api'
 import type { Order } from './types/domain'
@@ -232,6 +233,16 @@ function App() {
           />
         )}
 
+        {/* Karta (Uzcard/Humo) — SMS kod */}
+        {shop.otpOrder && (
+          <CardOtpSheet
+            phone={shop.otpOrder.phone}
+            cardMask={shop.otpOrder.cardMask}
+            onConfirm={shop.confirmOtp}
+            onClose={shop.closeOtp}
+          />
+        )}
+
         {/* Onlayn to'lov — to'lov sahifasi ochiq turganda natijani kutadi */}
         {shop.payingOrderId && (
           <PaymentWaitingSheet
@@ -269,7 +280,7 @@ function App() {
         {/* Kuryerni baholash — reklama va manzil taklifi yopilgach */}
         <CourierRatingSheet
           orders={trackedOrders}
-          blocked={adVisible || shop.askAddress || shop.checkoutDone || shop.isCartOpen || shop.payingOrderId !== null}
+          blocked={adVisible || shop.askAddress || shop.checkoutDone || shop.isCartOpen || shop.payingOrderId !== null || shop.otpOrder !== null}
           submit={rateCourier}
         />
 

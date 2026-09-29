@@ -612,7 +612,7 @@ function OrderDrawer({
             </div>
             <p className="mt-1.5 text-xs" style={{ color: 'var(--muted)' }}>
               To‘lov: {order.paymentMethod || '—'}
-              {order.paymentProvider ? ` (${providerLabel(order.paymentProvider)})` : ''}
+              {order.paymentProvider ? ` (${providerLabel(order.paymentProvider)}${order.payment?.cardMask ? ` ${order.payment.cardMask}` : ''})` : ''}
               {order.paymentStatus ? ` • ${order.paymentStatus}` : ''}
             </p>
           </section>

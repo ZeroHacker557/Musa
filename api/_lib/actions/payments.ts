@@ -4,9 +4,10 @@ import { userLang } from '../i18n.js'
 import { restoreStock } from '../stock.js'
 import { orderLabel } from '../order-number.js'
 import {
-  WLCM_PROVIDERS, WLCM_STATE, activeProviders, createCheckout, orderStatus as wlcmOrderStatus,
-  verifyWebhook, wlcmConfigured, type WebhookPayload, type WlcmProvider,
+  WLCM_PROVIDERS, WLCM_STATE, WlcmError, activeProviders, confirmCard, createCardCheckout, createCheckout,
+  orderStatus as wlcmOrderStatus, verifyWebhook, wlcmConfigured, type WebhookPayload, type WlcmProvider,
 } from '../wlcm.js'
+import { CodedError } from '../errors.js'
 import {
   AWAITING_PAYMENT, adminTargets, applyStatusEffects, bumpOrdersSignal, notifyNewOrder,
   sendLiveStatus, type OrderDoc,
@@ -42,6 +43,38 @@ export type PaymentInfo = {
   createdAt: string
   paymentId?: string | null
   updatedAt?: string
+  /** Karta bilan to'lovda: SMS kodni tasdiqlash uchun (karta raqamining o'zi saqlanmaydi). */
+  transactionId?: string
+  cid?: string
+  otpPhone?: string | null
+  /** «8600 •••• •••• 7878» — faqat oxirgi 4 raqam. */
+  cardMask?: string
+  cardType?: 'uzcard' | 'humo' | 'card'
+}
+
+/** Mijoz kiritgan karta — faqat so'rov davomida xotirada, hech qayerga yozilmaydi. */
+export type CardInput = { number: string; expiry: string }
+
+/**
+ * Karta ma'lumotini tekshiradi va WLCM formatiga keltiradi.
+ * Mijoz muddatni «OO/YY» (09/29) kiritadi, WLCM «YYOO» (2909) kutadi.
+ */
+export function readCard(value: unknown): { number: string; expireYYMM: string; mask: string; type: 'uzcard' | 'humo' | 'card' } | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const number = String(raw.number ?? '').replace(/\D/g, '')
+  const expiry = String(raw.expiry ?? '').replace(/\D/g, '')
+  if (!/^\d{16}$/.test(number)) return null
+  if (!/^\d{4}$/.test(expiry)) return null
+  const month = Number(expiry.slice(0, 2))
+  if (month < 1 || month > 12) return null
+  const type = number.startsWith('9860') ? 'humo' : /^(8600|5614)/.test(number) ? 'uzcard' : 'card'
+  return {
+    number,
+    expireYYMM: expiry.slice(2) + expiry.slice(0, 2),
+    mask: `${number.slice(0, 4)} •••• •••• ${number.slice(-4)}`,
+    type,
+  }
 }
 
 type PayOrder = OrderDoc & {
@@ -132,6 +165,79 @@ export async function startPayment(orderId: string, order: PayOrder, provider: W
   const db = await adminDb()
   await db.collection('orders').doc(orderId).set({ payment }, { merge: true })
   return payment
+}
+
+/**
+ * Karta bilan to'lov: WLCM'da sessiya ochiladi va karta egasiga SMS kod
+ * yuboriladi. Buyurtmaga faqat tasdiqlash uchun kerakli id'lar va karta
+ * niqobi yoziladi — raqam va muddat yozilmaydi.
+ */
+export async function startCardPayment(
+  orderId: string,
+  order: PayOrder,
+  card: NonNullable<ReturnType<typeof readCard>>,
+): Promise<PaymentInfo> {
+  const total = Number(order.total) || 0
+  if (total <= 0) throw new Error('Buyurtma summasi noto‘g‘ri')
+
+  const attempts = (Number(order.payment?.attempts) || 0) + 1
+  const externalId = attempts === 1 ? orderId : `${orderId}-${attempts}`
+  const session = await createCardCheckout({
+    externalId,
+    amountSum: total,
+    cardNumber: card.number,
+    expireYYMM: card.expireYYMM,
+    returnUrl: returnUrl(orderId),
+  })
+
+  const payment: PaymentInfo = {
+    provider: 'card',
+    externalId,
+    wlcmOrderId: session.orderId,
+    checkoutUrl: null,
+    state: session.state,
+    attempts,
+    createdAt: new Date().toISOString(),
+    transactionId: session.transactionId,
+    cid: session.cid,
+    otpPhone: session.otpPhone,
+    cardMask: card.mask,
+    cardType: card.type,
+  }
+  const db = await adminDb()
+  await db.collection('orders').doc(orderId).set({ payment }, { merge: true })
+  return payment
+}
+
+/**
+ * SMS kodni tasdiqlaydi. To'lov o'tsa — buyurtma odatdagi yo'l bilan «Yangi»
+ * bo'ladi (applyPaymentState). Noto'g'ri kod — `INVALID_OTP`.
+ */
+export async function confirmCardPayment(orderId: string, otp: string): Promise<{ result: string }> {
+  const code = String(otp || '').replace(/\D/g, '')
+  if (code.length < 4 || code.length > 8) throw new CodedError('INVALID_OTP', 'SMS kod noto‘g‘ri')
+
+  const db = await adminDb()
+  const order = (await db.collection('orders').doc(orderId).get()).data() as PayOrder | undefined
+  const payment = order?.payment
+  if (!order || payment?.provider !== 'card' || !payment.transactionId || !payment.cid) {
+    throw new CodedError('NOT_AWAITING', 'Bu buyurtma karta to‘lovini kutmayapti')
+  }
+  if (order.paidAt) return { result: 'noop' }
+
+  try {
+    const confirmed = await confirmCard({ transactionId: payment.transactionId, cid: payment.cid, otp: code })
+    if (!confirmed.success) throw new CodedError('INVALID_OTP', 'SMS kod noto‘g‘ri')
+  } catch (error) {
+    if (error instanceof CodedError) throw error
+    if (error instanceof WlcmError && error.status === 400) throw new CodedError('INVALID_OTP', 'SMS kod noto‘g‘ri yoki eskirgan')
+    throw error
+  }
+
+  // Holatni WLCM'dan tasdiqlab olamiz; kechiksa — tasdiqlash javobiga ishonamiz
+  const checked = await checkPayment(orderId).catch(() => ({ ok: false, result: 'unknown' }))
+  if (checked.result === 'paid' || checked.result === 'noop') return { result: 'paid' }
+  return applyPaymentState(orderId, { state: WLCM_STATE.SUCCESS, amount: order.total, paymentId: payment.paymentId ?? null })
 }
 
 /** Webhook summasi — so'mda ham, tiyinda ham kelishi mumkin; ikkalasini qabul qilamiz. */

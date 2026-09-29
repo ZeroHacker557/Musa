@@ -127,7 +127,7 @@ export type Order = {
   /** Onlayn to'lov: qaysi usul (click, payme, uzum, paylov). */
   paymentProvider?: string | null
   /** Onlayn to'lov sahifasi (server yozadi). */
-  payment?: { provider?: string; checkoutUrl?: string | null; state?: number } | null
+  payment?: { provider?: string; checkoutUrl?: string | null; state?: number; cardMask?: string | null } | null
   paidAt?: string | null
   /** Nega bekor qilingan: payment_timeout, payment_cancelled… */
   cancelReason?: string | null

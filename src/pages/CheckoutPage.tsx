@@ -15,7 +15,7 @@ import { useT } from '../i18n'
 import type { Address, AppPage, DeliverySettings, OrderForm, PaymentSettings, Product, UserProfile } from '../types/domain'
 import { PageTitle } from '../components/layout/PageTitle'
 import { AddressConfirmSheet } from '../components/checkout/AddressConfirmSheet'
-import { PAY_TILES, providerLabel } from '../utils/payment'
+import { PAY_TILES, cardTileOf, providerLabel, type CardDraft } from '../utils/payment'
 import { PayLogo } from '../components/payment/PayLogo'
 
 /*
@@ -59,7 +59,8 @@ type Props = {
   cartTotal: number
   orderForm: OrderForm
   onUpdateForm: (field: keyof OrderForm, value: unknown) => void
-  onSubmit: () => Promise<boolean>
+  /** Karta bilan to'lovda — karta ma'lumoti (faqat shu so'rov uchun). */
+  onSubmit: (card?: CardDraft) => Promise<boolean>
   isSubmitting: boolean
   onBack: () => void
   onNavigate: (page: AppPage) => void
@@ -97,7 +98,7 @@ export function CheckoutPage({
 
   useEffect(() => {
     let alive = true
-    getPaymentSettings().then((s) => alive && setPayment(PAY_DEMO ? { ...s, online: true, onlineProviders: ['payme', 'click'] } : s))
+    getPaymentSettings().then((s) => alive && setPayment(PAY_DEMO ? { ...s, online: true, onlineProviders: ['payme', 'click', 'card'] } : s))
     getDeliverySettings().then((s) => alive && setDelivery(s))
     return () => { alive = false }
   }, [])
@@ -211,6 +212,24 @@ export function CheckoutPage({
     ? payTiles.find((tile) => tile.id === (orderForm.paymentTile ?? orderForm.paymentProvider)) ?? null
     : null
 
+  /*
+   * Karta formasi (Uzcard/Humo). Ma'lumot faqat shu sahifaning xotirasida —
+   * store'ga ham, brauzer xotirasiga ham yozilmaydi.
+   */
+  const [cardNumber, setCardNumber] = useState('')
+  const [cardExpiry, setCardExpiry] = useState('')
+  const cardDigits = cardNumber.replace(/\D/g, '')
+  const expiryDigits = cardExpiry.replace(/\D/g, '')
+  const expiryOk = (() => {
+    if (expiryDigits.length !== 4) return false
+    const month = Number(expiryDigits.slice(0, 2))
+    const year = 2000 + Number(expiryDigits.slice(2))
+    if (month < 1 || month > 12) return false
+    const now = new Date()
+    return year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth() + 1)
+  })()
+  const cardOk = cardDigits.length === 16 && expiryOk
+
   const chooseTile = (tile: (typeof PAY_TILES)[number]) => {
     hapticFeedback('light')
     onUpdateForm('paymentMethod', 'Onlayn')
@@ -229,7 +248,7 @@ export function CheckoutPage({
   }, [payment, onlineOn, activeTile, payTiles, orderForm.paymentMethod, onUpdateForm])
 
   const isValid = Boolean(orderForm.name.trim() && orderForm.phone.trim() && orderForm.address.trim())
-  const canSubmit = isValid && !isSubmitting && !belowMin
+  const canSubmit = isValid && !isSubmitting && !belowMin && (!activeTile?.card || cardOk)
 
   return (
     <>
@@ -624,6 +643,50 @@ export function CheckoutPage({
             })}
           </div>
 
+          {/* Uzcard / Humo — karta shu yerning o'zida */}
+          {activeTile?.card && (
+            <div className="card-form" style={{ animation: 'fadeInUp 0.25s ease' }}>
+              <label className="field-label" htmlFor="card-number">{t('card.number')}</label>
+              <div className="field">
+                <CreditCard size={19} className="shrink-0" style={{ color: 'var(--faint)' }} />
+                <input
+                  id="card-number"
+                  value={cardNumber}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 16)
+                    setCardNumber(digits.replace(/(\d{4})(?=\d)/g, '$1 '))
+                    // Raqamdan karta turi — tugma o'zi almashadi (9860 — Humo)
+                    const kind = cardTileOf(digits)
+                    const tile = kind ? payTiles.find((x) => x.id === kind) : undefined
+                    if (tile && tile.id !== activeTile.id) chooseTile(tile)
+                  }}
+                  inputMode="numeric"
+                  autoComplete="cc-number"
+                  placeholder={activeTile.id === 'humo' ? '9860 0000 0000 0000' : '8600 0000 0000 0000'}
+                  className="font-mono text-sm tracking-wider"
+                />
+              </div>
+              <label className="field-label mt-3" htmlFor="card-expiry">{t('card.expiry')}</label>
+              <div className="field max-w-[160px]">
+                <input
+                  id="card-expiry"
+                  value={cardExpiry}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 4)
+                    setCardExpiry(digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits)
+                  }}
+                  inputMode="numeric"
+                  autoComplete="cc-exp"
+                  placeholder={t('card.expiryHint')}
+                  className="font-mono text-sm tracking-wider"
+                />
+              </div>
+              {expiryDigits.length === 4 && !expiryOk && (
+                <p className="mt-1 text-[11px] font-bold" style={{ color: 'var(--danger)' }}>{t('card.expiryBad')}</p>
+              )}
+            </div>
+          )}
+
           {activeTile && (
             <p className="pay-providers__note" style={{ animation: 'fadeInUp 0.25s ease' }}>
               <Lock size={12} />
@@ -675,7 +738,16 @@ export function CheckoutPage({
           )}
         </section>
 
-        <button onClick={() => { if (!isSubmitting) onSubmit() }} disabled={!canSubmit} className="btn-primary mt-8 w-full py-4">
+        <button
+          onClick={async () => {
+            if (isSubmitting) return
+            const ok = await onSubmit(activeTile?.card ? { number: cardDigits, expiry: expiryDigits } : undefined)
+            // Karta ma'lumoti ekranda qolmasin
+            if (ok) { setCardNumber(''); setCardExpiry('') }
+          }}
+          disabled={!canSubmit}
+          className="btn-primary mt-8 w-full py-4"
+        >
           {isSubmitting ? (
             <><Loader2 size={20} className="animate-spin" />{t('checkout.submitting')}</>
           ) : activeTile ? (
