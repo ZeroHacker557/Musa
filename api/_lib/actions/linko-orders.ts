@@ -333,7 +333,16 @@ export async function linkoSyncMarketTypes(body: Record<string, unknown> = {}): 
     names.set(id, set)
   }
 
-  type MarketRow = { id?: number; name?: string; service_id?: string | null; market_type?: { id?: number } | null }
+  type MarketRow = {
+    id?: number
+    name?: string
+    service_id?: string | null
+    market_type?: { id?: number } | null
+    market_phones?: { phone?: string }[]
+    address?: string | null
+    location?: { lat?: number; lon?: number } | null
+    responsible_agent?: { id?: number } | null
+  }
   let updated = 0
   let already = 0
   const notFound: string[] = []
@@ -356,9 +365,23 @@ export async function linkoSyncMarketTypes(body: Record<string, unknown> = {}): 
       continue
     }
     try {
+      /*
+       * Linko qisqa so'rovni («ism + tur») «Ошибка сервера» bilan rad etadi —
+       * shuning uchun mijozning Linko'dagi HOZIRGI qiymatlari o'zgarmasdan
+       * qaytariladi, faqat tur yangi.
+       */
+      const phone = row.market_phones?.find((p) => p?.phone)?.phone
       const res = await linkoPost<{ results?: unknown[]; errors?: unknown[] }>('sync_market/', [{
         service_id: serviceId,
         name: row.name,
+        is_confirmed: true,
+        ...(phone ? { phone } : {}),
+        ...(row.address ? { address: row.address } : {}),
+        ...(row.location?.lat != null && row.location?.lon != null
+          ? { location: { lat: row.location.lat, lon: row.location.lon } }
+          : {}),
+        ...(row.responsible_agent?.id ? { responsible_agent: { linko_id: row.responsible_agent.id } } : {}),
+        ...(settings.priceListId ? { price_list: { linko_id: settings.priceListId } } : {}),
         market_type: { linko_id: settings.marketTypeId },
       }], settings)
       if (res.errors?.length) errors.push(`${id}: ${JSON.stringify(res.errors).slice(0, 200)}`)
