@@ -202,10 +202,13 @@ export async function orderStatus(wlcmOrderId: number): Promise<WlcmOrderStatus>
     is_paid?: boolean
     is_cancelled?: boolean
     amount?: number | string
+    status_explanation?: { state?: number | string }
   }>(`/orders/${encodeURIComponent(String(wlcmOrderId))}/status`)
+  // Summa so'mda keladi (sandbox'da tekshirildi: 100000 tiyinlik to'lov → 1000.0).
+  // Holat raqami to'langanda faqat `status_explanation.state` da bo'ladi.
   const amount = Number(data?.amount)
   return {
-    state: Number(data?.state ?? 0),
+    state: Number(data?.state ?? data?.status_explanation?.state ?? 0),
     isPaid: data?.is_paid === true,
     isCancelled: data?.is_cancelled === true,
     amount: Number.isFinite(amount) ? amount : null,
