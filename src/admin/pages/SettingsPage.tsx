@@ -34,12 +34,6 @@ export function SettingsPage() {
           Yozayotganda kalit o'zgarmaydi — settings faqat Firestore
           yangilanganda almashadi.
         */}
-        <PaymentCard
-          key={`pay:${settings.payment.cardNumber}|${settings.payment.cardOwner}`}
-          settings={settings.payment}
-          busy={busy === 'payment'}
-          onSave={save}
-        />
         <OnlinePaymentCard
           key={`online:${settings.payment.online}|${settings.payment.onlineTestOnly}|${(settings.payment.onlineProviders || []).join(',')}`}
           settings={settings.payment}
@@ -96,50 +90,6 @@ function Section({
       </div>
       <div className="mt-4">{children}</div>
     </section>
-  )
-}
-
-function PaymentCard({
-  settings, busy, onSave,
-}: {
-  settings: { cardNumber: string; cardOwner: string }
-  busy: boolean
-  onSave: SaveFn
-}) {
-  const [cardNumber, setCardNumber] = useState(settings.cardNumber)
-  const [cardOwner, setCardOwner] = useState(settings.cardOwner)
-
-
-  return (
-    <Section
-      title="To‘lov kartasi"
-      icon={CreditCard}
-      hint="Mijoz karta orqali to‘lashni tanlaganda ko‘rsatiladi"
-    >
-      <label className="adm-label">Karta raqami</label>
-      <input
-        className="adm-input"
-        value={cardNumber}
-        onChange={(e) => setCardNumber(e.target.value)}
-        placeholder="0000 0000 0000 0000"
-      />
-
-      <label className="adm-label mt-3">Karta egasi</label>
-      <input
-        className="adm-input"
-        value={cardOwner}
-        onChange={(e) => setCardOwner(e.target.value)}
-        placeholder="ISM FAMILIYA"
-      />
-
-      <button
-        className="adm-btn adm-btn--primary mt-4 w-full"
-        onClick={() => onSave('payment', { cardNumber, cardOwner })}
-        disabled={busy}
-      >
-        {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash
-      </button>
-    </Section>
   )
 }
 

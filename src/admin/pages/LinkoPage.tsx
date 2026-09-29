@@ -216,7 +216,7 @@ export function LinkoPage() {
 
       {/* ── Buyurtmalarni yuborish ── */}
       <OrdersCard
-        key={`orders:${settings.sendOrders}|${settings.agentId}|${settings.deliveryManId}|${settings.orderStockId}`}
+        key={`orders:${settings.sendOrders}|${settings.agentId}|${settings.deliveryManId}|${settings.orderStockId}|${settings.marketTypeId ?? 0}`}
         settings={settings}
         status={status}
         busy={busy}
@@ -525,6 +525,7 @@ type OrderValues = {
   agentId: number
   deliveryManId: number
   orderStockId: number
+  marketTypeId: number
 }
 
 /**
@@ -545,6 +546,7 @@ function OrdersCard({
     agentId: number
     deliveryManId: number
     orderStockId: number
+    marketTypeId?: number
     stockIds: number[]
     lastOrderPush?: { at: string; sent: number; failed: number; skipped: number; checked: number; errors?: string[] } | null
   }
@@ -558,6 +560,7 @@ function OrdersCard({
   const [orderStockId, setOrderStockId] = useState(
     String(settings.orderStockId || settings.stockIds[0] || ''),
   )
+  const [marketTypeId, setMarketTypeId] = useState(String(settings.marketTypeId || ''))
 
   const users = status?.users ?? []
   // Linko'da lavozimlar ruscha nomlanadi
@@ -611,6 +614,20 @@ function OrdersCard({
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="adm-label">Mijoz turi (Linko ID)</label>
+          <input
+            className="adm-input"
+            inputMode="numeric"
+            value={marketTypeId}
+            onChange={(e) => setMarketTypeId(e.target.value.replace(/\D/g, ''))}
+            placeholder="Masalan: Telegram bot B2C turining raqami"
+          />
+          <p className="mt-1 text-xs" style={{ color: 'var(--faint)' }}>
+            Botdan kelgan mijoz Linko’da shu turda yoziladi. Bo‘sh — Linko o‘zi «Розничный» qo‘yadi.
+          </p>
         </div>
       </div>
 
@@ -666,6 +683,7 @@ function OrdersCard({
             // Yetkazuvchi endi tanlanmaydi — buyurtma agentga tushadi
             deliveryManId: 0,
             orderStockId: Number(orderStockId) || 0,
+            marketTypeId: Number(marketTypeId) || 0,
           })}
           disabled={busy === 'orders'}
         >

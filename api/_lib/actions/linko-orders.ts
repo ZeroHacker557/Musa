@@ -127,6 +127,8 @@ async function syncMarket(
       : {}),
     ...(settings.agentId ? { responsible_agent: { linko_id: settings.agentId } } : {}),
     ...(settings.priceListId ? { price_list: { linko_id: settings.priceListId } } : {}),
+    // Mijoz turi («Telegram bot B2C») — mavjud mijozda ham keyingi buyurtmada yangilanadi
+    ...(settings.marketTypeId ? { market_type: { linko_id: settings.marketTypeId } } : {}),
   }]
 
   const body = await linkoPost<{ results?: { id?: number }[]; errors?: unknown[] }>(

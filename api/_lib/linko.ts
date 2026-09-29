@@ -39,6 +39,11 @@ export type LinkoSettings = {
   orderStockId: number
   /** Valyuta (1 — SUM). */
   currencyId: number
+  /**
+   * Botdan kelgan mijozning Linko'dagi turi («Тип клиента»), masalan
+   * «Telegram bot B2C». 0 — ko'rsatilmaydi (Linko o'zi «Розничный» qo'yadi).
+   */
+  marketTypeId: number
   /** Oxirgi sinxronlash kursorlari (Linko `tm` qiymatlari). */
   lastProductTm: number
   lastPriceTm: number
@@ -56,6 +61,7 @@ export const LINKO_DEFAULTS: LinkoSettings = {
   deliveryManId: 0,
   orderStockId: 0,
   currencyId: 1,
+  marketTypeId: 0,
   lastProductTm: 0,
   lastPriceTm: 0,
   lastBalanceTm: 0,
