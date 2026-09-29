@@ -187,6 +187,8 @@ export type OrderForm = {
   paymentMethod: 'Naqd' | 'Karta' | 'Onlayn'
   /** Onlayn to'lovda tanlangan usul. */
   paymentProvider?: string
+  /** Qaysi tugma tanlangan (Uzcard/Humo ham Payme sahifasini ochadi) — faqat ko'rinish uchun. */
+  paymentTile?: string
   promoCode?: string
   /**
    * Buyurtmani boshqa odam oladigan bo'lsa — uning ismi va raqami.

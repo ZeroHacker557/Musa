@@ -186,6 +186,11 @@ export const uz = {
   'checkout.payWith': 'Qaysi ilova orqali to‘laysiz?',
   'checkout.payNow': '{provider} orqali to‘lash',
   'checkout.onlineNote': 'To‘lov sahifasi ochiladi. To‘lov o‘tishi bilan buyurtma avtomatik qabul qilinadi.',
+  'checkout.cardPayNote': '{card} karta ma’lumotlari himoyalangan to‘lov sahifasida kiritiladi — bizda saqlanmaydi.',
+  'checkout.payCard': '{card} karta bilan to‘lash',
+  'checkout.cardTile': 'Karta',
+  'checkout.transfer': 'O‘tkazma',
+  'checkout.transferSub': 'Kartaga, chek bilan',
   'checkout.cardDetails': "Karta ma'lumotlari:",
   'checkout.cardNumber': 'Karta raqami',
   'checkout.cardNote':

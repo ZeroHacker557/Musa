@@ -181,6 +181,11 @@ export const ru: Record<TranslationKey, string> = {
   'checkout.payWith': 'Через какое приложение оплатите?',
   'checkout.payNow': 'Оплатить через {provider}',
   'checkout.onlineNote': 'Откроется страница оплаты. После оплаты заказ будет принят автоматически.',
+  'checkout.cardPayNote': 'Данные карты {card} вводятся на защищённой странице оплаты — мы их не храним.',
+  'checkout.payCard': 'Оплатить картой {card}',
+  'checkout.cardTile': 'Карта',
+  'checkout.transfer': 'Перевод',
+  'checkout.transferSub': 'На карту, с чеком',
   'checkout.cardDetails': 'Данные карты:',
   'checkout.cardNumber': 'Номер карты',
   'checkout.cardNote':

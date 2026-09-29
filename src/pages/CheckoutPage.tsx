@@ -4,7 +4,7 @@ import { useFreeDelivery } from '../hooks/use-free-delivery'
 import { productThumb } from '../utils/product-image'
 import {
   ArrowLeft, Banknote, Check, Copy, CreditCard, Loader2, Lock, MapPin, Pencil,
-  MessageSquare, Phone, Send, ShoppingBag, Smartphone, Tag, User, UserRound,
+  MessageSquare, Phone, Send, ShoppingBag, Tag, User, UserRound,
 } from 'lucide-react'
 import { formatPrice } from '../data'
 import { hapticFeedback } from '../utils/telegram'
@@ -15,7 +15,8 @@ import { useT } from '../i18n'
 import type { Address, AppPage, DeliverySettings, OrderForm, PaymentSettings, Product, UserProfile } from '../types/domain'
 import { PageTitle } from '../components/layout/PageTitle'
 import { AddressConfirmSheet } from '../components/checkout/AddressConfirmSheet'
-import { PAY_PROVIDERS, providerLabel } from '../utils/payment'
+import { PAY_TILES, providerLabel } from '../utils/payment'
+import { PayLogo } from '../components/payment/PayLogo'
 
 /*
  * Sahifa har ochilganda qayta yaratiladi, shuning uchun «oldin qaysi
@@ -96,7 +97,7 @@ export function CheckoutPage({
 
   useEffect(() => {
     let alive = true
-    getPaymentSettings().then((s) => alive && setPayment(PAY_DEMO ? { ...s, online: true, onlineProviders: ['payme', 'click', 'uzum'] } : s))
+    getPaymentSettings().then((s) => alive && setPayment(PAY_DEMO ? { ...s, online: true, onlineProviders: ['payme', 'click'] } : s))
     getDeliverySettings().then((s) => alive && setDelivery(s))
     return () => { alive = false }
   }, [])
@@ -200,20 +201,32 @@ export function CheckoutPage({
   // Sinov rejimida — faqat ega/adminlar (server ham tekshiradi)
   const onlineAllowed = Boolean(payment?.online)
     && (!payment?.onlineTestOnly || (profile ? payment.onlineTesters?.includes(Number(profile.id)) === true : false))
-  const onlineProviders = useMemo(
-    () => (onlineAllowed ? PAY_PROVIDERS.filter((p) => payment?.onlineProviders?.includes(p.id)) : []),
+  /** Onlayn to'lov tugmalari (Payme, Click, Uzcard, Humo…) — admin yoqqan usullar bo'yicha. */
+  const payTiles = useMemo(
+    () => (onlineAllowed ? PAY_TILES.filter((tile) => payment?.onlineProviders?.includes(tile.provider)) : []),
     [payment, onlineAllowed],
   )
-  const onlineOn = onlineProviders.length > 0
+  const onlineOn = payTiles.length > 0
+  const activeTile = orderForm.paymentMethod === 'Onlayn'
+    ? payTiles.find((tile) => tile.id === (orderForm.paymentTile ?? orderForm.paymentProvider)) ?? null
+    : null
 
-  // Onlayn tanlangan-u o'chirilgan (yoki usul yo'q) bo'lsa — naqdga qaytamiz
+  const chooseTile = (tile: (typeof PAY_TILES)[number]) => {
+    hapticFeedback('light')
+    onUpdateForm('paymentMethod', 'Onlayn')
+    onUpdateForm('paymentProvider', tile.provider)
+    onUpdateForm('paymentTile', tile.id)
+  }
+
+  // Onlayn tanlangan-u o'chirilgan (yoki tugma yo'q) bo'lsa — naqdga qaytamiz
   useEffect(() => {
     if (payment === null || orderForm.paymentMethod !== 'Onlayn') return
     if (!onlineOn) onUpdateForm('paymentMethod', 'Naqd')
-    else if (!onlineProviders.some((p) => p.id === orderForm.paymentProvider)) {
-      onUpdateForm('paymentProvider', onlineProviders[0].id)
+    else if (!activeTile) {
+      onUpdateForm('paymentProvider', payTiles[0].provider)
+      onUpdateForm('paymentTile', payTiles[0].id)
     }
-  }, [payment, onlineOn, onlineProviders, orderForm.paymentMethod, orderForm.paymentProvider, onUpdateForm])
+  }, [payment, onlineOn, activeTile, payTiles, orderForm.paymentMethod, onUpdateForm])
 
   const isValid = Boolean(orderForm.name.trim() && orderForm.phone.trim() && orderForm.address.trim())
   const canSubmit = isValid && !isSubmitting && !belowMin
@@ -558,67 +571,64 @@ export function CheckoutPage({
         <section className="mt-6">
           <h3 className="mb-4 font-bold" style={{ color: 'var(--ink)' }}>{t('checkout.paymentMethod')}</h3>
 
-          <div className="flex gap-3">
+          {/* Onlayn — har usul o'z logotipi bilan */}
+          {onlineOn && (
+            <div className="pay-tiles">
+              {payTiles.map((tile) => {
+                const on = activeTile?.id === tile.id
+                return (
+                  <button
+                    key={tile.id}
+                    type="button"
+                    className={'pay-tile ' + (on ? 'is-on' : '')}
+                    onClick={() => chooseTile(tile)}
+                    aria-pressed={on}
+                    aria-label={tile.label}
+                  >
+                    <span className="pay-tile__logo"><PayLogo id={tile.id} /></span>
+                    <span className="pay-tile__name">{tile.card ? t('checkout.cardTile') : tile.label}</span>
+                    {on && <span className="pay-tile__check"><Check size={12} strokeWidth={3.2} /></span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Naqd va qo'lda o'tkazma */}
+          <div className={'flex gap-3' + (onlineOn ? ' mt-3' : '')}>
             {([
               { id: 'Naqd' as const, Icon: Banknote, label: t('checkout.cash'), sub: t('checkout.cashSub') },
-              { id: 'Karta' as const, Icon: CreditCard, label: t('checkout.card'), sub: t('checkout.cardSub') },
-              ...(onlineOn
-                ? [{ id: 'Onlayn' as const, Icon: Smartphone, label: t('checkout.online'), sub: t('checkout.onlineSub') }]
-                : []),
+              { id: 'Karta' as const, Icon: CreditCard, label: t('checkout.transfer'), sub: t('checkout.transferSub') },
             ]).map(({ id, Icon, label, sub }) => {
               const selected = orderForm.paymentMethod === id
               return (
                 <button
                   key={id}
                   type="button"
-                  onClick={() => {
-                    onUpdateForm('paymentMethod', id)
-                    // Onlayn — birinchi usul o'zi tanlanadi
-                    if (id === 'Onlayn' && !onlineProviders.some((p) => p.id === orderForm.paymentProvider)) {
-                      onUpdateForm('paymentProvider', onlineProviders[0]?.id)
-                    }
-                  }}
-                  className="flex flex-1 flex-col items-center gap-2 rounded-2xl border-2 py-4 transition"
+                  onClick={() => onUpdateForm('paymentMethod', id)}
+                  className={'flex flex-1 items-center gap-2.5 rounded-2xl border-2 text-left transition ' + (onlineOn ? 'px-3 py-2.5' : 'flex-col py-4 text-center')}
                   style={{
                     borderColor: selected ? 'var(--brand)' : 'var(--line)',
                     background: selected ? 'var(--brand-soft)' : 'var(--surface)',
                   }}
                 >
-                  <Icon size={25} style={{ color: selected ? 'var(--brand)' : 'var(--muted)' }} />
-                  <span className="text-sm font-bold" style={{ color: selected ? 'var(--brand)' : 'var(--ink)' }}>
-                    {label}
+                  <Icon size={onlineOn ? 20 : 25} className="shrink-0" style={{ color: selected ? 'var(--brand)' : 'var(--muted)' }} />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold" style={{ color: selected ? 'var(--brand)' : 'var(--ink)' }}>
+                      {label}
+                    </span>
+                    <span className="block text-xs" style={{ color: 'var(--faint)' }}>{sub}</span>
                   </span>
-                  <span className="text-xs" style={{ color: 'var(--faint)' }}>{sub}</span>
                 </button>
               )
             })}
           </div>
 
-          {/* Onlayn: qaysi ilova orqali */}
-          {orderForm.paymentMethod === 'Onlayn' && onlineOn && (
-            <div className="pay-providers" style={{ animation: 'fadeInUp 0.25s ease' }}>
-              <p className="pay-providers__title">{t('checkout.payWith')}</p>
-              <div className="pay-providers__grid">
-                {onlineProviders.map((p) => {
-                  const on = orderForm.paymentProvider === p.id
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className={'pay-provider ' + (on ? 'is-on' : '')}
-                      style={{ ['--pc' as string]: p.color }}
-                      onClick={() => { hapticFeedback('light'); onUpdateForm('paymentProvider', p.id) }}
-                      aria-pressed={on}
-                    >
-                      <span className="pay-provider__dot" aria-hidden="true">{p.label[0]}</span>
-                      {p.label}
-                      {on && <Check size={15} strokeWidth={3} className="pay-provider__check" />}
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="pay-providers__note"><Lock size={12} /> {t('checkout.onlineNote')}</p>
-            </div>
+          {activeTile && (
+            <p className="pay-providers__note" style={{ animation: 'fadeInUp 0.25s ease' }}>
+              <Lock size={12} />
+              {activeTile.card ? t('checkout.cardPayNote', { card: activeTile.label }) : t('checkout.onlineNote')}
+            </p>
           )}
 
           {orderForm.paymentMethod === 'Karta' && (
@@ -668,8 +678,13 @@ export function CheckoutPage({
         <button onClick={() => { if (!isSubmitting) onSubmit() }} disabled={!canSubmit} className="btn-primary mt-8 w-full py-4">
           {isSubmitting ? (
             <><Loader2 size={20} className="animate-spin" />{t('checkout.submitting')}</>
-          ) : orderForm.paymentMethod === 'Onlayn' && orderForm.paymentProvider ? (
-            <><Lock size={19} />{t('checkout.payNow', { provider: providerLabel(orderForm.paymentProvider) })}</>
+          ) : activeTile ? (
+            <>
+              <Lock size={19} />
+              {activeTile.card
+                ? t('checkout.payCard', { card: activeTile.label })
+                : t('checkout.payNow', { provider: providerLabel(activeTile.provider) })}
+            </>
           ) : (
             <><Send size={20} />{t('checkout.submit')}</>
           )}

@@ -925,6 +925,7 @@ export function useShopStore() {
       name: '', phone: '', address: '', location: null, comment: '',
       paymentMethod: online ? 'Onlayn' : 'Naqd',
       paymentProvider: online ? orderForm.paymentProvider : undefined,
+      paymentTile: online ? orderForm.paymentTile : undefined,
     })
 
     /*

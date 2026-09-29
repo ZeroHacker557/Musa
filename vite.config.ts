@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url'
  * va aksincha. Vercel'da /admin -> /admin.html qayta yozuvi vercel.json da.
  */
 export default defineConfig({
+  // Dev server: PORT berilsa o'sha portda (preview boshqa loyihalar bilan to'qnashmasin)
+  server: { port: Number(process.env.PORT) || 5173 },
   plugins: [react(), tailwindcss()],
   build: {
     rollupOptions: {

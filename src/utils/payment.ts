@@ -18,6 +18,24 @@ export const PAY_PROVIDERS: { id: PayProvider; label: string; color: string }[] 
   { id: 'paylov', label: 'Paylov', color: '#ff6a2b' },
 ]
 
+export type PayTileId = 'payme' | 'click' | 'uzcard' | 'humo' | 'uzum' | 'paylov'
+
+/**
+ * Buyurtma sahifasidagi to'lov tugmalari — har biri o'z logotipi bilan.
+ *
+ * Uzcard va Humo — alohida to'lov tizimi emas: Payme'ning xavfsiz karta
+ * sahifasi ochiladi (karta raqami va muddati o'sha yerda kiritiladi, bizning
+ * ilova va serverdan o'tmaydi). `provider` — WLCM'ga ketadigan qiymat.
+ */
+export const PAY_TILES: { id: PayTileId; provider: PayProvider; label: string; card?: boolean }[] = [
+  { id: 'payme', provider: 'payme', label: 'Payme' },
+  { id: 'click', provider: 'click', label: 'Click' },
+  { id: 'uzcard', provider: 'payme', label: 'Uzcard', card: true },
+  { id: 'humo', provider: 'payme', label: 'Humo', card: true },
+  { id: 'uzum', provider: 'uzum', label: 'Uzum' },
+  { id: 'paylov', provider: 'paylov', label: 'Paylov' },
+]
+
 export function providerLabel(id?: string | null): string {
   return PAY_PROVIDERS.find((p) => p.id === id)?.label ?? ''
 }
