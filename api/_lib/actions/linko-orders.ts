@@ -1,5 +1,5 @@
 import { adminDb } from '../firebase-admin.js'
-import { linkoPost, linkoToken, readLinkoSettings, type LinkoSettings } from '../linko.js'
+import { linkoGet, linkoPost, linkoToken, readLinkoSettings, type LinkoSettings } from '../linko.js'
 import { isCashPayment } from '../pay-method.js'
 
 /**
@@ -305,9 +305,12 @@ export async function linkoPushOrder(_staff: unknown, body: Record<string, unkno
  * Botdan kelgan ESKI mijozlarning turini bir martada yangilaydi (sozlamadagi
  * `marketTypeId`, masalan «Telegram bot B2C»).
  *
- * Faqat tur yuboriladi: ism, agent, narx ro'yxati, manzil — Linko'da qo'lda
- * o'zgartirilgan bo'lishi mumkin, ularga tegmaymiz. Mijozlar ro'yxati —
- * Linko'ga tushgan buyurtmalardagi `userId` lar (`service_id: musa-<id>`).
+ * Faqat tur o'zgaradi. Linko ismni majburiy talab qiladi, shuning uchun
+ * mijozning Linko'dagi HOZIRGI ismi o'qib olinadi va o'zgarmasdan qaytadi
+ * (qo'lda o'zgartirilgan nom ustidan yozilmasin). Agent, narx ro'yxati,
+ * manzil yuborilmaydi. Mijozlar — Linko'ga tushgan buyurtmalardagi
+ * `userId` lar (`service_id: musa-<id>`); Linko'da ular buyurtmadagi ism
+ * bo'yicha qidiriladi va `service_id` bilan aniq ajratiladi.
  * `userId` berilsa — faqat o'sha mijoz (sinov uchun).
  */
 export async function linkoSyncMarketTypes(body: Record<string, unknown> = {}): Promise<Result> {
@@ -317,27 +320,54 @@ export async function linkoSyncMarketTypes(body: Record<string, unknown> = {}): 
   const db = await adminDb()
   const snap = await db.collection('orders').where('linko.marketId', '>', 0).get()
   const only = text(String(body.userId ?? ''))
-  const users = [...new Set(snap.docs.map((d) => String(d.data().userId ?? '')).filter(Boolean))]
-    .filter((id) => !only || id === only)
 
+  // Mijoz → buyurtmalardagi ismlari (qidiruv uchun)
+  const names = new Map<string, Set<string>>()
+  for (const doc of snap.docs) {
+    const data = doc.data() as OrderDoc
+    const id = String(data.userId ?? '')
+    if (!id || (only && id !== only)) continue
+    const set = names.get(id) ?? new Set<string>()
+    const name = text(data.customer?.name)
+    if (name) set.add(name)
+    names.set(id, set)
+  }
+
+  type MarketRow = { id?: number; name?: string; service_id?: string | null; market_type?: { id?: number } | null }
   let updated = 0
+  let already = 0
+  const notFound: string[] = []
   const errors: string[] = []
-  // Bir so'rovda 20 tadan — Linko ro'yxat qabul qiladi
-  for (let i = 0; i < users.length; i += 20) {
-    const chunk = users.slice(i, i + 20)
-    const payload = chunk.map((id) => ({
-      service_id: `musa-${id}`,
-      market_type: { linko_id: settings.marketTypeId },
-    }))
+
+  for (const [id, candidates] of names) {
+    const serviceId = `musa-${id}`
+    let row: MarketRow | undefined
+    for (const name of candidates) {
+      const res = await linkoGet<{ results?: MarketRow[] }>('markets/', { search: name, limit: 50 }, settings)
+      row = res.results?.find((m) => m.service_id === serviceId)
+      if (row) break
+    }
+    if (!row?.name) {
+      notFound.push(id)
+      continue
+    }
+    if (row.market_type?.id === settings.marketTypeId) {
+      already++
+      continue
+    }
     try {
-      const res = await linkoPost<{ results?: unknown[]; errors?: unknown[] }>('sync_market/', payload, settings)
-      if (res.errors?.length) errors.push(JSON.stringify(res.errors).slice(0, 300))
-      updated += res.results?.length ?? 0
+      const res = await linkoPost<{ results?: unknown[]; errors?: unknown[] }>('sync_market/', [{
+        service_id: serviceId,
+        name: row.name,
+        market_type: { linko_id: settings.marketTypeId },
+      }], settings)
+      if (res.errors?.length) errors.push(`${id}: ${JSON.stringify(res.errors).slice(0, 200)}`)
+      else updated++
     } catch (error) {
-      errors.push(error instanceof Error ? error.message.slice(0, 300) : 'xato')
+      errors.push(`${id}: ${error instanceof Error ? error.message.slice(0, 200) : 'xato'}`)
     }
   }
-  return { ok: errors.length === 0, users: users.length, updated, errors: errors.slice(0, 5) }
+  return { ok: errors.length === 0, users: names.size, updated, already, notFound, errors: errors.slice(0, 5) }
 }
 
 export async function linkoPushOrders(_staff: unknown, body: Record<string, unknown>): Promise<Result> {
