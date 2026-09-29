@@ -1,119 +1,25 @@
-import {
-  CheckCircle2, ExternalLink, ImagePlus, Loader2, Megaphone, Plus, Search, Send, Smartphone, Trash2, Users, X, XCircle,
-} from 'lucide-react'
-import { useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { uploadBroadcastMedia, type UploadedAdMedia } from '../lib/storage'
-import { apiPost } from '../lib/api'
-import { useCategories, useCustomers, useOrders, useProducts, useSections, type CustomerRow } from '../lib/live'
+import { CheckCircle2, Megaphone, Send, Users, XCircle } from 'lucide-react'
+import { useRef, useState } from 'react'
+import type { UploadedAdMedia } from '../lib/storage'
 import { ConfirmDialog } from '../components/Modal'
 import { useToast } from '../components/Toast'
+import { ButtonsEditor, MediaField, PostPreview } from '../components/PostComposer'
+import { AudiencePicker } from '../components/Audience'
+import { CAPTION_MAX, buttonError, cleanButtons, plainLength, type ButtonDraft } from '../lib/post-draft'
+import { displayName, sendToCustomers, useAudience, type Progress } from '../lib/audience'
 
 /**
- * Kimga yuboriladi.
- *
- * Qabul qiluvchilar ro'yxati shu yerda — admin panelda — hisoblanadi:
- * mijozlar va buyurtmalar allaqachon jonli yuklangan, shuning uchun
- * «nechta odamga boradi» yuborishdan OLDIN aniq ko'rinadi. Serverga
- * tayyor identifikatorlar bo'laklab ketadi, server esa ular bazada
- * borligini tekshiradi.
+ * Ommaviy xabar — botda mijozlarga (har biri o'z tilida).
+ * Muharrir va auditoriya qismlari «Kanal» sahifasi bilan umumiy.
  */
-type Audience = 'all' | 'buyers' | 'never' | 'category' | 'product' | 'lapsed' | 'active' | 'manual'
-
-const AUDIENCES: { key: Audience; label: string; hint: string }[] = [
-  { key: 'all', label: 'Hamma', hint: 'Botni ishga tushirgan barcha foydalanuvchilar' },
-  { key: 'buyers', label: 'Xarid qilganlar', hint: 'Kamida bitta buyurtma bergan mijozlar' },
-  { key: 'never', label: 'Hali xarid qilmaganlar', hint: 'Botga kirgan, lekin buyurtma bermaganlar — birinchi xaridga undash uchun' },
-  { key: 'category', label: 'Kategoriya bo‘yicha', hint: 'Tanlangan kategoriyadan xarid qilganlar' },
-  { key: 'product', label: 'Mahsulot bo‘yicha', hint: 'Aniq mahsulotni olganlar — masalan yangi ta’mi chiqqanda' },
-  { key: 'lapsed', label: 'Uzoq vaqt buyurtma bermaganlar', hint: 'Avval olgan, lekin so‘nggi kunlarda qaytmaganlar — «sizni sog‘indik»' },
-  { key: 'active', label: 'Yaqinda ilovaga kirganlar', hint: 'So‘nggi kunlarda ilovani ochganlar' },
-  { key: 'manual', label: 'Qo‘lda tanlash', hint: 'Ro‘yxatdan kerakli mijozlarni belgilang' },
-]
-
-type Progress = { sent: number; failed: number; skipped: number; processed: number }
-
-/** Mini ilovada qayer ochiladi. */
-type Target = 'home' | 'catalog' | 'category' | 'section' | 'product' | 'orders' | 'favorites'
-/** Telegram tugma rangi: '' — odatiy. */
-type ButtonColor = '' | 'success' | 'primary' | 'danger'
-
-/** Inline tugma: havola yoki mini ilovaning kerakli joyini ochadi. */
-type ButtonDraft = {
-  kind: 'url' | 'app'
-  text: string
-  textRu: string
-  url: string
-  target: Target
-  /** Kategoriya nomi, bo'lim id'si yoki mahsulot id'si — `target` ga qarab. */
-  value: string
-  style: ButtonColor
-}
-
-const TARGETS: { key: Target; label: string }[] = [
-  { key: 'home', label: 'Bosh sahifa' },
-  { key: 'catalog', label: 'Katalog' },
-  { key: 'category', label: 'Kategoriya' },
-  { key: 'section', label: 'Bo‘lim' },
-  { key: 'product', label: 'Mahsulot' },
-  { key: 'orders', label: 'Buyurtmalarim' },
-  { key: 'favorites', label: 'Sevimlilar' },
-]
-
-const COLORS: { key: ButtonColor; label: string; swatch: string }[] = [
-  { key: '', label: 'Odatiy', swatch: '#8e99a4' },
-  { key: 'success', label: 'Yashil', swatch: '#2fa84f' },
-  { key: 'primary', label: 'Ko‘k', swatch: '#2f80ed' },
-  { key: 'danger', label: 'Qizil', swatch: '#e5484d' },
-]
-
-/** Serverga ketadigan manzil: api/_lib/actions/people.ts → appLink. */
-function targetOf(b: ButtonDraft): string {
-  if (b.target === 'category') return `cat:${b.value}`
-  if (b.target === 'section') return `sec:${b.value}`
-  if (b.target === 'product') return `product:${b.value}`
-  return b.target
-}
-
-const NEW_BUTTON: ButtonDraft = {
-  kind: 'app', text: '', textRu: '', url: '', target: 'home', value: '', style: '',
-}
-
-/** Telegram izoh chegarasi — uzunroq matn rasmdan keyin alohida xabar bo'lib ketadi. */
-const CAPTION_MAX = 1024
-const MAX_BUTTONS = 4
-const plainLength = (value: string) => value.replace(/<[^>]+>/g, '').length
-function buttonError(b: ButtonDraft): string {
-  if (!b.text.trim()) return 'Tugma matnini yozing'
-  if (b.kind === 'url') return /^(https?:\/\/|tg:\/\/)\S+$/i.test(b.url.trim()) ? '' : 'Havola https:// bilan boshlansin'
-  if (b.target === 'category' && !b.value) return 'Kategoriyani tanlang'
-  if (b.target === 'section' && !b.value) return 'Bo‘limni tanlang'
-  if (b.target === 'product' && !b.value) return 'Mahsulotni tanlang'
-  return ''
-}
-
-const DAY = 24 * 60 * 60 * 1000
-const CHUNK = 25
-const displayName = (c: CustomerRow) =>
-  [c.first_name, c.last_name].filter(Boolean).join(' ') || (c.username ? `@${c.username}` : `ID ${c.id}`)
-
 export function BroadcastPage() {
-  const { customers } = useCustomers()
-  // Auditoriya (kim qachon xarid qilgan) — butun tarix
-  const { orders } = useOrders(undefined, 'all')
-  const { products } = useProducts()
-  const { categories } = useCategories()
-  const { sections } = useSections()
+  const aud = useAudience()
+  const { recipients } = aud
   const { show, node: toast } = useToast()
 
   const [text, setText] = useState('')
   /** Ruscha matn — bo'sh qolsa ruschada ham o'zbekchasi ketadi. */
   const [textRu, setTextRu] = useState('')
-  const [audience, setAudience] = useState<Audience>('all')
-  const [pickedCategories, setPickedCategories] = useState<string[]>([])
-  const [pickedProducts, setPickedProducts] = useState<string[]>([])
-  const [manual, setManual] = useState<string[]>([])
-  const [days, setDays] = useState('30')
-  const [search, setSearch] = useState('')
   const [media, setMedia] = useState<UploadedAdMedia | null>(null)
   const [uploading, setUploading] = useState(false)
   const [buttons, setButtons] = useState<ButtonDraft[]>([])
@@ -122,78 +28,18 @@ export function BroadcastPage() {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState<Progress | null>(null)
   const cancelled = useRef(false)
-  // «Necha kun» hisobi uchun sahifa ochilgan vaqt — sahifada kun almashishi muhim emas
-  const [now] = useState(() => Date.now())
-
-  // Mijoz → uning (bekor qilinmagan) buyurtmalari
-  const history = useMemo(() => {
-    const map = new Map<string, { last: number; categories: Set<string>; products: Set<string> }>()
-    for (const o of orders) {
-      if (o.status === 'Bekor qilingan' || o.status === 'Rad etildi' || !o.userId) continue
-      const key = String(o.userId)
-      const entry = map.get(key) ?? { last: 0, categories: new Set(), products: new Set() }
-      entry.last = Math.max(entry.last, Date.parse(String(o.createdAt)) || 0)
-      for (const item of o.products || []) {
-        if (item.product?.category) entry.categories.add(item.product.category)
-        if (item.product?.id !== undefined) entry.products.add(String(item.product.id))
-      }
-      map.set(key, entry)
-    }
-    return map
-  }, [orders])
-
-  const recipients = useMemo(() => {
-    const period = Math.max(1, Number(days) || 30) * DAY
-    return customers.filter((c) => {
-      const h = history.get(c.id)
-      switch (audience) {
-        case 'buyers': return Boolean(h)
-        case 'never': return !h
-        case 'category': return Boolean(h) && pickedCategories.some((name) => h!.categories.has(name))
-        case 'product': return Boolean(h) && pickedProducts.some((id) => h!.products.has(id))
-        case 'lapsed': return Boolean(h) && now - h!.last > period
-        case 'active': return (Date.parse(String(c.lastActive || '')) || 0) > now - period
-        case 'manual': return manual.includes(c.id)
-        default: return true
-      }
-    })
-  }, [customers, history, audience, pickedCategories, pickedProducts, manual, days, now])
 
   const start = async () => {
     setConfirming(false)
     setRunning(true)
     cancelled.current = false
-    const ids = recipients.map((c) => c.id)
-    const totals: Progress = { sent: 0, failed: 0, skipped: 0, processed: 0 }
-    setProgress({ ...totals })
-    // Birinchi bo'lakdan keyin Telegram fayl id'sini qaytaradi — qolganlariga shu ketadi
-    let mediaId: string | null = null
-    const cleanButtons = buttons.map((b) => ({
-      kind: b.kind,
-      text: b.text.trim(),
-      textRu: b.textRu.trim(),
-      url: b.url.trim(),
-      target: b.kind === 'app' ? targetOf(b) : '',
-      style: b.style,
-    }))
-
     try {
-      for (let i = 0; i < ids.length && !cancelled.current; i += CHUNK) {
-        const result: Progress & { mediaId?: string | null } = await apiPost('action', {
-          action: 'broadcast.send',
-          text,
-          textRu,
-          media: media ? { ...media, fileId: mediaId } : null,
-          buttons: cleanButtons,
-          recipients: ids.slice(i, i + CHUNK),
-        })
-        mediaId = result.mediaId ?? mediaId
-        totals.sent += result.sent
-        totals.failed += result.failed
-        totals.skipped += result.skipped
-        totals.processed += result.processed
-        setProgress({ ...totals })
-      }
+      const totals = await sendToCustomers(
+        { text, textRu, media, buttons: cleanButtons(buttons) },
+        recipients.map((c) => c.id),
+        setProgress,
+        () => cancelled.current,
+      )
       show(
         cancelled.current
           ? `To‘xtatildi — ${totals.sent} ta yuborildi`
@@ -206,34 +52,6 @@ export function BroadcastPage() {
     }
   }
 
-  const toggle = (list: string[], set: (next: string[]) => void, value: string) =>
-    set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
-
-  const needle = search.trim().toLowerCase()
-  const productOptions = products
-    .filter((p) => !needle || p.name.toLowerCase().includes(needle))
-    .slice(0, 60)
-  const customerOptions = customers
-    .filter((c) => !needle || displayName(c).toLowerCase().includes(needle) || String(c.phone || '').includes(needle))
-    .slice(0, 80)
-
-  const pickMedia = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-    setUploading(true)
-    try {
-      setMedia(await uploadBroadcastMedia(file))
-    } catch (error) {
-      show(error instanceof Error ? error.message : 'Yuklab bo‘lmadi', 'error')
-    } finally {
-      setUploading(false)
-    }
-  }
-  const sortedProducts = useMemo(() => [...products].sort((a, b) => a.name.localeCompare(b.name)), [products])
-  const editButton = (index: number, patch: Partial<ButtonDraft>) =>
-    setButtons(buttons.map((b, i) => (i === index ? { ...b, ...patch } : b)))
-
   const buttonsInvalid = buttons.some((b) => buttonError(b))
   const longCaption = Boolean(media) && Math.max(plainLength(text), plainLength(textRu)) > CAPTION_MAX
   const blocked = running || uploading || buttonsInvalid || (!text.trim() && !media) || recipients.length === 0
@@ -243,36 +61,13 @@ export function BroadcastPage() {
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <section className="adm-card p-4 sm:p-5">
           {/* Rasm yoki video — matn uning izohi bo'lib ketadi */}
-          <p className="adm-label">Rasm yoki video <span style={{ color: 'var(--faint)' }}>(ixtiyoriy)</span></p>
-          {media ? (
-            <div className="adm-bc-media">
-              {media.type === 'image'
-                ? <img src={media.url} alt="" />
-                : <video src={media.url} controls playsInline preload="metadata" />}
-              <button
-                type="button"
-                className="adm-bc-media__remove"
-                onClick={() => setMedia(null)}
-                disabled={running}
-                aria-label="Olib tashlash"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <label className={'adm-bc-add ' + (uploading ? 'is-busy' : '')}>
-              {uploading ? <Loader2 size={20} className="animate-spin" /> : <ImagePlus size={20} />}
-              <span className="text-sm font-bold">{uploading ? 'Yuklanmoqda…' : 'Rasm yoki video yuklash'}</span>
-              <span className="text-xs" style={{ color: 'var(--muted)' }}>Rasm: JPG/PNG · Video: MP4, 20 MB gacha</span>
-              <input
-                type="file"
-                accept="image/*,video/mp4,video/webm,video/quicktime"
-                className="sr-only"
-                onChange={pickMedia}
-                disabled={uploading || running}
-              />
-            </label>
-          )}
+          <MediaField
+            media={media}
+            onChange={setMedia}
+            onBusy={setUploading}
+            disabled={running}
+            onError={(message) => show(message, 'error')}
+          />
 
           <label className="adm-label mt-4" htmlFor="broadcast-text">Xabar matni</label>
           <textarea
@@ -319,238 +114,10 @@ export function BroadcastPage() {
           )}
 
           {/* Inline tugmalar — xabar ostida, har biri alohida qatorda */}
-          <p className="adm-label mt-4">
-            Tugmalar <span style={{ color: 'var(--faint)' }}>(ixtiyoriy, {MAX_BUTTONS} tagacha)</span>
-          </p>
-          <div className="flex flex-col gap-2">
-            {buttons.map((b, index) => {
-              const error = buttonError(b)
-              return (
-                <div key={index} className="adm-bc-btn">
-                  <div className="flex items-center gap-2">
-                    <div className="adm-bc-kind">
-                      <button
-                        type="button"
-                        className={b.kind === 'app' ? 'active' : ''}
-                        onClick={() => editButton(index, { kind: 'app' })}
-                      >
-                        <Smartphone size={13} /> Ilovada ochish
-                      </button>
-                      <button
-                        type="button"
-                        className={b.kind === 'url' ? 'active' : ''}
-                        onClick={() => editButton(index, { kind: 'url' })}
-                      >
-                        <ExternalLink size={13} /> Havola
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      className="adm-icon-btn adm-icon-btn--danger ml-auto"
-                      onClick={() => setButtons(buttons.filter((_, i) => i !== index))}
-                      aria-label="Tugmani o‘chirish"
-                      disabled={running}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    <input
-                      className="adm-input"
-                      value={b.text}
-                      onChange={(e) => editButton(index, { text: e.target.value })}
-                      placeholder="Tugma matni — 🛒 Buyurtma berish"
-                      maxLength={64}
-                      disabled={running}
-                    />
-                    <input
-                      className="adm-input"
-                      value={b.textRu}
-                      onChange={(e) => editButton(index, { textRu: e.target.value })}
-                      placeholder="Ruscha (ixtiyoriy) — 🛒 Заказать"
-                      maxLength={64}
-                      disabled={running}
-                    />
-                    {b.kind === 'url' && (
-                      <input
-                        className="adm-input sm:col-span-2"
-                        value={b.url}
-                        onChange={(e) => editButton(index, { url: e.target.value })}
-                        placeholder="https://instagram.com/…"
-                        inputMode="url"
-                        disabled={running}
-                      />
-                    )}
-                  </div>
-
-                  {/* Mini ilovada qayer ochilsin */}
-                  {b.kind === 'app' && (
-                    <>
-                      <p className="adm-bc-sub">Bosilganda ochiladi:</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {TARGETS.map((t) => (
-                          <button
-                            key={t.key}
-                            type="button"
-                            className={'adm-chip ' + (b.target === t.key ? 'active' : '')}
-                            onClick={() => editButton(index, { target: t.key, value: '' })}
-                            disabled={running}
-                          >
-                            {t.label}
-                          </button>
-                        ))}
-                      </div>
-                      {b.target === 'category' && (
-                        <select className="adm-input mt-2" value={b.value} onChange={(e) => editButton(index, { value: e.target.value })}>
-                          <option value="">Kategoriyani tanlang…</option>
-                          {categories.map((c) => <option key={String(c.id)} value={c.name}>{c.name}</option>)}
-                        </select>
-                      )}
-                      {b.target === 'section' && (
-                        <select className="adm-input mt-2" value={b.value} onChange={(e) => editButton(index, { value: e.target.value })}>
-                          <option value="">Bo‘limni tanlang…</option>
-                          {/* Kategoriya bo'yicha guruhlangan — bir xil nomli bo'limlar adashmasin */}
-                          {categories.map((c) => {
-                            const list = sections.filter((s) => s.category === c.name)
-                            return list.length ? (
-                              <optgroup key={String(c.id)} label={c.name}>
-                                {list.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                              </optgroup>
-                            ) : null
-                          })}
-                        </select>
-                      )}
-                      {b.target === 'product' && (
-                        <select className="adm-input mt-2" value={b.value} onChange={(e) => editButton(index, { value: e.target.value })}>
-                          <option value="">Mahsulotni tanlang…</option>
-                          {sortedProducts.map((p) => <option key={p.docId} value={String(p.id)}>{p.name}</option>)}
-                        </select>
-                      )}
-                    </>
-                  )}
-
-                  {/* Tugma rangi — Telegram'ning o'zi shu uch rangni beradi */}
-                  <p className="adm-bc-sub">Rangi:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {COLORS.map((c) => (
-                      <button
-                        key={c.key || 'default'}
-                        type="button"
-                        className={'adm-chip inline-flex items-center gap-1.5 ' + (b.style === c.key ? 'active' : '')}
-                        onClick={() => editButton(index, { style: c.key })}
-                        disabled={running}
-                      >
-                        <span className="adm-bc-swatch" style={{ background: c.swatch }} /> {c.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {error && (b.text || b.url || b.target !== 'home') && (
-                    <p className="mt-1.5 text-xs" style={{ color: 'var(--danger)' }}>{error}</p>
-                  )}
-                </div>
-              )
-            })}
-            {buttons.length < MAX_BUTTONS && (
-              <button
-                type="button"
-                className="adm-btn adm-btn--ghost self-start"
-                onClick={() => setButtons([...buttons, { ...NEW_BUTTON }])}
-                disabled={running}
-              >
-                <Plus size={16} /> Tugma qo‘shish
-              </button>
-            )}
-          </div>
+          <ButtonsEditor buttons={buttons} onChange={setButtons} disabled={running} />
 
           <p className="adm-label mt-4">Kimga</p>
-          <div className="adm-audience">
-            {AUDIENCES.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={'adm-audience__item ' + (audience === item.key ? 'active' : '')}
-                onClick={() => { setAudience(item.key); setSearch('') }}
-                disabled={running}
-                aria-pressed={audience === item.key}
-              >
-                <b>{item.label}</b>
-                <span>{item.hint}</span>
-              </button>
-            ))}
-          </div>
-
-          {audience === 'category' && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {categories.map((c) => (
-                <button
-                  key={String(c.id)}
-                  type="button"
-                  className={'adm-chip ' + (pickedCategories.includes(c.name) ? 'active' : '')}
-                  onClick={() => toggle(pickedCategories, setPickedCategories, c.name)}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {(audience === 'lapsed' || audience === 'active') && (
-            <div className="mt-3 flex items-center gap-2 text-sm">
-              <span style={{ color: 'var(--muted)' }}>{audience === 'lapsed' ? 'Oxirgi buyurtmadan beri' : 'So‘nggi'}</span>
-              <input
-                className="adm-input w-24 text-center"
-                inputMode="numeric"
-                value={days}
-                onChange={(e) => setDays(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                aria-label="Kun"
-              />
-              <span style={{ color: 'var(--muted)' }}>{audience === 'lapsed' ? 'kundan ko‘p o‘tganlar' : 'kun ichida kirganlar'}</span>
-            </div>
-          )}
-
-          {(audience === 'product' || audience === 'manual') && (
-            <div className="mt-3">
-              <div className="relative">
-                <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--faint)' }} />
-                <input
-                  className="adm-input icon-left"
-                  placeholder={audience === 'product' ? 'Mahsulot qidirish...' : 'Ism yoki telefon bo‘yicha qidirish...'}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="adm-picklist">
-                {audience === 'product'
-                  ? productOptions.map((p) => (
-                    <label key={p.docId}>
-                      <input
-                        type="checkbox"
-                        checked={pickedProducts.includes(p.docId)}
-                        onChange={() => toggle(pickedProducts, setPickedProducts, p.docId)}
-                      />
-                      <span className="truncate">{p.name}</span>
-                      <small>{p.category}</small>
-                    </label>
-                  ))
-                  : customerOptions.map((c) => (
-                    <label key={c.id}>
-                      <input type="checkbox" checked={manual.includes(c.id)} onChange={() => toggle(manual, setManual, c.id)} />
-                      <span className="truncate">{displayName(c)}</span>
-                      <small>{c.phone || (history.get(c.id) ? 'xaridor' : '')}</small>
-                    </label>
-                  ))}
-              </div>
-              {audience === 'manual' && (
-                <div className="mt-2 flex gap-2 text-xs">
-                  <button type="button" className="adm-link" onClick={() => setManual([...new Set([...manual, ...customerOptions.map((c) => c.id)])])}>
-                    Ko‘rinayotganlarni belgilash
-                  </button>
-                  <button type="button" className="adm-link" onClick={() => setManual([])}>Tozalash</button>
-                </div>
-              )}
-            </div>
-          )}
+          <AudiencePicker state={aud} disabled={running} />
 
           <button
             className="adm-btn adm-btn--primary mt-4 w-full py-3"
@@ -571,19 +138,8 @@ export function BroadcastPage() {
         <section className="flex flex-col gap-4">
           <div className="adm-card p-4">
             <h2 className="text-sm font-extrabold">Ko‘rinishi</h2>
-            <div className="adm-bc-preview mt-3">
-              <div className="adm-bc-preview__bubble">
-                {media && (media.type === 'image'
-                  ? <img src={media.url} alt="" />
-                  : <video src={media.url} muted playsInline preload="metadata" />)}
-                {(text.trim() || !media) && <p>{text.trim() || 'Xabar matni shu yerda ko‘rinadi...'}</p>}
-              </div>
-              {buttons.map((b, i) => (
-                <span key={i} className={'adm-bc-preview__btn' + (b.style ? ` is-${b.style}` : '')}>
-                  {b.text.trim() || 'Tugma'}
-                  {b.kind === 'url' ? <ExternalLink size={11} /> : <Smartphone size={11} />}
-                </span>
-              ))}
+            <div className="mt-3">
+              <PostPreview media={media} text={text} buttons={buttons} />
             </div>
           </div>
 

@@ -16,7 +16,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message, WebAppInfo, InlineKeyboardButton,
     InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton,
-    MenuButtonWebApp, CallbackQuery
+    MenuButtonWebApp, CallbackQuery, ChatMemberUpdated
 )
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -756,6 +756,22 @@ async def handle_my_orders(message: Message):
         )])
 
     await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+# ─── Kanal: bot qo'shildi / chiqarildi ─────────────────────
+
+@dp.my_chat_member()
+async def on_bot_membership(update: ChatMemberUpdated):
+    """Bot kanalga admin qilib qo'shilsa — admin panel uni «Topilgan
+    kanallar» ro'yxatida ko'rsatadi (yopiq kanalni ham bir bosishda ulash
+    uchun). Chiqarilsa yoki huquqi olinsa — holat yangilanadi."""
+    chat = update.chat
+    if chat.type not in ("channel", "group", "supergroup"):
+        return
+    await asyncio.to_thread(
+        db.save_bot_chat, chat.id, chat.type, chat.title or "", chat.username,
+        getattr(update.new_chat_member.status, "value", update.new_chat_member.status),
+    )
 
 
 # ─── /start ──────────────────────────────────────────────────

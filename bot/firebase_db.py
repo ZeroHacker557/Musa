@@ -457,6 +457,21 @@ def set_user_language(user_id: int, lang: str) -> bool:
         return False
 
 
+def save_bot_chat(chat_id: int, chat_type: str, title: str, username: str | None, status: str):
+    """Bot qo'shilgan/chiqarilgan kanal yoki guruh — admin panel «Kanal» bo'limi uchun."""
+    try:
+        db.collection("bot_chats").document(str(chat_id)).set({
+            "chatId": chat_id,
+            "type": chat_type,
+            "title": title,
+            "username": username,
+            "status": status,
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as e:
+        print(f"[ERR] save_bot_chat: {e}")
+
+
 def set_user_phone(user_id: int, phone: str):
     """Telefon raqamini saqlaydi — mini app uni avtomatik to'ldiradi (F-26)."""
     try:

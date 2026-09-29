@@ -42,6 +42,8 @@ interface TelegramWebApp {
   initDataUnsafe: {
     user?: TelegramUser
     query_id?: string
+    /** `t.me/<bot>?startapp=<param>` havolasi bilan ochilganda. */
+    start_param?: string
   }
   version: string
   platform: string

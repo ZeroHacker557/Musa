@@ -296,3 +296,28 @@ export async function replaceButtons(
     return false
   }
 }
+
+/**
+ * Istalgan Bot API usuli — natija yoki Telegram'ning xato matni.
+ *
+ * Kanal bo'limi uchun: `getChat`, `getChatMember`, `pinChatMessage` va
+ * qo'shimcha parametrli yuborishlar (ovozsiz, nusxalashni taqiqlash).
+ * Xato tashlamaydi.
+ */
+export async function telegramCall<T>(
+  method: string,
+  body: Record<string, unknown> = {},
+): Promise<{ ok: true; result: T } | { ok: false; error: string }> {
+  try {
+    const response = await fetch(`${API}${token()}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const json = (await response.json()) as { ok: boolean; result?: T; description?: string }
+    if (!json.ok) return { ok: false, error: json.description || 'Telegram rad etdi' }
+    return { ok: true, result: json.result as T }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Tarmoq xatosi' }
+  }
+}

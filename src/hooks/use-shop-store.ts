@@ -92,19 +92,43 @@ function loadCart(): CartItems {
  *   ?product=<mahsulot id>  — mahsulot sahifasi.
  * Server tomoni: api/_lib/actions/people.ts → appLink.
  */
+/**
+ * Ilova ochilgan parametrlar: URL so'rovi + Telegram `start_param`.
+ *
+ * Kanal postidagi tugma `t.me/<bot>?startapp=q<base64url>` bilan ochadi
+ * (kanalda `web_app` tugmasi ishlamaydi). Ichida o'sha so'rov qatori —
+ * `cat=...`, `page=catalog` va h.k. Server: people.ts → startAppParam.
+ */
+function launchParams(): URLSearchParams {
+  const q = new URLSearchParams(window.location.search)
+  const start = window.Telegram?.WebApp?.initDataUnsafe?.start_param || q.get('tgWebAppStartParam') || ''
+  if (/^q[\w-]{2,511}$/.test(start)) {
+    try {
+      const b64 = start.slice(1).replace(/-/g, '+').replace(/_/g, '/')
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+      new URLSearchParams(new TextDecoder().decode(bytes)).forEach((value, key) => {
+        if (!q.has(key)) q.set(key, value)
+      })
+    } catch {
+      // Buzilgan parametr — oddiy ochiladi
+    }
+  }
+  return q
+}
+
 const DEEP_LINK = (() => {
   try {
-    const q = new URLSearchParams(window.location.search)
-    return { cat: q.get('cat'), sec: q.get('sec'), product: q.get('product') }
+    const q = launchParams()
+    return { cat: q.get('cat'), sec: q.get('sec'), product: q.get('product'), page: q.get('page') }
   } catch {
-    return { cat: null, sec: null, product: null }
+    return { cat: null, sec: null, product: null, page: null }
   }
 })()
 
 function initialPage(): AppPage {
   if (DEEP_LINK.cat !== null || DEEP_LINK.sec) return 'catalog'
   try {
-    const requested = new URLSearchParams(window.location.search).get('page')
+    const requested = DEEP_LINK.page
     const allowed: AppPage[] = ['home', 'catalog', 'favorites', 'orders', 'profile']
     if (requested && (allowed as string[]).includes(requested)) return requested as AppPage
   } catch {

@@ -24,7 +24,7 @@ const BROADCAST_TITLE: Record<Lang, string> = {
  * Xabar botga HTML bilan ketadi, ilovadagi bildirishnoma esa oddiy
  * matn ko'rsatadi — teglar ko'rinib qolmasligi kerak.
  */
-function plain(value: string): string {
+export function plain(value: string): string {
   return value
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, '')
@@ -37,7 +37,7 @@ function plain(value: string): string {
 }
 
 /** Telegram izoh uzunligini teglarsiz sanaydi. */
-function plainLength(value: string): number {
+export function plainLength(value: string): number {
   return value.replace(/<[^>]+>/g, '').replace(/&(lt|gt|amp|quot|nbsp);/g, 'x').length
 }
 
@@ -206,11 +206,11 @@ type Segment = 'all' | 'customers' | 'active30'
  * tugagunicha takrorlaydi va jarayonni ko'rsatib turadi.
  */
 /** Telegram izoh (caption) chegarasi — undan uzun matn rasmdan keyin alohida ketadi. */
-const CAPTION_MAX = 1024
+export const CAPTION_MAX = 1024
 const MAX_BUTTONS = 4
 
-type BroadcastMedia = { kind: 'photo' | 'video'; url: string; fileId: string | null }
-type BroadcastButton = {
+export type BroadcastMedia = { kind: 'photo' | 'video'; url: string; fileId: string | null }
+export type BroadcastButton = {
   text: string
   textRu: string
   kind: 'url' | 'app'
@@ -228,16 +228,36 @@ const APP_PAGES = ['catalog', 'favorites', 'orders', 'profile']
  * Mini ilova havolasi. Parametrlarni ilovaning o'zi o'qiydi
  * (src/hooks/use-shop-store.ts → DEEP_LINK): `cat`, `sec`, `product`.
  */
-function appLink(base: string, target: string): string {
-  if (!target || target === 'home') return `${base}/`
-  if (APP_PAGES.includes(target)) return `${base}/?page=${target}`
+export function appQuery(target: string): string {
+  if (!target || target === 'home') return ''
+  if (APP_PAGES.includes(target)) return `page=${target}`
   const match = /^(cat|sec|product):(.{1,200})$/s.exec(target)
   if (!match || !match[2].trim()) throw new Error('Tugma qayerni ochishi noto‘g‘ri tanlangan')
-  return `${base}/?${match[1]}=${encodeURIComponent(match[2].trim())}`
+  return `${match[1]}=${encodeURIComponent(match[2].trim())}`
+}
+
+function appLink(base: string, target: string): string {
+  const query = appQuery(target)
+  return query ? `${base}/?${query}` : `${base}/`
+}
+
+/**
+ * Kanal uchun: `web_app` tugmasi faqat shaxsiy chatda ishlaydi, kanalda esa
+ * botning asosiy Mini App'i `t.me/<bot>?startapp=<param>` havolasi bilan
+ * ochiladi. Parametrda faqat `A-Z a-z 0-9 _ -` bo'la oladi (512 gacha) —
+ * shuning uchun so'rov qatori base64url qilinadi, oldiga `q` qo'yiladi.
+ * Ilova tomoni: src/hooks/use-shop-store.ts → launchParams.
+ */
+export function startAppParam(target: string): string {
+  const query = appQuery(target)
+  if (!query) return 'home'
+  const param = 'q' + Buffer.from(query, 'utf8').toString('base64url')
+  if (param.length > 512) throw new Error('Tugma manzili juda uzun')
+  return param
 }
 
 /** Rasm/video: faqat https havola; `fileId` — oldingi bo'lakda Telegram bergan. */
-function readMedia(value: unknown): BroadcastMedia | null {
+export function readMedia(value: unknown): BroadcastMedia | null {
   if (!value || typeof value !== 'object') return null
   const raw = value as Record<string, unknown>
   const url = text(raw.url)
@@ -253,7 +273,7 @@ function readMedia(value: unknown): BroadcastMedia | null {
 }
 
 /** Inline tugmalar: havola yoki mini ilovani ochish. Har biri alohida qatorda. */
-function readButtons(value: unknown): BroadcastButton[] {
+export function readButtons(value: unknown): BroadcastButton[] {
   if (!Array.isArray(value)) return []
   if (value.length > MAX_BUTTONS) throw new Error(`Ko‘pi bilan ${MAX_BUTTONS} ta tugma`)
   return value.map((item, index) => {
@@ -269,7 +289,7 @@ function readButtons(value: unknown): BroadcastButton[] {
       throw new Error(`${n}-tugmaning havolasi noto‘g‘ri — https:// bilan boshlansin`)
     }
     const target = kind === 'app' ? text(raw.target) || 'home' : ''
-    if (kind === 'app') appLink('https://x', target) // noto'g'ri bo'lsa shu yerda xato beradi
+    if (kind === 'app') appQuery(target) // noto'g'ri bo'lsa shu yerda xato beradi
     const style = STYLES.includes(raw.style as ButtonStyle) ? (raw.style as ButtonStyle) : null
     return { text: label, textRu: labelRu, kind, url: kind === 'url' ? url : '', target, style }
   })

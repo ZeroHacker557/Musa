@@ -18,11 +18,17 @@ import { linkoPushOrder, linkoPushOrders } from '../_lib/actions/linko-orders.js
 import { courierDeliver, courierTake } from '../_lib/actions/courier.js'
 import { supportAdminRead, supportClose, supportReply } from '../_lib/actions/support.js'
 import { cashConfirm, cashReject } from '../_lib/actions/cash.js'
+import {
+  channelConnect, channelDelete, channelDisconnect, channelPost, channelStatus,
+} from '../_lib/actions/channel.js'
 
 type Body = Record<string, unknown>
 
 function requireSupportAccess(staff: Staff) {
   if (!atLeast(staff.role, 'admin')) throw new Error('Murojaatlarga faqat admin javob beradi')
+}
+function requireChannelAccess(staff: Staff) {
+  if (!atLeast(staff.role, 'admin')) throw new Error('Kanalga faqat admin e’lon joylaydi')
 }
 type Handler = (staff: Staff, body: Body) => Promise<unknown>
 
@@ -68,6 +74,13 @@ const HANDLERS: Record<string, Handler> = {
   'staff.linkTelegram': staffLinkTelegram,
   'staff.delete': staffDelete,
   'broadcast.send': broadcast,
+
+  // Telegram kanali — e'lon joylash (bot kanalda admin bo'lishi kerak)
+  'channel.status': (staff) => (requireChannelAccess(staff), channelStatus()),
+  'channel.connect': (staff, body) => (requireChannelAccess(staff), channelConnect(staff, body)),
+  'channel.disconnect': (staff) => (requireChannelAccess(staff), channelDisconnect()),
+  'channel.post': (staff, body) => (requireChannelAccess(staff), channelPost(staff, body)),
+  'channel.delete': (staff, body) => (requireChannelAccess(staff), channelDelete(staff, body)),
 
   // Kuryerlar bilan qo'llab-quvvatlash chati — javobni admin beradi
   'support.reply': (staff, body) => (requireSupportAccess(staff), supportReply(staff, body)),
