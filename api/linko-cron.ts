@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { linkoPull } from './_lib/actions/linko.js'
 import { linkoProbe } from './_lib/linko.js'
 import { endExpiredShifts } from './_lib/actions/shift.js'
-import { linkoPushOrders } from './_lib/actions/linko-orders.js'
+import { linkoPushOrders, linkoSyncMarketTypes } from './_lib/actions/linko-orders.js'
 import { expireUnpaidOrders } from './_lib/actions/payments.js'
 import { fail } from './_lib/http.js'
 
@@ -38,6 +38,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(await linkoProbe({
       product: one(req.query.product), order: one(req.query.order), path: one(req.query.path),
     }))
+  }
+
+  // Eski bot mijozlarining turini bir martada yangilash (faqat tur, boshqa maydonlar emas)
+  if (req.query.markets === '1') {
+    const one = typeof req.query.user === 'string' ? req.query.user : ''
+    return res.status(200).json(await linkoSyncMarketTypes(one ? { userId: one } : {}))
   }
 
   // Smenalar Linko'dan mustaqil: sinxron yiqilsa ham yopilaversin

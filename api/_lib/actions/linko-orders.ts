@@ -301,6 +301,45 @@ export async function linkoPushOrder(_staff: unknown, body: Record<string, unkno
  * Linko o'chiq bo'lgan yoki sozlama to'liq bo'lmagan paytdagi
  * buyurtmalar shu tariqa tiklanadi.
  */
+/**
+ * Botdan kelgan ESKI mijozlarning turini bir martada yangilaydi (sozlamadagi
+ * `marketTypeId`, masalan «Telegram bot B2C»).
+ *
+ * Faqat tur yuboriladi: ism, agent, narx ro'yxati, manzil — Linko'da qo'lda
+ * o'zgartirilgan bo'lishi mumkin, ularga tegmaymiz. Mijozlar ro'yxati —
+ * Linko'ga tushgan buyurtmalardagi `userId` lar (`service_id: musa-<id>`).
+ * `userId` berilsa — faqat o'sha mijoz (sinov uchun).
+ */
+export async function linkoSyncMarketTypes(body: Record<string, unknown> = {}): Promise<Result> {
+  const settings = await readLinkoSettings()
+  if (!settings.marketTypeId) return { ok: false, error: 'Mijoz turi (marketTypeId) sozlanmagan' }
+
+  const db = await adminDb()
+  const snap = await db.collection('orders').where('linko.marketId', '>', 0).get()
+  const only = text(String(body.userId ?? ''))
+  const users = [...new Set(snap.docs.map((d) => String(d.data().userId ?? '')).filter(Boolean))]
+    .filter((id) => !only || id === only)
+
+  let updated = 0
+  const errors: string[] = []
+  // Bir so'rovda 20 tadan — Linko ro'yxat qabul qiladi
+  for (let i = 0; i < users.length; i += 20) {
+    const chunk = users.slice(i, i + 20)
+    const payload = chunk.map((id) => ({
+      service_id: `musa-${id}`,
+      market_type: { linko_id: settings.marketTypeId },
+    }))
+    try {
+      const res = await linkoPost<{ results?: unknown[]; errors?: unknown[] }>('sync_market/', payload, settings)
+      if (res.errors?.length) errors.push(JSON.stringify(res.errors).slice(0, 300))
+      updated += res.results?.length ?? 0
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message.slice(0, 300) : 'xato')
+    }
+  }
+  return { ok: errors.length === 0, users: users.length, updated, errors: errors.slice(0, 5) }
+}
+
 export async function linkoPushOrders(_staff: unknown, body: Record<string, unknown>): Promise<Result> {
   const settings = await readLinkoSettings()
   if (!settings.sendOrders) return { ok: true, skipped: 'sendOrders', sent: 0, failed: 0 }
