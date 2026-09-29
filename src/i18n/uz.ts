@@ -189,8 +189,6 @@ export const uz = {
   'checkout.cardPayNote': '{card} karta ma’lumotlari faqat to‘lov uchun yuboriladi va saqlanmaydi. Tasdiqlash uchun telefoningizga SMS kod keladi.',
   'checkout.payCard': '{card} karta bilan to‘lash',
   'checkout.cardTile': 'Karta',
-  'checkout.transfer': 'O‘tkazma',
-  'checkout.transferSub': 'Kartaga, chek bilan',
   'card.number': 'Karta raqami',
   'card.expiry': 'Amal qilish muddati',
   'card.expiryHint': 'OO/YY',

@@ -184,8 +184,6 @@ export const ru: Record<TranslationKey, string> = {
   'checkout.cardPayNote': 'Данные карты {card} используются только для оплаты и не хранятся. Для подтверждения придёт SMS-код.',
   'checkout.payCard': 'Оплатить картой {card}',
   'checkout.cardTile': 'Карта',
-  'checkout.transfer': 'Перевод',
-  'checkout.transferSub': 'На карту, с чеком',
   'card.number': 'Номер карты',
   'card.expiry': 'Срок действия',
   'card.expiryHint': 'ММ/ГГ',

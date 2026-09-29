@@ -3,7 +3,7 @@ import { FreeDeliveryBar } from '../components/cart/FreeDeliveryBar'
 import { useFreeDelivery } from '../hooks/use-free-delivery'
 import { productThumb } from '../utils/product-image'
 import {
-  ArrowLeft, Banknote, Check, Copy, CreditCard, Loader2, Lock, MapPin, Pencil,
+  ArrowLeft, Banknote, Check, CreditCard, Loader2, Lock, MapPin, Pencil,
   MessageSquare, Phone, Send, ShoppingBag, Tag, User, UserRound,
 } from 'lucide-react'
 import { formatPrice } from '../data'
@@ -78,7 +78,6 @@ export function CheckoutPage({
 }: Props) {
   const profile = realProfile ?? DEMO_PROFILE
   const t = useT()
-  const [copied, setCopied] = useState(false)
   /* Qabul qiluvchi boshqa odammi — qo'shimcha maydonlar shunga qarab ochiladi */
   const [otherRecipient, setOtherRecipient] = useState(
     Boolean(orderForm.recipientName || orderForm.recipientPhone),
@@ -130,13 +129,6 @@ export function CheckoutPage({
    */
   const minOrder = delivery?.minOrder ?? 0
   const belowMin = minOrder > 0 && cartTotal < minOrder
-
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
 
   const handleApplyPromo = async () => {
     const code = promoInput.trim().toUpperCase()
@@ -236,6 +228,11 @@ export function CheckoutPage({
     onUpdateForm('paymentProvider', tile.provider)
     onUpdateForm('paymentTile', tile.id)
   }
+
+  // Qo'lda o'tkazma olib tashlangan — eski tanlov naqdga o'tadi
+  useEffect(() => {
+    if (orderForm.paymentMethod === 'Karta') onUpdateForm('paymentMethod', 'Naqd')
+  }, [orderForm.paymentMethod, onUpdateForm])
 
   // Onlayn tanlangan-u o'chirilgan (yoki tugma yo'q) bo'lsa — naqdga qaytamiz
   useEffect(() => {
@@ -590,57 +587,39 @@ export function CheckoutPage({
         <section className="mt-6">
           <h3 className="mb-4 font-bold" style={{ color: 'var(--ink)' }}>{t('checkout.paymentMethod')}</h3>
 
-          {/* Onlayn — har usul o'z logotipi bilan */}
-          {onlineOn && (
-            <div className="pay-tiles">
-              {payTiles.map((tile) => {
-                const on = activeTile?.id === tile.id
-                return (
-                  <button
-                    key={tile.id}
-                    type="button"
-                    className={'pay-tile ' + (on ? 'is-on' : '')}
-                    onClick={() => chooseTile(tile)}
-                    aria-pressed={on}
-                    aria-label={tile.label}
-                  >
-                    <span className="pay-tile__logo"><PayLogo id={tile.id} /></span>
-                    <span className="pay-tile__name">{tile.card ? t('checkout.cardTile') : tile.label}</span>
-                    {on && <span className="pay-tile__check"><Check size={12} strokeWidth={3.2} /></span>}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Naqd va qo'lda o'tkazma */}
-          <div className={'flex gap-3' + (onlineOn ? ' mt-3' : '')}>
-            {([
-              { id: 'Naqd' as const, Icon: Banknote, label: t('checkout.cash'), sub: t('checkout.cashSub') },
-              { id: 'Karta' as const, Icon: CreditCard, label: t('checkout.transfer'), sub: t('checkout.transferSub') },
-            ]).map(({ id, Icon, label, sub }) => {
-              const selected = orderForm.paymentMethod === id
+          {/* To'lov usullari — har biri o'z logotipi bilan; naqd — oxirida keng */}
+          <div className="pay-tiles">
+            {payTiles.map((tile) => {
+              const on = activeTile?.id === tile.id
               return (
                 <button
-                  key={id}
+                  key={tile.id}
                   type="button"
-                  onClick={() => onUpdateForm('paymentMethod', id)}
-                  className={'flex flex-1 items-center gap-2.5 rounded-2xl border-2 text-left transition ' + (onlineOn ? 'px-3 py-2.5' : 'flex-col py-4 text-center')}
-                  style={{
-                    borderColor: selected ? 'var(--brand)' : 'var(--line)',
-                    background: selected ? 'var(--brand-soft)' : 'var(--surface)',
-                  }}
+                  className={'pay-tile ' + (on ? 'is-on' : '')}
+                  onClick={() => chooseTile(tile)}
+                  aria-pressed={on}
+                  aria-label={tile.label}
                 >
-                  <Icon size={onlineOn ? 20 : 25} className="shrink-0" style={{ color: selected ? 'var(--brand)' : 'var(--muted)' }} />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-bold" style={{ color: selected ? 'var(--brand)' : 'var(--ink)' }}>
-                      {label}
-                    </span>
-                    <span className="block text-xs" style={{ color: 'var(--faint)' }}>{sub}</span>
-                  </span>
+                  <span className="pay-tile__logo"><PayLogo id={tile.id} /></span>
+                  <span className="pay-tile__name">{tile.card ? t('checkout.cardTile') : tile.label}</span>
+                  {on && <span className="pay-tile__check"><Check size={12} strokeWidth={3.2} /></span>}
                 </button>
               )
             })}
+            <button
+              type="button"
+              className={'pay-tile pay-tile--cash ' + (orderForm.paymentMethod === 'Naqd' ? 'is-on' : '')}
+              onClick={() => { hapticFeedback('light'); onUpdateForm('paymentMethod', 'Naqd') }}
+              aria-pressed={orderForm.paymentMethod === 'Naqd'}
+            >
+              <span className="pay-tile__logo">
+                <span className="plogo plogo--cash"><Banknote size={22} strokeWidth={2.2} /> {t('checkout.cash')}</span>
+              </span>
+              <span className="pay-tile__name">{t('checkout.cashSub')}</span>
+              {orderForm.paymentMethod === 'Naqd' && (
+                <span className="pay-tile__check"><Check size={12} strokeWidth={3.2} /></span>
+              )}
+            </button>
           </div>
 
           {/* Uzcard / Humo — karta shu yerning o'zida */}
@@ -694,48 +673,6 @@ export function CheckoutPage({
             </p>
           )}
 
-          {orderForm.paymentMethod === 'Karta' && (
-            <div
-              className="mt-4 rounded-2xl border-2 p-4"
-              style={{ borderColor: 'var(--brand-line)', background: 'var(--brand-soft)', animation: 'fadeInUp 0.25s ease' }}
-            >
-              <p className="mb-3 text-sm font-bold" style={{ color: 'var(--brand)' }}>{t('checkout.cardDetails')}</p>
-
-              <div
-                className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2"
-                style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}
-              >
-                <div className="min-w-0">
-                  <p className="text-xs" style={{ color: 'var(--muted)' }}>{t('checkout.cardNumber')}</p>
-                  {payment ? (
-                    <>
-                      <p className="font-mono text-sm font-bold" style={{ color: 'var(--ink)' }}>{payment.cardNumber}</p>
-                      <p className="mt-0.5 truncate text-xs font-bold" style={{ color: 'var(--muted)' }}>{payment.cardOwner}</p>
-                    </>
-                  ) : (
-                    <p className="skeleton mt-1 h-4 w-40" />
-                  )}
-                </div>
-                <button
-                  type="button"
-                  disabled={!payment?.cardNumber}
-                  onClick={() => payment && handleCopy(payment.cardNumber)}
-                  className="grid size-9 shrink-0 place-items-center rounded-xl transition active:scale-90 disabled:opacity-40"
-                  style={{
-                    background: copied ? 'var(--success-soft)' : 'var(--surface-3)',
-                    color: copied ? 'var(--success)' : 'var(--brand)',
-                  }}
-                  aria-label={t('checkout.cardNumber')}
-                >
-                  {copied ? <Check size={18} /> : <Copy size={18} />}
-                </button>
-              </div>
-
-              <p className="mt-3 rounded-xl p-3 text-xs leading-relaxed" style={{ background: 'var(--surface)', color: 'var(--ink-2)' }}>
-                {t('checkout.cardNote')}
-              </p>
-            </div>
-          )}
         </section>
 
         <button
