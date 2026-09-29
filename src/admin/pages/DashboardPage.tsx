@@ -42,18 +42,38 @@ function useCountUp(target: number, duration = 800): number {
   return shown
 }
 
-/** 7 kunlik kichik egri chiziq — karta burchagida. */
+/**
+ * 7 kunlik egri chiziq — kartaning pastki qismida, butun kenglik bo'ylab.
+ * Ilgari belgi bilan bir burchakda turib uning ustiga chiqib qolardi.
+ * Kenglik kartaga cho'ziladi (`preserveAspectRatio="none"`), chiziq
+ * qalinligi esa o'zgarmaydi (`non-scaling-stroke`).
+ */
 function Sparkline({ values, color }: { values: number[]; color: string }) {
   const max = Math.max(1, ...values)
-  const w = 84
-  const h = 28
-  const pts = values.map((v, i) => [(i / Math.max(1, values.length - 1)) * w, h - 3 - (v / max) * (h - 6)])
+  const w = 100
+  const h = 34
+  const pts = values.map((v, i) => [(i / Math.max(1, values.length - 1)) * w, h - 4 - (v / max) * (h - 10)])
   const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  const id = `spark-${color.replace(/[^a-z0-9]/gi, '')}`
   return (
-    <svg className="adm-spark" viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true">
-      <path d={`${line} L${w},${h} L0,${h} Z`} fill={color} opacity="0.12" />
-      <path className="adm-spark__line" d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      {pts.length > 0 && <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="2.6" fill={color} />}
+    <svg className="adm-spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" style={{ stopColor: color, stopOpacity: 0.22 }} />
+          <stop offset="100%" style={{ stopColor: color, stopOpacity: 0 }} />
+        </linearGradient>
+      </defs>
+      <path d={`${line} L${w},${h} L0,${h} Z`} fill={`url(#${id})`} />
+      <path
+        className="adm-spark__line"
+        d={line}
+        fill="none"
+        style={{ stroke: color }}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
     </svg>
   )
 }
@@ -73,7 +93,7 @@ function StatCard({
 }) {
   const shown = useCountUp(value)
   return (
-    <div className="adm-card adm-stat" style={{ animationDelay: `${delay}ms` }}>
+    <div className={'adm-card adm-stat' + (spark ? ' has-spark' : '')} style={{ animationDelay: `${delay}ms` }}>
       <span className="adm-stat__icon" style={{ background: tone.bg, color: tone.fg }}>
         <Icon size={18} />
       </span>
