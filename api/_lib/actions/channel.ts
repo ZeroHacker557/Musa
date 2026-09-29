@@ -1,6 +1,7 @@
 import { adminDb } from '../firebase-admin.js'
 import { telegramCall, type AnyButton } from '../telegram.js'
 import type { Staff } from '../admin-auth.js'
+import { campaignStats, trackedUrl } from '../campaigns.js'
 import {
   CAPTION_MAX, plain, plainLength, readButtons, readMedia, startAppParam, type BroadcastButton,
 } from './people.js'
@@ -142,7 +143,25 @@ async function candidates() {
 async function recentPosts() {
   const db = await adminDb()
   const snap = await db.collection(HISTORY).orderBy('at', 'desc').limit(15).get()
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown> & { id: string })
+  const stats = await campaignStats(posts.map((p) => `ch_${p.id}`))
+
+  // So'rovnomalar: jonli natija bot yozgan `polls/{pollId}` da
+  const pollIds = posts.map((p) => p.pollId).filter((v): v is string => typeof v === 'string' && Boolean(v))
+  const live = new Map<string, Record<string, unknown>>()
+  if (pollIds.length) {
+    const snaps = await db.getAll(...pollIds.map((pid) => db.collection('polls').doc(pid)))
+    for (const one of snaps) if (one.exists) live.set(one.id, one.data() as Record<string, unknown>)
+  }
+
+  return posts.map((p) => {
+    const poll = p.pollId ? live.get(String(p.pollId)) : undefined
+    const saved = p.poll as { closed?: boolean } | undefined
+    const merged = poll && saved
+      ? { ...saved, options: poll.options, total: poll.total, closed: Boolean(poll.closed) || Boolean(saved.closed) }
+      : saved
+    return { ...p, poll: merged ?? null, stats: stats[`ch_${p.id}`] ?? null }
+  })
 }
 
 function postLink(chat: ChannelSettings, messageId: number): string {
@@ -204,35 +223,66 @@ export async function channelDisconnect() {
   return channelStatus()
 }
 
+/** E'lon mazmuni — panel, jadval (scheduler) va aksiya e'loni bir xil ko'rinishda beradi. */
+export type ChannelPostInput = {
+  text?: unknown
+  textRu?: unknown
+  bilingual?: unknown
+  media?: unknown
+  buttons?: unknown
+  silent?: unknown
+  pin?: unknown
+  protect?: unknown
+  preview?: unknown
+  customers?: unknown
+}
+
+type Layout = 'text' | 'caption' | 'split'
+
+function composeMessage(body: ChannelPostInput) {
+  const uz = text(body.text)
+  const ru = text(body.textRu)
+  // Ikki tilda: bitta postda ketma-ket
+  const message = body.bilingual === true && ru && uz ? `🇺🇿 ${uz}\n\n🇷🇺 ${ru}` : uz || ru
+  if (plainLength(message) > 4000) throw new Error('E’lon juda uzun (4000 belgigacha)')
+  return { uz, ru, message }
+}
+
 /**
- * Kanalga e'lon: rasm/video + matn + tugmalar.
- *
- * Tugmalar: «Havola» — o'zi; «Ilovada ochish» — `t.me/<bot>?startapp=…`
- * (kanalda `web_app` tugmasi ishlamaydi). Matn 1024 belgidan uzun va
+ * Tugmalar. «Ilovada ochish» — `t.me/<bot>?startapp=…` (kanalda `web_app`
+ * ishlamaydi), manbasi bilan; «Havola» — kuzatiladigan yo'naltirish orqali.
+ */
+async function channelRows(buttons: BroadcastButton[], source: string): Promise<AnyButton[][]> {
+  const me = await botMe()
+  return buttons.map((b, index) => {
+    const url = b.kind === 'app'
+      ? me.has_main_web_app
+        ? `https://t.me/${me.username}?startapp=${startAppParam(b.target, source)}`
+        : `https://t.me/${me.username}?start=channel`
+      : trackedUrl(source, index, b.url)
+    const button: AnyButton = { text: b.text, url }
+    return [b.style ? { ...button, style: b.style } : button]
+  })
+}
+
+/**
+ * Kanalga e'lon: rasm/video + matn + tugmalar. Matn 1024 belgidan uzun va
  * rasm bo'lsa — avval rasm, keyin matn tugmalar bilan (bot DM'dagi kabi).
  */
-export async function channelPost(actor: Staff, body: Record<string, unknown>) {
+export async function postToChannel(by: string, body: ChannelPostInput) {
   const channel = await readChannel()
   if (!channel) throw new Error('Kanal ulanmagan')
 
   const media = readMedia(body.media)
   const buttons = readButtons(body.buttons)
-  const uz = text(body.text)
-  const ru = text(body.textRu)
-  // Ikki tilda: bitta postda ketma-ket
-  const message = body.bilingual === true && ru && uz ? `🇺🇿 ${uz}\n\n🇷🇺 ${ru}` : uz || ru
+  const { uz, ru, message } = composeMessage(body)
   if (!message && !media) throw new Error('E’lon matni bo‘sh')
-  if (plainLength(message) > 4000) throw new Error('E’lon juda uzun (4000 belgigacha)')
 
-  const me = await botMe()
-  const appUrl = (b: BroadcastButton) =>
-    me.has_main_web_app
-      ? `https://t.me/${me.username}?startapp=${startAppParam(b.target)}`
-      : `https://t.me/${me.username}?start=channel`
-  const rows: AnyButton[][] = buttons.map((b) => {
-    const button: AnyButton = { text: b.text, url: b.kind === 'app' ? appUrl(b) : b.url }
-    return [b.style ? { ...button, style: b.style } : button]
-  })
+  // Id oldindan — tugmalardagi manba (`ch_<id>`) shu bilan
+  const db = await adminDb()
+  const ref = db.collection(HISTORY).doc()
+  const source = `ch_${ref.id}`
+  const rows = await channelRows(buttons, source)
 
   const common: Record<string, unknown> = {
     chat_id: channel.chatId,
@@ -250,8 +300,10 @@ export async function channelPost(actor: Staff, body: Record<string, unknown>) {
     })
 
   const ids: number[] = []
+  let layout: Layout = 'text'
   if (media) {
     const fits = plainLength(message) <= CAPTION_MAX
+    layout = fits ? 'caption' : 'split'
     const sent = await telegramCall<TgMessage>(media.kind === 'photo' ? 'sendPhoto' : 'sendVideo', {
       ...common,
       [media.kind]: media.fileId ?? media.url,
@@ -272,40 +324,190 @@ export async function channelPost(actor: Staff, body: Record<string, unknown>) {
     ids.push(sent.result.message_id)
   }
 
-  // Qadash — matn va tugmalar turgan xabar (oxirgisi)
-  let pinned = false
-  let pinError: string | null = null
-  if (body.pin === true) {
-    const pin = await telegramCall<boolean>('pinChatMessage', {
-      chat_id: channel.chatId,
-      message_id: ids[ids.length - 1],
-      disable_notification: body.silent === true,
-    })
-    pinned = pin.ok
-    if (!pin.ok) pinError = friendly(pin.error)
-  }
-
+  const { pinned, pinError } = await maybePin(channel.chatId, ids[ids.length - 1], body)
   const link = postLink(channel, ids[0])
-  const db = await adminDb()
-  const ref = await db.collection(HISTORY).add({
+  await ref.set({
+    type: 'post',
     chatId: channel.chatId,
     channelTitle: channel.title,
     messageIds: ids,
+    layout,
     link,
     snippet: plain(message).slice(0, 160),
-    // «Takrorlash» uchun — muharrirga qayta yuklanadi
+    // «Takrorlash», «Tahrirlash» va havola tugmasi yo'naltirishi uchun
     draft: { text: uz, textRu: ru, bilingual: body.bilingual === true, buttons },
     media: media ? { type: media.kind === 'photo' ? 'image' : 'video', url: media.url } : null,
     buttons: buttons.length,
     pinned,
     silent: body.silent === true,
     protect: body.protect === true,
+    preview: body.preview === true,
     customers: Math.max(0, Math.round(Number(body.customers) || 0)),
-    by: actor.name || actor.email,
+    by,
     at: new Date().toISOString(),
     deleted: false,
   })
   return { ok: true, id: ref.id, link, messageIds: ids, pinned, pinError }
+}
+
+async function maybePin(chatId: number, messageId: number, body: { pin?: unknown; silent?: unknown }) {
+  if (body.pin !== true) return { pinned: false, pinError: null as string | null }
+  const pin = await telegramCall<boolean>('pinChatMessage', {
+    chat_id: chatId,
+    message_id: messageId,
+    disable_notification: body.silent === true,
+  })
+  return { pinned: pin.ok, pinError: pin.ok ? null : friendly(pin.error) }
+}
+
+export async function channelPost(actor: Staff, body: Record<string, unknown>) {
+  return postToChannel(actor.name || actor.email, body)
+}
+
+/**
+ * Joylangan e'lonni tahrirlash: matn va tugmalar (rasm/video o'zgarmaydi).
+ * Rasm ostidagi izoh 1024 belgidan oshmasligi kerak — Telegram shuni
+ * tahrirlashga ruxsat beradi.
+ */
+export async function channelEdit(_actor: Staff, body: Record<string, unknown>) {
+  const id = text(body.id)
+  if (!/^[\w-]{1,40}$/.test(id)) throw new Error('E’lon topilmadi')
+  const db = await adminDb()
+  const ref = db.collection(HISTORY).doc(id)
+  const snap = await ref.get()
+  const post = snap.data() as {
+    chatId: number; messageIds: number[]; layout?: Layout; deleted?: boolean; type?: string
+    media?: unknown; preview?: boolean
+  } | undefined
+  if (!post) throw new Error('E’lon topilmadi')
+  if (post.deleted) throw new Error('E’lon kanaldan o‘chirilgan')
+  if (post.type === 'poll') throw new Error('So‘rovnomani tahrirlab bo‘lmaydi')
+
+  const buttons = readButtons(body.buttons)
+  const { uz, ru, message } = composeMessage(body)
+  const layout: Layout = post.layout ?? (post.media ? 'caption' : 'text')
+  if (!message && layout !== 'caption') throw new Error('E’lon matni bo‘sh')
+  if (layout === 'caption' && plainLength(message) > CAPTION_MAX) {
+    throw new Error(`Rasm ostidagi matn ${CAPTION_MAX} belgidan oshmasin`)
+  }
+
+  const rows = await channelRows(buttons, `ch_${id}`)
+  const reply_markup = { inline_keyboard: rows }
+  const result = layout === 'caption'
+    ? await telegramCall('editMessageCaption', {
+      chat_id: post.chatId, message_id: post.messageIds[0], caption: message, parse_mode: 'HTML', reply_markup,
+    })
+    : await telegramCall('editMessageText', {
+      chat_id: post.chatId,
+      message_id: post.messageIds[layout === 'split' ? 1 : 0],
+      text: message,
+      parse_mode: 'HTML',
+      link_preview_options: { is_disabled: body.preview === undefined ? post.preview !== true : body.preview !== true },
+      reply_markup,
+    })
+  if (!result.ok && !/message is not modified/i.test(result.error)) throw new Error(friendly(result.error))
+
+  await ref.update({
+    snippet: plain(message).slice(0, 160),
+    draft: { text: uz, textRu: ru, bilingual: body.bilingual === true, buttons },
+    buttons: buttons.length,
+    editedAt: new Date().toISOString(),
+  })
+  return { ok: true }
+}
+
+/**
+ * So'rovnoma. Kanalda so'rovnoma doim anonim. Natijalar bot orqali keladi
+ * (bot/bot.py → `polls/{id}`), «Yakunlash» esa yakuniy natijani qaytaradi.
+ */
+export async function channelPoll(actor: Staff, body: Record<string, unknown>) {
+  const channel = await readChannel()
+  if (!channel) throw new Error('Kanal ulanmagan')
+  const question = text(body.question)
+  if (!question) throw new Error('Savolni yozing')
+  if (question.length > 300) throw new Error('Savol 300 belgidan oshmasin')
+  const options = (Array.isArray(body.options) ? body.options : []).map((o) => text(String(o ?? ''))).filter(Boolean)
+  if (options.length < 2) throw new Error('Kamida 2 ta javob varianti kerak')
+  if (options.length > 10) throw new Error('Ko‘pi bilan 10 ta variant')
+  if (options.some((o) => o.length > 100)) throw new Error('Variant 100 belgidan oshmasin')
+  if (new Set(options).size !== options.length) throw new Error('Variantlar takrorlanmasin')
+
+  const quiz = body.quiz === true
+  const correct = Math.round(Number(body.correct))
+  if (quiz && !(correct >= 0 && correct < options.length)) throw new Error('Viktorinada to‘g‘ri javobni belgilang')
+  const explanation = text(body.explanation)
+  if (explanation.length > 200) throw new Error('Izoh 200 belgidan oshmasin')
+
+  const sent = await telegramCall<TgMessage & { poll?: { id: string } }>('sendPoll', {
+    chat_id: channel.chatId,
+    question,
+    options: options.map((o) => ({ text: o })),
+    is_anonymous: true,
+    type: quiz ? 'quiz' : 'regular',
+    ...(quiz ? { correct_option_id: correct } : { allows_multiple_answers: body.multiple === true }),
+    ...(quiz && explanation ? { explanation } : {}),
+    ...(body.silent === true ? { disable_notification: true } : {}),
+    ...(body.protect === true ? { protect_content: true } : {}),
+  })
+  if (!sent.ok) throw new Error(friendly(sent.error))
+  const messageId = sent.result.message_id
+  const { pinned, pinError } = await maybePin(channel.chatId, messageId, body)
+
+  const db = await adminDb()
+  const ref = await db.collection(HISTORY).add({
+    type: 'poll',
+    chatId: channel.chatId,
+    channelTitle: channel.title,
+    messageIds: [messageId],
+    pollId: sent.result.poll?.id ?? null,
+    poll: {
+      question,
+      options: options.map((o) => ({ text: o, voters: 0 })),
+      total: 0,
+      closed: false,
+      quiz,
+      correct: quiz ? correct : null,
+      multiple: !quiz && body.multiple === true,
+    },
+    link: postLink(channel, messageId),
+    snippet: `📊 ${question}`.slice(0, 160),
+    media: null,
+    buttons: 0,
+    pinned,
+    silent: body.silent === true,
+    protect: body.protect === true,
+    customers: 0,
+    by: actor.name || actor.email,
+    at: new Date().toISOString(),
+    deleted: false,
+  })
+  return { ok: true, id: ref.id, link: postLink(channel, messageId), pinned, pinError }
+}
+
+type TgPoll = { id: string; total_voter_count: number; is_closed: boolean; options: { text: string; voter_count: number }[] }
+
+/** So'rovnomani yakunlaydi — yakuniy natija saqlanadi. */
+export async function channelPollStop(_actor: Staff, body: Record<string, unknown>) {
+  const id = text(body.id)
+  if (!/^[\w-]{1,40}$/.test(id)) throw new Error('So‘rovnoma topilmadi')
+  const db = await adminDb()
+  const ref = db.collection(HISTORY).doc(id)
+  const post = (await ref.get()).data() as { chatId: number; messageIds: number[]; type?: string } | undefined
+  if (!post || post.type !== 'poll') throw new Error('So‘rovnoma topilmadi')
+  const result = await telegramCall<TgPoll>('stopPoll', { chat_id: post.chatId, message_id: post.messageIds[0] })
+  if (!result.ok) {
+    if (/poll has already been closed/i.test(result.error)) {
+      await ref.update({ 'poll.closed': true })
+      return { ok: true }
+    }
+    throw new Error(friendly(result.error))
+  }
+  await ref.update({
+    'poll.options': result.result.options.map((o) => ({ text: o.text, voters: o.voter_count })),
+    'poll.total': result.result.total_voter_count,
+    'poll.closed': true,
+  })
+  return { ok: true }
 }
 
 /** Kanaldagi e'lonni o'chiradi (tarixda «o'chirilgan» bo'lib qoladi). */

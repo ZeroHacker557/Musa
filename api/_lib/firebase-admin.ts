@@ -77,3 +77,19 @@ export async function adminDb(): Promise<Firestore> {
   cachedDb = db
   return cachedDb
 }
+
+/**
+ * Storage savati (zaxira nusxalar uchun). Nomi `FIREBASE_STORAGE_BUCKET`
+ * dan, bo'lmasa loyiha standarti: `<project_id>.firebasestorage.app`
+ * (bot/config.py dagi bilan bir xil).
+ */
+export async function adminBucket() {
+  const { getStorage } = await import('firebase-admin/storage')
+  const app = await createApp()
+  let name = process.env.FIREBASE_STORAGE_BUCKET || ''
+  if (!name) {
+    const projectId = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}').project_id
+    name = `${projectId}.firebasestorage.app`
+  }
+  return getStorage(app).bucket(name)
+}

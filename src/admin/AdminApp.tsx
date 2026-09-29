@@ -24,6 +24,8 @@ import { PromocodesPage } from './pages/PromocodesPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { BroadcastPage } from './pages/BroadcastPage'
 import { ChannelPage } from './pages/ChannelPage'
+import { AuditPage } from './pages/AuditPage'
+import { BackupPage } from './pages/BackupPage'
 import { SupportPage } from './pages/SupportPage'
 import { CashPage } from './pages/CashPage'
 
@@ -243,6 +245,8 @@ function AdminPanel({
       {route === 'customers' && (can(staff.role, 'admin') ? <CustomersPage /> : <NoAccess />)}
       {route === 'broadcast' && (can(staff.role, 'admin') ? <BroadcastPage /> : <NoAccess />)}
       {route === 'channel' && (can(staff.role, 'admin') ? <ChannelPage /> : <NoAccess />)}
+      {route === 'audit' && (staff.role === 'owner' ? <AuditPage /> : <NoAccess />)}
+      {route === 'backups' && (staff.role === 'owner' ? <BackupPage /> : <NoAccess />)}
       {route === 'support' && (can(staff.role, 'admin') ? <SupportPage focusId={param} navigate={navigate} /> : <NoAccess />)}
       {route === 'cash' && (can(staff.role, 'admin') ? <CashPage /> : <NoAccess />)}
 

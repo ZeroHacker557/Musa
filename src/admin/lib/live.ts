@@ -435,6 +435,19 @@ export type AllSettings = {
   delivery: { fee: number; freeFrom: number; minOrder: number }
   courier: CourierSettings
   linko: LinkoSettings
+  /** Kompaniya rekvizitlari — nakladnoy uchun (Sozlamalar → Rekvizitlar). */
+  company: CompanySettings
+}
+
+export type CompanySettings = {
+  legalName: string
+  inn: string
+  address: string
+  phone: string
+  bank: string
+  account: string
+  mfo: string
+  director: string
 }
 
 const SETTINGS_FALLBACK: AllSettings = {
@@ -446,6 +459,7 @@ const SETTINGS_FALLBACK: AllSettings = {
     sendOrders: false, agentId: 0, deliveryManId: 0, orderStockId: 0, currencyId: 1,
     lastSyncAt: null, lastReport: null,
   },
+  company: { legalName: '', inn: '', address: '', phone: '', bank: '', account: '', mfo: '', director: '' },
 }
 
 /** Linko katalogining nusxasi — `linko_products` (server yozadi). */
@@ -513,7 +527,7 @@ export function useSettings() {
   const [settings, setSettings] = useState<AllSettings>(SETTINGS_FALLBACK)
 
   useEffect(() => {
-    const sections = ['payment', 'delivery', 'courier', 'linko'] as const
+    const sections = ['payment', 'delivery', 'courier', 'linko', 'company'] as const
     const unsubs = sections.map((section) =>
       onSnapshot(
         doc(db, 'settings', section),

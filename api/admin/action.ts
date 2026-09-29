@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { atLeast, requireStaff, staffFromBot, type Staff } from '../_lib/admin-auth.js'
 import { fail, requirePost } from '../_lib/http.js'
+import { audit, auditBefore, isAudited } from '../_lib/audit.js'
 import { orderAssign, orderStatus } from '../_lib/actions/orders.js'
 import {
   categoryDelete, categorySave, orderSave, productBulkUpdate, productDelete, productSave,
@@ -19,13 +20,24 @@ import { courierDeliver, courierTake } from '../_lib/actions/courier.js'
 import { supportAdminRead, supportClose, supportReply } from '../_lib/actions/support.js'
 import { cashConfirm, cashReject } from '../_lib/actions/cash.js'
 import {
-  channelConnect, channelDelete, channelDisconnect, channelPost, channelStatus,
+  channelConnect, channelDelete, channelDisconnect, channelEdit, channelPoll, channelPollStop, channelPost,
+  channelStatus,
 } from '../_lib/actions/channel.js'
+import { broadcastHistory, broadcastStart } from '../_lib/actions/broadcasts.js'
+import { templateDelete, templateList, templateSave } from '../_lib/actions/templates.js'
+import { scheduleCancel, scheduleCreate, scheduleList } from '../_lib/actions/scheduler.js'
+import {
+  backupDelete, backupDownload, backupInspect, backupList, backupRestore, backupRun, backupSettings,
+} from '../_lib/actions/backup.js'
+import { auditList } from '../_lib/audit.js'
 
 type Body = Record<string, unknown>
 
 function requireSupportAccess(staff: Staff) {
   if (!atLeast(staff.role, 'admin')) throw new Error('Murojaatlarga faqat admin javob beradi')
+}
+function requireOwner(staff: Staff) {
+  if (staff.role !== 'owner') throw new Error('Bu bo‘lim faqat ega uchun')
 }
 function requireChannelAccess(staff: Staff) {
   if (!atLeast(staff.role, 'admin')) throw new Error('Kanalga faqat admin e’lon joylaydi')
@@ -81,6 +93,29 @@ const HANDLERS: Record<string, Handler> = {
   'channel.disconnect': (staff) => (requireChannelAccess(staff), channelDisconnect()),
   'channel.post': (staff, body) => (requireChannelAccess(staff), channelPost(staff, body)),
   'channel.delete': (staff, body) => (requireChannelAccess(staff), channelDelete(staff, body)),
+  'channel.edit': (staff, body) => (requireChannelAccess(staff), channelEdit(staff, body)),
+  'channel.poll': (staff, body) => (requireChannelAccess(staff), channelPoll(staff, body)),
+  'channel.pollStop': (staff, body) => (requireChannelAccess(staff), channelPollStop(staff, body)),
+
+  // Ommaviy xabar kampaniyasi, shablonlar va rejalashtirilgan e'lonlar
+  'broadcast.start': (staff, body) => (requireChannelAccess(staff), broadcastStart(staff, body)),
+  'broadcast.history': (staff) => (requireChannelAccess(staff), broadcastHistory()),
+  'template.list': (staff) => (requireChannelAccess(staff), templateList()),
+  'template.save': (staff, body) => (requireChannelAccess(staff), templateSave(staff, body)),
+  'template.delete': (staff, body) => (requireChannelAccess(staff), templateDelete(staff, body)),
+  'schedule.list': (staff) => (requireChannelAccess(staff), scheduleList()),
+  'schedule.create': (staff, body) => (requireChannelAccess(staff), scheduleCreate(staff, body)),
+  'schedule.cancel': (staff, body) => (requireChannelAccess(staff), scheduleCancel(staff, body)),
+
+  // Tizim — faqat ega: harakatlar jurnali va zaxira nusxalar
+  'audit.list': (staff, body) => (requireOwner(staff), auditList(body)),
+  'backup.list': (staff) => (requireOwner(staff), backupList()),
+  'backup.run': (staff) => (requireOwner(staff), backupRun(staff.name || staff.email, 'manual')),
+  'backup.download': (staff, body) => (requireOwner(staff), backupDownload(body)),
+  'backup.inspect': (staff, body) => (requireOwner(staff), backupInspect(body)),
+  'backup.restore': (staff, body) => (requireOwner(staff), backupRestore(staff, body)),
+  'backup.delete': (staff, body) => (requireOwner(staff), backupDelete(body)),
+  'backup.settings': (staff, body) => (requireOwner(staff), backupSettings(body)),
 
   // Kuryerlar bilan qo'llab-quvvatlash chati — javobni admin beradi
   'support.reply': (staff, body) => (requireSupportAccess(staff), supportReply(staff, body)),
@@ -154,12 +189,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const run = HANDLERS[action]
   if (!run) return fail(res, 400, `Noma’lum amal: ${action || '(bo‘sh)'}`)
 
+  const body = (req.body ?? {}) as Body
+  // Harakatlar jurnali: tahrirdan oldingi holat (farq uchun)
+  const before = isAudited(action) ? await auditBefore(action, body) : null
+  const log = (ok: boolean, error?: string) =>
+    audit({
+      actor: { uid: staff.uid, name: staff.name || staff.email, role: staff.role },
+      source: fromBot ? 'bot' : 'panel',
+      action,
+      body,
+      before,
+      ok,
+      error,
+    })
+
   try {
-    const result = await run(staff, (req.body ?? {}) as Body)
+    const result = await run(staff, body)
+    await log(true)
     return res.status(200).json({ ok: true, ...(result as object) })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Amal bajarilmadi'
     console.error(`[admin] ${action} xatosi:`, error)
+    await log(false, message)
     // Tekshiruv xatolari mijozga tushunarli matn bilan qaytadi
     return fail(res, 400, message)
   }

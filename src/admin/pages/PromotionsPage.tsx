@@ -1,7 +1,8 @@
-import { CalendarClock, Flame, Loader2, Pause, Pencil, Play, Plus, Search, Trash2 } from 'lucide-react'
+import { CalendarClock, Flame, ImagePlus, Loader2, Megaphone, Pause, Pencil, Play, Plus, Search, Trash2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { formatPrice } from '../../data'
 import { apiPost } from '../lib/api'
+import { uploadBroadcastMedia } from '../lib/storage'
 import { useCategories, useProducts, usePromotions, useSections } from '../lib/live'
 import { ConfirmDialog, Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
@@ -18,7 +19,27 @@ type Draft = {
   startsAt: string
   endsAt: string
   active: boolean
+  /** Boshlanganda e'lon: kanalga / mijozlarga, ixtiyoriy rasm bilan. */
+  announceChannel: boolean
+  announceCustomers: boolean
+  announceImage: string | null
 }
+
+/** Mavjud aksiya → forma. */
+const toDraft = (promo: Promotion, patch: Partial<Draft> = {}): Draft => ({
+  id: promo.id,
+  title: promo.title,
+  percent: String(promo.percent),
+  target: promo.target,
+  targetIds: promo.targetIds,
+  startsAt: toLocalInput(new Date(promo.startsAt)),
+  endsAt: toLocalInput(new Date(promo.endsAt)),
+  active: promo.active,
+  announceChannel: Boolean(promo.announce?.channel),
+  announceCustomers: Boolean(promo.announce?.customers),
+  announceImage: promo.announce?.image ?? null,
+  ...patch,
+})
 
 const TARGETS: { key: Target; label: string }[] = [
   { key: 'all', label: 'Barcha mahsulotlar' },
@@ -86,7 +107,10 @@ export function PromotionsPage() {
     start.setHours(start.getHours() + 1)
     const end = new Date(start)
     end.setDate(end.getDate() + 3)
-    setDraft({ title: '', percent: '15', target: 'all', targetIds: [], startsAt: toLocalInput(start), endsAt: toLocalInput(end), active: true })
+    setDraft({
+      title: '', percent: '15', target: 'all', targetIds: [], startsAt: toLocalInput(start), endsAt: toLocalInput(end), active: true,
+      announceChannel: false, announceCustomers: false, announceImage: null,
+    })
   }
 
   const save = async (next: Draft) => {
@@ -103,6 +127,9 @@ export function PromotionsPage() {
         startsAt: new Date(next.startsAt).toISOString(),
         endsAt: new Date(next.endsAt).toISOString(),
         active: next.active,
+        announce: next.announceChannel || next.announceCustomers
+          ? { channel: next.announceChannel, customers: next.announceCustomers, image: next.announceImage }
+          : null,
       })
       show(next.id ? 'Aksiya yangilandi' : 'Aksiya yaratildi')
       setDraft(null)
@@ -114,10 +141,7 @@ export function PromotionsPage() {
   }
 
   const toggleActive = (promo: Promotion) =>
-    save({
-      id: promo.id, title: promo.title, percent: String(promo.percent), target: promo.target, targetIds: promo.targetIds,
-      startsAt: toLocalInput(new Date(promo.startsAt)), endsAt: toLocalInput(new Date(promo.endsAt)), active: !promo.active,
-    })
+    save(toDraft(promo, { active: !promo.active }))
 
   const remove = async () => {
     if (!removing) return
@@ -206,6 +230,13 @@ export function PromotionsPage() {
                     Boshlanishiga {leftText(Date.parse(promo.startsAt) - now)}
                   </p>
                 )}
+                {(promo.announce?.channel || promo.announce?.customers) && (
+                  <p className="mt-1 flex items-center gap-1 text-xs font-bold" style={{ color: promo.announcedAt ? 'var(--muted)' : 'var(--brand)' }}>
+                    <Megaphone size={12} />
+                    {promo.announcedAt ? 'E’lon qilindi' : 'Boshlanganda e’lon qilinadi'}
+                    {' — '}{[promo.announce.channel && 'kanal', promo.announce.customers && 'mijozlar'].filter(Boolean).join(' + ')}
+                  </p>
+                )}
                 <div className="mt-3 flex gap-1.5">
                   <button className="adm-btn adm-btn--ghost flex-1" onClick={() => toggleActive(promo)} disabled={busy}>
                     {promo.active ? <><Pause size={15} /> To‘xtatish</> : <><Play size={15} /> Yoqish</>}
@@ -213,10 +244,7 @@ export function PromotionsPage() {
                   <button
                     className="grid size-9 place-items-center rounded-lg"
                     style={{ background: 'var(--surface-2)' }}
-                    onClick={() => setDraft({
-                      id: promo.id, title: promo.title, percent: String(promo.percent), target: promo.target, targetIds: promo.targetIds,
-                      startsAt: toLocalInput(new Date(promo.startsAt)), endsAt: toLocalInput(new Date(promo.endsAt)), active: promo.active,
-                    })}
+                    onClick={() => setDraft(toDraft(promo))}
                     aria-label="Tahrirlash"
                   >
                     <Pencil size={15} />
@@ -385,6 +413,8 @@ function PromotionForm({
         Yoqilgan (vaqti kelganda o‘zi boshlanadi)
       </label>
 
+      <AnnounceFields draft={draft} set={set} />
+
       <div className="adm-preview">
         <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
           {hit.length} ta mahsulotga ta’sir qiladi
@@ -407,5 +437,69 @@ function PromotionForm({
         )}
       </div>
     </Modal>
+  )
+}
+
+/**
+ * Aksiya boshlanganda avtomatik e'lon: kanalga va/yoki botda barcha
+ * mijozlarga. Matn va «Aksiyadagi mahsulotlar» tugmasi o'zi tuziladi
+ * (api/_lib/actions/scheduler.ts → promotionPost); rasm ixtiyoriy.
+ */
+function AnnounceFields({ draft, set }: { draft: Draft; set: (patch: Partial<Draft>) => void }) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const on = draft.announceChannel || draft.announceCustomers
+
+  const pick = async (file: File | undefined) => {
+    if (!file) return
+    setUploading(true)
+    setError(null)
+    try {
+      const media = await uploadBroadcastMedia(file)
+      if (media.type !== 'image') throw new Error('Faqat rasm')
+      set({ announceImage: media.url })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Yuklab bo‘lmadi')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="adm-announce">
+      <p className="flex items-center gap-2 text-sm font-extrabold"><Megaphone size={15} /> Boshlanganda e’lon qilish</p>
+      <div className="mt-2 flex flex-wrap gap-4 text-sm">
+        <label className="flex items-center gap-2 font-semibold">
+          <input type="checkbox" checked={draft.announceChannel} onChange={(e) => set({ announceChannel: e.target.checked })} style={{ accentColor: 'var(--brand)' }} />
+          Telegram kanalga
+        </label>
+        <label className="flex items-center gap-2 font-semibold">
+          <input type="checkbox" checked={draft.announceCustomers} onChange={(e) => set({ announceCustomers: e.target.checked })} style={{ accentColor: 'var(--brand)' }} />
+          Botda barcha mijozlarga
+        </label>
+      </div>
+      {on && (
+        <>
+          <p className="mt-2 text-xs" style={{ color: 'var(--muted)' }}>
+            Aksiya boshlangan daqiqada «🔥 {draft.title || 'Aksiya nomi'} — −{draft.percent || 0}% chegirma … gacha» matni va
+            «🛒 Aksiyadagi mahsulotlar» tugmasi bilan yuboriladi (o‘zbekcha va ruscha). Bir marta.
+          </p>
+          <div className="mt-2 flex items-center gap-3">
+            {draft.announceImage ? (
+              <span className="adm-announce__img">
+                <img src={draft.announceImage} alt="" />
+                <button type="button" onClick={() => set({ announceImage: null })} aria-label="Rasmni olib tashlash"><X size={13} /></button>
+              </span>
+            ) : (
+              <label className="adm-btn adm-btn--ghost cursor-pointer">
+                {uploading ? <Loader2 size={15} className="animate-spin" /> : <ImagePlus size={15} />} Rasm qo‘shish (ixtiyoriy)
+                <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = '' }} disabled={uploading} />
+              </label>
+            )}
+            {error && <span className="text-xs" style={{ color: 'var(--danger)' }}>{error}</span>}
+          </div>
+        </>
+      )}
+    </div>
   )
 }

@@ -5,6 +5,7 @@ import { endExpiredShifts } from './_lib/actions/shift.js'
 import { linkoPushOrders, linkoSyncMarketTypes } from './_lib/actions/linko-orders.js'
 import { expireUnpaidOrders } from './_lib/actions/payments.js'
 import { fail } from './_lib/http.js'
+import { runTasks } from './_lib/actions/scheduler.js'
 
 /**
  * Linko katalogini jadval bo'yicha tortadi.
@@ -38,6 +39,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(await linkoProbe({
       product: one(req.query.product), order: one(req.query.order), path: one(req.query.path),
     }))
+  }
+
+  // Har daqiqalik jadval (bot → scheduler_loop): rejalashtirilgan e'lonlar,
+  // aksiya e'loni, avtomatik zaxira nusxa. Linko sinxroni bu yerda emas.
+  if (req.query.tasks === '1') {
+    return res.status(200).json(await runTasks())
   }
 
   // Eski bot mijozlarining turini bir martada yangilash (faqat tur, boshqa maydonlar emas)

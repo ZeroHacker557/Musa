@@ -1,12 +1,12 @@
 import {
-  Bike, ChevronDown, Columns3, List, Loader2, MapPin, Phone, Printer, Search, ShoppingBag, X,
+  Bike, ChevronDown, Columns3, FileText, List, Loader2, MapPin, Phone, Printer, Search, ShoppingBag, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatPrice } from '../../data'
 import type { OrderStatus } from '../../types/domain'
 import { apiPost } from '../lib/api'
-import { ORDERS_WINDOW_DAYS, useOrders, useStaff, type AdminOrder, type StaffRow } from '../lib/live'
+import { ORDERS_WINDOW_DAYS, useOrders, useSettings, useStaff, type AdminOrder, type StaffRow } from '../lib/live'
 import { datedNumber, shortDay } from '../../utils/order-label'
 import { StatusBadge } from '../components/StatusBadge'
 import { can, type Staff } from '../lib/auth'
@@ -14,6 +14,9 @@ import { useToast } from '../components/Toast'
 import { DateFilter } from '../components/DateFilter'
 import { dayKey, inRange, type Range } from '../lib/date-range'
 import { Receipt } from '../components/Receipt'
+import { RouteSheetDoc, WaybillDoc } from '../components/Waybill'
+import { PrintOrdersModal } from '../components/PrintOrders'
+import { usePrintDoc } from '../lib/print'
 import { OrderTimeline } from '../components/OrderTimeline'
 import { OrdersBoard } from '../components/OrdersBoard'
 import { bundleText } from '../../utils/bundle'
@@ -77,6 +80,10 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
   const [range, setRange] = useState<Range>('today')
   const { orders, loading, error } = useOrders(courierId, needsFullHistory(range) ? 'all' : ORDERS_WINDOW_DAYS)
   const [query, setQuery] = useState('')
+  // Nakladnoy / marshrut varaqasi — rekvizitlar sozlamadan
+  const settings = useSettings()
+  const printer = usePrintDoc()
+  const [printing, setPrinting] = useState(false)
   /**
    * Ochiq buyurtma HOLATDA emas, identifikator bo'yicha hisoblanadi.
    *
@@ -243,9 +250,16 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
         />
       </div>
 
-      {/* Kun bo'yicha */}
-      <div className="mt-3">
-        <DateFilter value={range} onChange={setRange} counts={dayCounts} />
+      {/* Kun bo'yicha + chop etish (nakladnoy, marshrut varaqasi) */}
+      <div className="mt-3 flex flex-wrap items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <DateFilter value={range} onChange={setRange} counts={dayCounts} />
+        </div>
+        {can(staff.role, 'admin') && (
+          <button type="button" className="adm-btn adm-btn--ghost shrink-0" onClick={() => setPrinting(true)}>
+            <Printer size={16} /> Chop etish
+          </button>
+        )}
       </div>
 
       {/* Ko'rinish: ro'yxat yoki kanban doska */}
@@ -390,9 +404,20 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
           couriers={couriers}
           onStatus={(status) => changeStatus(open, status)}
           onAssign={(courierId) => assign(open, courierId)}
+          onWaybill={() => printer.print(<WaybillDoc orders={[open]} company={settings.company} />)}
           onClose={() => setOpenId(null)}
         />
       )}
+
+      {printing && (
+        <PrintOrdersModal
+          orders={inPeriod}
+          onClose={() => setPrinting(false)}
+          onWaybills={(list) => { setPrinting(false); printer.print(<WaybillDoc orders={list} company={settings.company} />) }}
+          onRoute={(list) => { setPrinting(false); printer.print(<RouteSheetDoc orders={list} company={settings.company} />) }}
+        />
+      )}
+      {printer.node}
 
       {toast}
     </>
@@ -400,7 +425,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
 }
 
 function OrderDrawer({
-  order, allowed, busy, canAssign, couriers, onStatus, onAssign, onClose,
+  order, allowed, busy, canAssign, couriers, onStatus, onAssign, onWaybill, onClose,
 }: {
   order: AdminOrder
   allowed: OrderStatus[]
@@ -409,6 +434,7 @@ function OrderDrawer({
   couriers: StaffRow[]
   onStatus: (status: OrderStatus) => void
   onAssign: (courierId: string) => void
+  onWaybill: () => void
   onClose: () => void
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -619,12 +645,14 @@ function OrderDrawer({
 
           <OrderTimeline order={order} />
 
-          <button
-            className="adm-btn adm-btn--ghost w-full"
-            onClick={() => window.print()}
-          >
-            <Printer size={16} /> Chekni chop etish
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="adm-btn adm-btn--ghost" onClick={() => window.print()}>
+              <Printer size={16} /> Chek
+            </button>
+            <button className="adm-btn adm-btn--ghost" onClick={onWaybill}>
+              <FileText size={16} /> Nakladnoy
+            </button>
+          </div>
 
           {canAssign && (
             <section>

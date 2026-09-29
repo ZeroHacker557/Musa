@@ -9,6 +9,7 @@ import type { WlcmProvider } from './_lib/wlcm.js'
 import { pushOrderSafe } from './_lib/actions/linko-orders.js'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
+import { isSource } from './_lib/campaigns.js'
 import { bestPromotion, promoPrice, readPromotion } from './_lib/promotions.js'
 import { formatDailyNumber, tashkentDay } from './_lib/order-number.js'
 
@@ -37,6 +38,8 @@ type IncomingOrder = {
   promoCode?: string
   /** Takroriy buyurtmani to'sish uchun mijoz yaratadigan noyob kalit. */
   clientOrderId?: string
+  /** Mijoz qaysi kanal e'loni / ommaviy xabardan kelgan (campaigns.ts). */
+  source?: string
 }
 
 /** Mijoz yuborgan ma'lumotni tozalaymiz — narx, jami va status bu yerdan kelmaydi. */
@@ -89,6 +92,7 @@ function readOrder(body: unknown): IncomingOrder {
     },
     promoCode: b?.promoCode ? String(b.promoCode).trim().toUpperCase().slice(0, 40) : undefined,
     clientOrderId: b?.clientOrderId ? String(b.clientOrderId).slice(0, 64) : undefined,
+    source: isSource(b?.source) ? b.source : undefined,
   }
 }
 
@@ -368,6 +372,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         paymentProvider: order.customer.paymentProvider ?? null,
         customer: { ...order.customer, promoCode: appliedPromo },
         clientOrderId: order.clientOrderId ?? null,
+        source: order.source ?? null,
         userId,
         username: userData.username ?? null,
         notified: false,

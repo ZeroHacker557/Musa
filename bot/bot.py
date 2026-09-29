@@ -16,7 +16,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message, WebAppInfo, InlineKeyboardButton,
     InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton,
-    MenuButtonWebApp, CallbackQuery, ChatMemberUpdated
+    MenuButtonWebApp, CallbackQuery, ChatMemberUpdated, Poll
 )
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -774,6 +774,13 @@ async def on_bot_membership(update: ChatMemberUpdated):
     )
 
 
+@dp.poll()
+async def on_poll_update(poll: Poll):
+    """Bot yuborgan so'rovnoma (kanalda) — har ovozda yangi natija keladi."""
+    options = [{"text": o.text, "voters": o.voter_count} for o in poll.options]
+    await asyncio.to_thread(db.save_poll, poll.id, options, poll.total_voter_count, poll.is_closed)
+
+
 # ─── /start ──────────────────────────────────────────────────
 
 @dp.message(F.text.startswith("/start"))
@@ -1324,6 +1331,40 @@ async def linko_sync_loop():
             logger.warning(f"[LINKO] sinxron bajarilmadi: {e}")
 
 
+async def scheduler_loop():
+    """
+    Har daqiqada: rejalashtirilgan e'lonlar, aksiya boshlanganda e'lon va
+    haftalik zaxira nusxa (mantiq — api/_lib/actions/scheduler.ts).
+
+    Vercel funksiyasi uzoq ishlamaydi: mijozlarga yuborish bo'laklab
+    boradi va javobda `more: true` bo'lsa — darhol yana chaqiramiz.
+    """
+    if not CRON_SECRET:
+        logger.info("[TASKS] CRON_SECRET yo'q — jadval o'chiq")
+        return
+
+    url = f"{MINI_APP_URL.rstrip('/')}/api/linko-cron?tasks=1"
+    while True:
+        await asyncio.sleep(60)
+        for _ in range(20):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        url,
+                        headers={"x-cron-secret": CRON_SECRET},
+                        timeout=aiohttp.ClientTimeout(total=90),
+                    ) as response:
+                        data = await response.json(content_type=None)
+                if response.status != 200:
+                    logger.warning(f"[TASKS] {response.status}: {data}")
+                    break
+                if not data.get("more"):
+                    break
+            except Exception as e:
+                logger.warning(f"[TASKS] bajarilmadi: {e}")
+                break
+
+
 async def daily_report_loop():
     """
     Har kuni REPORT_HOUR da bir marta.
@@ -1374,6 +1415,7 @@ async def main():
         asyncio.create_task(cart_reminder_loop()),
         asyncio.create_task(daily_report_loop()),
         asyncio.create_task(linko_sync_loop()),
+        asyncio.create_task(scheduler_loop()),
     ]
 
     logger.info("[BOT] Ishga tushdi ✅")

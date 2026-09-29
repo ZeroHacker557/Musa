@@ -28,6 +28,8 @@ export type Route =
   | 'settings'
   | 'linko'
   | 'linko-orders'
+  | 'audit'
+  | 'backups'
   | 'brain'
 
 export const ROUTES: Route[] = [
@@ -50,6 +52,8 @@ export const ROUTES: Route[] = [
   'settings',
   'linko',
   'linko-orders',
+  'audit',
+  'backups',
   'brain',
 ]
 

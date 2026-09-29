@@ -9,6 +9,7 @@ import { courierLocation } from './_lib/actions/location.js'
 import { supportCourierRead, supportOpen, supportSend } from './_lib/actions/support.js'
 import { courierByTelegram } from './_lib/courier-staff.js'
 import { errorCode } from './_lib/errors.js'
+import { audit } from './_lib/audit.js'
 
 /**
  * POST /api/courier   { action: "overview" | "take" | "deliver" | "support.*", … }
@@ -19,6 +20,11 @@ import { errorCode } from './_lib/errors.js'
  * Kuryerligi har so'rovda `staff` dan tekshiriladi: admin kuryerni
  * bloklasa, keyingi so'rovdayoq rad etiladi.
  */
+/** Jurnal uchun: kuryer o'z ismi bilan (ega/admin ham yetkazishi mumkin). */
+function courierActor(courier: { uid: string; name: string; role: string }) {
+  return { uid: courier.uid, name: courier.name, role: courier.role }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requirePost(req, res)) return
 
@@ -56,9 +62,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     else if (action === 'support.read') result = await supportCourierRead(courier, body)
     else return fail(res, 400, `Noma’lum amal: ${action || '(bo‘sh)'}`, 'UNKNOWN_ACTION')
 
+    await audit({ actor: courierActor(courier), source: 'courier', action, body, ok: true })
     return res.status(200).json({ ok: true, ...result })
   } catch (error) {
     console.error(`[courier] ${action} xatosi:`, error)
+    await audit({
+      actor: courierActor(courier),
+      source: 'courier',
+      action,
+      body,
+      ok: false,
+      error: error instanceof Error ? error.message : 'xato',
+    })
     // Kod bo'lsa ilova xatoni kuryerning tilida ko'rsatadi (api/_lib/errors.ts)
     return fail(res, 400, error instanceof Error ? error.message : 'Amal bajarilmadi', errorCode(error))
   }

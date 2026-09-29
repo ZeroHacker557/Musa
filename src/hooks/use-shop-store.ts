@@ -6,6 +6,8 @@ import { apiPost } from '../lib/api'
 import { apiErrorText } from '../utils/api-error'
 import { formatPrice } from '../data'
 import { track } from '../lib/track'
+import { captureCampaign, currentCampaign } from '../lib/campaign'
+import { launchParams } from '../utils/launch'
 import { searchProducts } from '../utils/search'
 import { countUnseenOrders } from '../utils/notifications'
 import { bestPromotion, isRunning, promoPrice, type Promotion } from '../utils/promotions'
@@ -92,30 +94,6 @@ function loadCart(): CartItems {
  *   ?product=<mahsulot id>  — mahsulot sahifasi.
  * Server tomoni: api/_lib/actions/people.ts → appLink.
  */
-/**
- * Ilova ochilgan parametrlar: URL so'rovi + Telegram `start_param`.
- *
- * Kanal postidagi tugma `t.me/<bot>?startapp=q<base64url>` bilan ochadi
- * (kanalda `web_app` tugmasi ishlamaydi). Ichida o'sha so'rov qatori —
- * `cat=...`, `page=catalog` va h.k. Server: people.ts → startAppParam.
- */
-function launchParams(): URLSearchParams {
-  const q = new URLSearchParams(window.location.search)
-  const start = window.Telegram?.WebApp?.initDataUnsafe?.start_param || q.get('tgWebAppStartParam') || ''
-  if (/^q[\w-]{2,511}$/.test(start)) {
-    try {
-      const b64 = start.slice(1).replace(/-/g, '+').replace(/_/g, '/')
-      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
-      new URLSearchParams(new TextDecoder().decode(bytes)).forEach((value, key) => {
-        if (!q.has(key)) q.set(key, value)
-      })
-    } catch {
-      // Buzilgan parametr — oddiy ochiladi
-    }
-  }
-  return q
-}
-
 const DEEP_LINK = (() => {
   try {
     const q = launchParams()
@@ -141,6 +119,8 @@ export function useShopStore() {
   const t = useT()
   const { lang } = useI18n()
   const [page, setPage] = useState<AppPage>(initialPage)
+  // Kanal e'loni / ommaviy xabar tugmasidan kelgan bo'lsa — bosish sanaladi (lib/campaign.ts)
+  useEffect(() => { captureCampaign() }, [])
   // Telegram BackButton shu tarix bo'yicha ishlaydi (D-03)
   const [history, setHistory] = useState<AppPage[]>([])
   // Bosh sahifadan tanlangan kategoriya katalogga uzatiladi (F-16)
@@ -934,6 +914,8 @@ export function useShopStore() {
     try {
       created = await apiPost<Created & { orderNumber: string; total: number }>('/api/orders', {
         clientOrderId: orderKeyRef.current,
+        // Kanal e'loni / ommaviy xabardan kelgan bo'lsa — natija o'sha e'longa yoziladi
+        source: currentCampaign(),
         items: cartProducts.map(({ product, quantity, size, color }) => ({
           productId: product.id,
           quantity,

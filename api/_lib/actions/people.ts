@@ -5,6 +5,7 @@ import { verifyInitData } from '../telegram-auth.js'
 import type { Staff, StaffRole } from '../admin-auth.js'
 import { canDeliver, syncCourierFlag } from '../courier-staff.js'
 import { miniAppUrl } from './orders.js'
+import { isSource, trackedUrl } from '../campaigns.js'
 
 const ROLES: StaffRole[] = ['owner', 'admin', 'courier']
 
@@ -228,16 +229,19 @@ const APP_PAGES = ['catalog', 'favorites', 'orders', 'profile']
  * Mini ilova havolasi. Parametrlarni ilovaning o'zi o'qiydi
  * (src/hooks/use-shop-store.ts → DEEP_LINK): `cat`, `sec`, `product`.
  */
-export function appQuery(target: string): string {
-  if (!target || target === 'home') return ''
-  if (APP_PAGES.includes(target)) return `page=${target}`
+export function appQuery(target: string, source?: string): string {
+  // Kampaniya manbasi — ilova bosishni sanaydi va buyurtmaga bog'laydi (campaigns.ts)
+  const src = source && isSource(source) ? `src=${source}` : ''
+  const join = (q: string) => [q, src].filter(Boolean).join('&')
+  if (!target || target === 'home') return join('')
+  if (APP_PAGES.includes(target)) return join(`page=${target}`)
   const match = /^(cat|sec|product):(.{1,200})$/s.exec(target)
   if (!match || !match[2].trim()) throw new Error('Tugma qayerni ochishi noto‘g‘ri tanlangan')
-  return `${match[1]}=${encodeURIComponent(match[2].trim())}`
+  return join(`${match[1]}=${encodeURIComponent(match[2].trim())}`)
 }
 
-function appLink(base: string, target: string): string {
-  const query = appQuery(target)
+function appLink(base: string, target: string, source?: string): string {
+  const query = appQuery(target, source)
   return query ? `${base}/?${query}` : `${base}/`
 }
 
@@ -248,8 +252,8 @@ function appLink(base: string, target: string): string {
  * shuning uchun so'rov qatori base64url qilinadi, oldiga `q` qo'yiladi.
  * Ilova tomoni: src/hooks/use-shop-store.ts → launchParams.
  */
-export function startAppParam(target: string): string {
-  const query = appQuery(target)
+export function startAppParam(target: string, source?: string): string {
+  const query = appQuery(target, source)
   if (!query) return 'home'
   const param = 'q' + Buffer.from(query, 'utf8').toString('base64url')
   if (param.length > 512) throw new Error('Tugma manzili juda uzun')
@@ -317,14 +321,35 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
   if (messageRu.length > 3500) throw new Error('Ruscha xabar juda uzun (3500 belgigacha)')
   const pick = (lang: Lang) => (lang === 'ru' && messageRu ? messageRu : message)
 
+  // Kampaniya (broadcast.start yaratgan) — bosishlar va buyurtmalar shunga yoziladi
+  const campaignId = typeof body.campaignId === 'string' && /^[A-Za-z0-9]{3,40}$/.test(body.campaignId)
+    ? body.campaignId
+    : ''
+  const source = campaignId ? `bc_${campaignId}` : undefined
+
   const rowsFor = (lang: Lang): AnyButton[][] =>
-    buttons.map((b) => {
+    buttons.map((b, index) => {
       const label = lang === 'ru' && b.textRu ? b.textRu : b.text
       const button: AnyButton = b.kind === 'app'
-        ? { text: label, web_app: { url: appLink(app!, b.target) } }
-        : { text: label, url: b.url }
+        ? { text: label, web_app: { url: appLink(app!, b.target, source) } }
+        : { text: label, url: source ? trackedUrl(source, index, b.url) : b.url }
       return [b.style ? { ...button, style: b.style } : button]
     })
+
+  /** Bo'lak natijasini kampaniya yozuviga qo'shadi. */
+  const record = async (sent: number, failed: number) => {
+    if (!campaignId) return
+    const { FieldValue } = await import('firebase-admin/firestore')
+    const update: Record<string, unknown> = {
+      sent: FieldValue.increment(sent),
+      failed: FieldValue.increment(failed),
+    }
+    if (body.last === true) {
+      update.status = 'done'
+      update.finishedAt = new Date().toISOString()
+    }
+    await db.collection('broadcasts').doc(campaignId).set(update, { merge: true })
+  }
 
   const db = await adminDb()
   /** Birinchi muvaffaqiyatli yuborishdan keyin — Telegram'dagi fayl (qayta yuklanmaydi). */
@@ -382,6 +407,7 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
       else failed++
       await new Promise((resolve) => setTimeout(resolve, 40))
     }
+    await record(sent, failed)
     return { sent, failed, skipped, processed: body.recipients.length, nextCursor: null, mediaId }
   }
 
@@ -421,6 +447,7 @@ export async function broadcast(actor: Staff, body: Record<string, unknown>) {
   }
 
   const last = snap.docs[snap.docs.length - 1]
+  await record(sent, failed)
   return {
     sent,
     failed,

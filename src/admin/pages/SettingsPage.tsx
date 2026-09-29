@@ -1,8 +1,8 @@
-import { CreditCard, Loader2, PlugZap, Send, Smartphone, Truck, Users2, Webhook } from 'lucide-react'
+import { Building2, CreditCard, Loader2, PlugZap, Send, Smartphone, Truck, Users2, Webhook } from 'lucide-react'
 import { PAY_PROVIDERS } from '../../utils/payment'
 import { useState } from 'react'
 import { apiPost } from '../lib/api'
-import { useSettings } from '../lib/live'
+import { useSettings, type CompanySettings } from '../lib/live'
 import { useToast } from '../components/Toast'
 import { FreeDeliveryBar } from '../../components/cart/FreeDeliveryBar'
 import { formatPrice } from '../../data'
@@ -55,6 +55,12 @@ export function SettingsPage() {
           onSave={save}
           onError={(m) => show(m, 'error')}
           onOk={(m) => show(m)}
+        />
+        <CompanyCard
+          key={`co:${Object.values(settings.company).join('|')}`}
+          settings={settings.company}
+          busy={busy === 'company'}
+          onSave={save}
         />
       </div>
       {toast}
@@ -486,5 +492,58 @@ function Toggle({
         </span>
       </span>
     </label>
+  )
+}
+
+/**
+ * Kompaniya rekvizitlari — nakladnoy (yuk xati) va marshrut varaqasida
+ * «Yetkazib beruvchi» sifatida chiqadi. Bo'sh qolsa brend nomi ishlatiladi.
+ */
+function CompanyCard({ settings, busy, onSave }: { settings: CompanySettings; busy: boolean; onSave: SaveFn }) {
+  const [form, setForm] = useState<CompanySettings>(settings)
+  const set = (key: keyof CompanySettings, value: string) => setForm({ ...form, [key]: value })
+  const digits = (key: keyof CompanySettings, max: number) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    set(key, e.target.value.replace(/\D/g, '').slice(0, max))
+
+  return (
+    <Section title="Kompaniya rekvizitlari" icon={Building2} hint="Nakladnoy va marshrut varaqasida chiqadi">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="adm-label" htmlFor="co-name">Korxona nomi</label>
+          <input id="co-name" className="adm-input" value={form.legalName} onChange={(e) => set('legalName', e.target.value)} placeholder="«MUSA FOOD» MChJ" maxLength={120} />
+        </div>
+        <div>
+          <label className="adm-label" htmlFor="co-inn">STIR (INN)</label>
+          <input id="co-inn" className="adm-input" inputMode="numeric" value={form.inn} onChange={digits('inn', 9)} placeholder="9 ta raqam" />
+        </div>
+        <div>
+          <label className="adm-label" htmlFor="co-phone">Telefon</label>
+          <input id="co-phone" className="adm-input" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+998 …" maxLength={40} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="adm-label" htmlFor="co-address">Yuridik manzil</label>
+          <input id="co-address" className="adm-input" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Toshkent sh., …" maxLength={200} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="adm-label" htmlFor="co-bank">Bank</label>
+          <input id="co-bank" className="adm-input" value={form.bank} onChange={(e) => set('bank', e.target.value)} placeholder="«…bank» ATB, … filiali" maxLength={120} />
+        </div>
+        <div>
+          <label className="adm-label" htmlFor="co-acc">Hisob raqami</label>
+          <input id="co-acc" className="adm-input" inputMode="numeric" value={form.account} onChange={digits('account', 20)} placeholder="20 ta raqam" />
+        </div>
+        <div>
+          <label className="adm-label" htmlFor="co-mfo">MFO</label>
+          <input id="co-mfo" className="adm-input" inputMode="numeric" value={form.mfo} onChange={digits('mfo', 5)} placeholder="5 ta raqam" />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="adm-label" htmlFor="co-dir">Rahbar (imzo uchun)</label>
+          <input id="co-dir" className="adm-input" value={form.director} onChange={(e) => set('director', e.target.value)} placeholder="F.I.Sh." maxLength={80} />
+        </div>
+      </div>
+      <button className="adm-btn adm-btn--primary mt-4 w-full" onClick={() => onSave('company', form)} disabled={busy}>
+        {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash
+      </button>
+    </Section>
   )
 }

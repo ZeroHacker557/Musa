@@ -37,17 +37,33 @@ export async function promotionSave(body: Record<string, unknown>): Promise<Resu
     startsAt: new Date(start).toISOString(),
     endsAt: new Date(end).toISOString(),
     active: body.active !== false,
+    // Boshlanganda kanalga / mijozlarga avtomatik e'lon (actions/scheduler.ts)
+    announce: readAnnounce(body.announce),
     updatedAt: new Date().toISOString(),
   }
 
   const db = await adminDb()
   const id = text(body.id)
   if (id) {
-    await db.collection('promotions').doc(id).set(data, { merge: true })
+    // Boshlanish vaqti kelajakka surilsa — e'lon qaytadan (o'sha paytda) chiqadi
+    const extra = start > Date.now() ? { announcedAt: null } : {}
+    await db.collection('promotions').doc(id).set({ ...data, ...extra }, { merge: true })
     return { id }
   }
   const ref = await db.collection('promotions').add({ ...data, createdAt: data.updatedAt })
   return { id: ref.id, created: true }
+}
+
+function readAnnounce(value: unknown) {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const image = text(raw.image)
+  const announce = {
+    channel: raw.channel === true,
+    customers: raw.customers === true,
+    image: /^https:\/\/\S+$/i.test(image) ? image : null,
+  }
+  return announce.channel || announce.customers ? announce : null
 }
 
 export async function promotionDelete(body: Record<string, unknown>): Promise<Result> {

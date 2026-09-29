@@ -457,6 +457,19 @@ def set_user_language(user_id: int, lang: str) -> bool:
         return False
 
 
+def save_poll(poll_id: str, options: list, total: int, closed: bool):
+    """Kanal so'rovnomasining jonli natijasi — admin panel «Telegram kanal» ko'rsatadi."""
+    try:
+        db.collection("polls").document(str(poll_id)).set({
+            "options": options,
+            "total": total,
+            "closed": closed,
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as e:
+        print(f"[ERR] save_poll: {e}")
+
+
 def save_bot_chat(chat_id: int, chat_type: str, title: str, username: str | None, status: str):
     """Bot qo'shilgan/chiqarilgan kanal yoki guruh — admin panel «Kanal» bo'limi uchun."""
     try:

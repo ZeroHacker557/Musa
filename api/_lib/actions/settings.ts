@@ -106,6 +106,29 @@ export async function settingsSave(actor: Staff, body: Record<string, unknown>) 
     return { ok: true, testers: onlineTesters.length }
   }
 
+  // Kompaniya rekvizitlari — nakladnoy va marshrut varaqasida chiqadi
+  if (section === 'company') {
+    const field = (key: string, max: number) => text(body[key]).slice(0, max)
+    const inn = field('inn', 20).replace(/\s/g, '')
+    const account = field('account', 40).replace(/\s/g, '')
+    const mfo = field('mfo', 10).replace(/\s/g, '')
+    if (inn && !/^\d{9}$/.test(inn)) throw new Error('STIR 9 ta raqamdan iborat bo‘lsin')
+    if (account && !/^\d{20}$/.test(account)) throw new Error('Hisob raqami 20 ta raqamdan iborat bo‘lsin')
+    if (mfo && !/^\d{5}$/.test(mfo)) throw new Error('MFO 5 ta raqamdan iborat bo‘lsin')
+    await db.collection('settings').doc('company').set({
+      legalName: field('legalName', 120),
+      inn,
+      address: field('address', 200),
+      phone: field('phone', 40),
+      bank: field('bank', 120),
+      account,
+      mfo,
+      director: field('director', 80),
+      updatedAt: new Date().toISOString(),
+    }, { merge: true })
+    return { ok: true }
+  }
+
   if (section === 'delivery') {
     const fee = num(body.fee)
     const freeFrom = num(body.freeFrom)

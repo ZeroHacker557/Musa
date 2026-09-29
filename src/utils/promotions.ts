@@ -20,6 +20,10 @@ export type Promotion = {
   startsAt: string
   endsAt: string
   active: boolean
+  /** Boshlanganda kanalga / mijozlarga avtomatik e'lon (admin). */
+  announce?: { channel: boolean; customers: boolean; image: string | null } | null
+  /** E'lon navbatga qo'yilgan vaqt (server yozadi). */
+  announcedAt?: string | null
 }
 
 type ProductLike = { id: string; category?: string; sectionId?: string | null }
@@ -61,5 +65,13 @@ export function readPromotion(id: string, data: Record<string, unknown>): Promot
     startsAt: String(data.startsAt || ''),
     endsAt: String(data.endsAt || ''),
     active: data.active !== false,
+    announce: data.announce && typeof data.announce === 'object'
+      ? {
+        channel: (data.announce as Record<string, unknown>).channel === true,
+        customers: (data.announce as Record<string, unknown>).customers === true,
+        image: typeof (data.announce as Record<string, unknown>).image === 'string' ? String((data.announce as Record<string, unknown>).image) : null,
+      }
+      : null,
+    announcedAt: typeof data.announcedAt === 'string' ? data.announcedAt : null,
   }
 }

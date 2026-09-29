@@ -77,8 +77,10 @@ export function useAudience() {
     })
   }, [customers, history, audience, pickedCategories, pickedProducts, manual, days, now])
 
+  const audienceLabel = AUDIENCES.find((a) => a.key === audience)?.label ?? ''
+
   return {
-    customers, history, recipients,
+    customers, history, recipients, audienceLabel,
     audience, setAudience,
     pickedCategories, setPickedCategories,
     pickedProducts, setPickedProducts,
@@ -98,7 +100,7 @@ const CHUNK = 25
  * shu ketadi, fayl qayta yuklanmaydi.
  */
 export async function sendToCustomers(
-  payload: { text: string; textRu: string; media: UploadedAdMedia | null; buttons: unknown[] },
+  payload: { text: string; textRu: string; media: UploadedAdMedia | null; buttons: unknown[]; campaignId?: string },
   ids: string[],
   onProgress: (progress: Progress) => void,
   isCancelled: () => boolean,
@@ -114,6 +116,9 @@ export async function sendToCustomers(
       media: payload.media ? { ...payload.media, fileId: mediaId } : null,
       buttons: payload.buttons,
       recipients: ids.slice(i, i + CHUNK),
+      // Kampaniya: tugmalar manbani oladi, yuborilganlar soni yoziladi
+      campaignId: payload.campaignId,
+      last: i + CHUNK >= ids.length,
     })
     mediaId = result.mediaId ?? mediaId
     totals.sent += result.sent
