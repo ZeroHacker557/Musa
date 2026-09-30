@@ -373,6 +373,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         customer: { ...order.customer, promoCode: appliedPromo },
         clientOrderId: order.clientOrderId ?? null,
         source: order.source ?? null,
+        // Botga qayerdan kelgan (reklama havolasi /start meta_ig…) — bot/source_tracking.py
+        startSource: typeof userData.lastSource === 'string' ? userData.lastSource : null,
+        firstSource: typeof userData.firstSource === 'string' ? userData.firstSource : null,
         userId,
         username: userData.username ?? null,
         notified: false,

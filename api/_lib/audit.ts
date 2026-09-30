@@ -21,7 +21,7 @@ export type AuditSource = 'panel' | 'bot' | 'courier' | 'system'
 /** O'qish amallari — jurnalga tushmaydi. */
 const READ_ONLY = new Set([
   'overview', 'location', 'support.read', 'linko.status', 'linko.ping', 'channel.status',
-  'audit.list', 'backup.list', 'template.list', 'campaign.stats', 'schedule.list', 'broadcast.history',
+  'audit.list', 'backup.list', 'sources.stats', 'template.list', 'campaign.stats', 'schedule.list', 'broadcast.history',
   'payment.check', 'settings.testGroup',
 ])
 

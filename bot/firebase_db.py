@@ -457,6 +457,39 @@ def set_user_language(user_id: int, lang: str) -> bool:
         return False
 
 
+def record_start(user_id: int, source: str, username: str | None = None,
+                 first_name: str | None = None) -> bool:
+    """
+    /start — trafik manbasini yozadi (source_tracking.py qoidalari bilan).
+
+    users/{id}: firstSource (faqat birinchi marta) va lastSource;
+    start_events: har bir /start alohida yozuv. Qaytaradi: yangi foydalanuvchimi.
+    Tranzaksiyada — bir vaqtdagi ikki /start firstSource'ni ikki marta yozmaydi.
+    """
+    from source_tracking import source_update
+
+    ref = db.collection("users").document(str(user_id))
+    now = datetime.now(timezone.utc).isoformat()
+
+    @firestore.transactional
+    def _apply(tx):
+        snap = ref.get(transaction=tx)
+        fields, is_new = source_update(snap.to_dict() if snap.exists else None, source, now)
+        if is_new:
+            fields.update({"id": user_id, "username": username, "first_name": first_name})
+        tx.set(ref, fields, merge=True)
+        return is_new
+
+    is_new = _apply(db.transaction())
+    db.collection("start_events").add({
+        "telegramUserId": user_id,
+        "source": source,
+        "isNewUser": is_new,
+        "createdAt": now,
+    })
+    return is_new
+
+
 def save_poll(poll_id: str, options: list, total: int, closed: bool):
     """Kanal so'rovnomasining jonli natijasi — admin panel «Telegram kanal» ko'rsatadi."""
     try:

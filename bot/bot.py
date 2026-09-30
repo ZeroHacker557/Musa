@@ -32,6 +32,7 @@ from config import (
 # Adminlar ro'yxati dinamik — panel orqali qo'shiladi/o'chiriladi
 from admins import all_admins, is_admin, can_open_panel
 import firebase_db as db
+from source_tracking import parse_start_source
 import i18n as tr
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -788,11 +789,22 @@ async def cmd_start(message: Message, state: FSMContext):
     user     = message.from_user
     # Panelga kira oladiganlar: adminlar va paneldagi owner/admin xodimlar
     admin = can_open_panel(user.id)
+
+    # Trafik manbasi (reklama havolasi: t.me/musauz_bot?start=meta_ig).
+    # Xato bo'lsa ham /start odatdagidek ishlashda davom etadi.
+    source = parse_start_source(message.text)
+    if source:
+        try:
+            await asyncio.to_thread(db.record_start, user.id, source, user.username, user.first_name)
+        except Exception as e:
+            logger.warning(f"[SOURCE] {user.id} {source}: {e}")
+
     lang = db.get_user_language(user.id)
 
-    # Yangi mijoz — avval til. Chek havolasi bilan kelgan bo'lsa
+    # Yangi mijoz — avval til. Faqat chek havolasi bilan kelgan bo'lsa
     # («/start receipt_...») to'xtatmaymiz: unga to'lov ma'lumoti kerak.
-    if lang is None and " " not in (message.text or ""):
+    # Reklama havolasidan kelganlar ham tilni tanlaydi.
+    if lang is None and "receipt_" not in (message.text or ""):
         await message.answer(tr.t("lang_ask"), reply_markup=language_kb())
         return
     lang = tr.normalize(lang)

@@ -12,6 +12,7 @@ import { catalogLayout, sectionDelete, sectionSave } from '../_lib/actions/secti
 import { promotionDelete, promotionSave } from '../_lib/actions/promotions.js'
 import { adSave } from '../_lib/actions/ads.js'
 import { homeBannersSave } from '../_lib/actions/home.js'
+import { sourcesStats } from '../_lib/actions/sources.js'
 import { paymentCheck, paymentWebhook, settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
 import {
   linkoAutoLink, linkoLink, linkoPing, linkoPull, linkoSettingsSave, linkoStatus,
@@ -73,6 +74,7 @@ const HANDLERS: Record<string, Handler> = {
   'promotion.delete': (staff, body) => (requireCatalogAccess(staff), promotionDelete(body)),
   'ad.save': (staff, body) => (requireCatalogAccess(staff), adSave(body)),
   'home.banners': (staff, body) => (requireCatalogAccess(staff), homeBannersSave(staff, body)),
+  'sources.stats': (staff, body) => (requireChannelAccess(staff), sourcesStats(body)),
   'category.save': (staff, body) => (requireCatalogAccess(staff), categorySave(body)),
   'category.delete': (staff, body) => (requireCatalogAccess(staff), categoryDelete(body)),
   'promo.save': (staff, body) => (requireCatalogAccess(staff), promoSave(body)),
