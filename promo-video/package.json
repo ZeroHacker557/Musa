@@ -1,0 +1,24 @@
+{
+  "name": "musa-promo-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "audio": "node scripts/audio.mjs",
+    "render": "vite build && node scripts/render.mjs"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.5",
+    "puppeteer-core": "^24.22.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.1"
+  }
+}
