@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { withMainLines } from '../config/categories'
-import { subscribeToCategories, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead, markOrderNotificationsAsRead, updateUserProfile } from '../lib/firebase'
+import { subscribeToCategories, subscribeToHomeBanners, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead, markOrderNotificationsAsRead, updateUserProfile } from '../lib/firebase'
 import { ensureSignedIn, onAuthChanged, auth } from '../lib/auth'
 import { apiPost } from '../lib/api'
 import { apiErrorText } from '../utils/api-error'
@@ -12,6 +12,7 @@ import { searchProducts } from '../utils/search'
 import { countUnseenOrders } from '../utils/notifications'
 import { bestPromotion, isRunning, promoPrice, type Promotion } from '../utils/promotions'
 import { useI18n } from '../i18n'
+import type { HomeBanner } from '../config/banners'
 import type { AppPage, CartRow, Category, Order, OrderForm, Product, Section, UserProfile, Notification } from '../types/domain'
 import { hapticError, hapticFeedback, hapticSuccess, initTelegram } from '../utils/telegram'
 import { applyTheme, getStoredTheme, storeTheme, type ThemeMode } from '../utils/theme'
@@ -103,6 +104,21 @@ const DEEP_LINK = (() => {
   }
 })()
 
+/** Dev namunasi (?bannerDemo) — ishlab chiqarishda ishlatilmaydi. */
+const DEMO_BANNERS: HomeBanner[] = [
+  {
+    id: 'd1', active: true, layout: 'side', theme: 'yellow', image: "https://firebasestorage.googleapis.com/v0/b/musa-onlineshop.firebasestorage.app/o/products%2F1790682754909_o974cl_____________ChatGPT_29_____._2026__.__16_52_24.png?alt=media&token=8d31f3bf-fa40-4726-b99e-99ba513d595e",
+    badge: 'Setlar', badgeRu: 'Наборы', title: 'Setlarda 36 000 so‘mgacha tejang', titleRu: 'Экономьте до 36 000 сум',
+    subtitle: '3 xil tayyor set — bitta qutida', subtitleRu: '3 готовых набора', cta: 'Ko‘rish', ctaRu: 'Смотреть',
+    target: 'category', value: 'Setlar', url: '',
+  },
+  {
+    id: 'd2', active: true, layout: 'full', theme: 'dark', image: "https://firebasestorage.googleapis.com/v0/b/musa-onlineshop.firebasestorage.app/o/products%2F1790682455692_949dxb_____________ChatGPT_29_____._2026__.__16_47_28.png?alt=media&token=c1147f00-1e43-4ef9-b0ee-64090814192b",
+    badge: '', badgeRu: '', title: '', titleRu: '', subtitle: '', subtitleRu: '', cta: '', ctaRu: '',
+    target: 'catalog', value: '', url: '',
+  },
+]
+
 function initialPage(): AppPage {
   if (DEEP_LINK.cat !== null || DEEP_LINK.sec) return 'catalog'
   try {
@@ -134,6 +150,11 @@ export function useShopStore() {
   const [clock, setClock] = useState(() => Date.now())
   const [categories, setCategories] = useState<Category[]>(() => withMainLines([]))
   const [sections, setSections] = useState<Section[]>([])
+  /** Bosh sahifa bannerlari (admin qo'shgan, faollari). */
+  const [homeBanners, setHomeBanners] = useState<HomeBanner[]>(() =>
+    // Faqat lokal ishlab chiqishda: ?bannerDemo — karuselni namunaviy bannerlar bilan ko'rish
+    import.meta.env.DEV && new URLSearchParams(location.search).has('bannerDemo') ? DEMO_BANNERS : [],
+  )
 
   /*
    * Ekrandagi mahsulotlar:
@@ -357,11 +378,14 @@ export function useShopStore() {
     let unsubOrders: (() => void) | undefined
     let unsubProfile: (() => void) | undefined
     let unsubNotifications: (() => void) | undefined
+    let unsubBanners: (() => void) | undefined
 
     const stopAll = () => {
       unsubOrders?.()
       unsubProfile?.()
       unsubNotifications?.()
+      unsubBanners?.()
+      unsubBanners = undefined
       unsubOrders = undefined
       unsubProfile = undefined
       unsubNotifications = undefined
@@ -408,6 +432,7 @@ export function useShopStore() {
           }
         }
       })
+      unsubBanners = subscribeToHomeBanners(setHomeBanners)
       unsubNotifications = subscribeToUserNotifications(userId, (notifs) => {
         setNotifications(notifs)
         setUnreadNotificationsCount(notifs.filter((n: Notification) => !n.read).length)
@@ -675,6 +700,17 @@ export function useShopStore() {
       })
     }, { scrollTop: 0 })
   }, [page, rememberScroll])
+
+  /** Banner tugmalari uchun: id bo'yicha mahsulot yoki bo'lim ochiladi. */
+  const openProductById = useCallback((id: string) => {
+    const product = products.find((p) => String(p.id) === id)
+    if (product) openProduct(product)
+    else openCategory('')
+  }, [products, openProduct, openCategory])
+  const openSectionById = useCallback((id: string) => {
+    const section = sections.find((s) => s.id === id)
+    openCategory(section?.category ?? '', section ? id : null)
+  }, [sections, openCategory])
 
   /*
    * Mahsulot havolasi mahsulotlar kelgach bir marta ochiladi (bo'lim
@@ -1011,7 +1047,7 @@ export function useShopStore() {
     payingOrderId, closePayment, finishPayment, payOrder, checkPayment,
     otpOrder, closeOtp, confirmOtp, isSubmitting, authReady, isAuthenticated, orderForm, userProfile,
     notifications, unreadNotificationsCount, unseenOrdersCount,
-    catalogCategory, catalogSection, openCategory,
+    catalogCategory, catalogSection, openCategory, homeBanners, openProductById, openSectionById,
     theme, setTheme, toggleTheme,
     navigate, goBack, openProduct, toggleLike, openReceipt, selectedOrder,
     askAddress, dismissAddressPrompt, openAddresses, addressIntent, editAddressId,

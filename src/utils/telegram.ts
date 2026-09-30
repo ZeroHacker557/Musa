@@ -429,3 +429,11 @@ export function requestLocation(): Promise<LocationResult> {
     }),
   )
 }
+
+/** Tashqi havola: t.me — Telegram ichida, boshqasi — brauzerda (banner tugmalari). */
+export function openExternalLink(url: string) {
+  const tg = getTelegram()
+  if (/^https?:\/\/t\.me\//i.test(url) && tg?.openTelegramLink) tg.openTelegramLink(url)
+  else if (tg?.openLink) tg.openLink(url)
+  else window.open(url, '_blank', 'noopener')
+}

@@ -12,6 +12,10 @@ import { useMemo, useRef } from 'react'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { useReveal } from '../hooks/use-reveal'
 import { useI18n, useT } from '../i18n'
+import { HeroCarousel } from '../components/home/HeroCarousel'
+import { HeroSlide } from '../components/home/HeroSlide'
+import type { HomeBanner } from '../config/banners'
+import { openExternalLink } from '../utils/telegram'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
 
 type Props = ProductActions & {
@@ -24,11 +28,15 @@ type Props = ProductActions & {
   promotions: Promotion[]
   onOpenCategory: (category: string) => void
   unreadNotificationsCount: number
+  /** Admin qo'shgan bannerlar — asosiy bannerdan keyin karuselda. */
+  banners: HomeBanner[]
+  onOpenSection: (id: string) => void
+  onOpenProduct: (id: string) => void
 }
 
 export function HomePage({
   products, categories, loading, promotions, onSearch, onNavigate,
-  onOpenCategory, unreadNotificationsCount, ...productActions
+  onOpenCategory, unreadNotificationsCount, banners, onOpenSection, onOpenProduct, ...productActions
 }: Props) {
   const t = useT()
   const { lang } = useI18n()
@@ -51,6 +59,58 @@ export function HomePage({
   useAutoScroll(popularRef, { speed: 11, enabled: popular.length > 2 })
   // Bo'limlar scroll qilinganda suzib chiqadi — mahsulotlar kelgach yangilari ham
   useReveal([loading, popular.length, categories.length])
+
+  /** Banner bosilganda — admin tanlagan joy ochiladi. */
+  const openBanner = (b: HomeBanner) => {
+    if (b.target === 'catalog') onNavigate('catalog')
+    else if (b.target === 'category') onOpenCategory(b.value)
+    else if (b.target === 'section') onOpenSection(b.value)
+    else if (b.target === 'product') onOpenProduct(b.value)
+    else if (b.target === 'url' && /^https?:\/\//i.test(b.url)) openExternalLink(b.url)
+  }
+
+  // Asosiy banner — MUSA yashil sahnasi, o'ngda mahsulot fotosi
+  const defaultHero = (
+    <div className="hero-banner">
+      <div className="relative min-h-[260px] p-6 sm:min-h-[340px] sm:p-9">
+        <span className="hero-glow" aria-hidden="true" />
+
+        <div className="relative z-10 max-w-[58%] sm:max-w-[380px]">
+          <span
+            className="inline-block rounded-full px-3 py-1 text-xs font-bold"
+            style={{ background: '#ffffff', color: 'var(--brand-strong)' }}
+          >
+            {t('home.heroBadge')}
+          </span>
+          <h2
+            className="wordmark mt-4 text-[1.5rem] leading-[1.15] sm:text-[2.4rem]"
+            style={{ color: '#ffffff', textWrap: 'balance' }}
+          >
+            {t('home.heroTitle')}
+          </h2>
+          <p className="mt-3 text-sm sm:text-base" style={{ color: 'rgb(255 255 255 / 0.78)' }}>
+            {t('home.heroSubtitle')}
+          </p>
+          <button
+            onClick={() => onNavigate('catalog')}
+            className="mt-5 flex w-fit items-center gap-2 whitespace-nowrap rounded-full px-5 py-3 font-bold transition active:scale-[0.98]"
+            style={{ background: '#ffffff', color: 'var(--brand-strong)' }}
+          >
+            {t('home.heroCta')} <ArrowRight size={18} />
+          </button>
+        </div>
+
+        <img
+          className="pointer-events-none absolute top-1/2 right-[-6%] h-[118%] w-[52%] -translate-y-1/2 object-contain object-center sm:right-2 sm:h-[124%] sm:w-[46%]"
+          src={heroProducts}
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+          fetchPriority="high"
+        />
+      </div>
+    </div>
+  )
 
   return (
     <>
@@ -110,47 +170,19 @@ export function HomePage({
         </section>
       )}
 
-      {/* Hero — MUSA yashil sahnasi, o'ngda mahsulot fotosi */}
+      {/* Hero: asosiy banner doim birinchi; admin qo'shgan bannerlar bo'lsa —
+          karusel, har 5 soniyada o'ngga suriladi */}
       <section className="mx-5 mt-6 sm:mx-10">
-        <div className="hero-banner">
-          <div className="relative min-h-[260px] p-6 sm:min-h-[340px] sm:p-9">
-            <span className="hero-glow" aria-hidden="true" />
-
-            <div className="relative z-10 max-w-[58%] sm:max-w-[380px]">
-              <span
-                className="inline-block rounded-full px-3 py-1 text-xs font-bold"
-                style={{ background: '#ffffff', color: 'var(--brand-strong)' }}
-              >
-                {t('home.heroBadge')}
-              </span>
-              <h2
-                className="wordmark mt-4 text-[1.5rem] leading-[1.15] sm:text-[2.4rem]"
-                style={{ color: '#ffffff', textWrap: 'balance' }}
-              >
-                {t('home.heroTitle')}
-              </h2>
-              <p className="mt-3 text-sm sm:text-base" style={{ color: 'rgb(255 255 255 / 0.78)' }}>
-                {t('home.heroSubtitle')}
-              </p>
-              <button
-                onClick={() => onNavigate('catalog')}
-                className="mt-5 flex w-fit items-center gap-2 whitespace-nowrap rounded-full px-5 py-3 font-bold transition active:scale-[0.98]"
-                style={{ background: '#ffffff', color: 'var(--brand-strong)' }}
-              >
-                {t('home.heroCta')} <ArrowRight size={18} />
-              </button>
-            </div>
-
-            <img
-              className="pointer-events-none absolute top-1/2 right-[-6%] h-[118%] w-[52%] -translate-y-1/2 object-contain object-center sm:right-2 sm:h-[124%] sm:w-[46%]"
-              src={heroProducts}
-              alt=""
-              aria-hidden="true"
-              decoding="async"
-              fetchPriority="high"
+        {banners.length > 0
+          ? (
+            <HeroCarousel
+              slides={[
+                defaultHero,
+                ...banners.map((b) => <HeroSlide key={b.id} banner={b} lang={lang} onOpen={() => openBanner(b)} />),
+              ]}
             />
-          </div>
-        </div>
+          )
+          : defaultHero}
       </section>
 
       {/* Asosiy yo'nalishlar — yirik kartalar (birinchisi va Setlar keng).

@@ -5,6 +5,7 @@ import { firebaseConfig } from '../config/firebase'
 import { parseDate } from '../utils/date'
 import { readPromotion, type Promotion } from '../utils/promotions'
 import { readSplashAd, type SplashAd } from '../utils/splash-ad'
+import { readBanners, type HomeBanner } from '../config/banners'
 import type { Product, Category, Section, Order, PaymentSettings, DeliverySettings, Notification, UserProfile } from '../types/domain'
 
 // Initialize Firebase
@@ -208,6 +209,21 @@ export async function fetchSplashAd(): Promise<SplashAd | null> {
 }
 
 /** Vaqtli aksiyalar — narx qoidasi src/utils/promotions.ts da. */
+/**
+ * Bosh sahifa bannerlari (settings/home) — faqat faollari, admin tartibida.
+ * `settings` kirgan foydalanuvchiga ochiq, shuning uchun auth'dan keyin ulanadi.
+ */
+export function subscribeToHomeBanners(callback: (banners: HomeBanner[]) => void) {
+  return onSnapshot(
+    doc(db, 'settings', 'home'),
+    (snap) => callback(readBanners(snap.data()?.banners).filter((b) => b.active)),
+    (error) => {
+      console.warn("[Firebase] Bannerlarni o'qib bo'lmadi:", error)
+      callback([])
+    },
+  )
+}
+
 export function subscribeToPromotions(callback: (promotions: Promotion[]) => void) {
   return onSnapshot(
     query(collection(db, 'promotions'), where('active', '==', true)),

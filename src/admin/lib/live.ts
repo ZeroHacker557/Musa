@@ -1,6 +1,7 @@
 import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { db } from './auth'
+import { readBanners, type HomeBanner } from '../../config/banners'
 import type { Category, Order, Product, PromoCode, Section } from '../../types/domain'
 import { readPromotion, type Promotion } from '../../utils/promotions'
 import { tashkentToday } from '../../utils/order-label'
@@ -726,4 +727,23 @@ export function useOrderHistory(orderId: string | null) {
   }, [orderId])
 
   return orderId ? entries : []
+}
+
+/** Bosh sahifa bannerlari (settings/home) — jonli, hammasi (o'chiqlari ham). */
+export function useHomeBanners() {
+  const [banners, setBanners] = useState<HomeBanner[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(
+    () =>
+      onSnapshot(
+        doc(db, 'settings', 'home'),
+        (snap) => {
+          setBanners(readBanners(snap.data()?.banners))
+          setLoading(false)
+        },
+        () => setLoading(false),
+      ),
+    [],
+  )
+  return { banners, loading }
 }

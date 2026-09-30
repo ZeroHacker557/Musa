@@ -315,6 +315,9 @@ function App() {
                 onSearch={() => shop.setSearchOpen(true)}
                 onNavigate={shop.navigate}
                 onOpenCategory={shop.openCategory}
+                banners={shop.homeBanners}
+                onOpenSection={shop.openSectionById}
+                onOpenProduct={shop.openProductById}
               />
             </div>
           )}

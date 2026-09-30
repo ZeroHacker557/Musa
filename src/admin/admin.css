@@ -2415,3 +2415,6 @@
   .adm-audit__time { order: 3; width: 100%; padding-left: 40px; }
   .adm-audit__body { padding-left: 0.6rem; }
 }
+
+/* Bosh sahifa banneri — telefon kengligida oldindan ko'rish */
+.adm-banner-preview { max-width: 380px; margin: 0 auto; }
