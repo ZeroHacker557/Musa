@@ -864,11 +864,8 @@ async def send_welcome(message: Message, user, admin: bool, lang: str):
     if admin:
         await message.answer(PANEL_TEXT, reply_markup=panel_kb())
 
-    # Telefon raqami hali saqlanmagan bo'lsa, bir bosishda so'raymiz.
-    # Mini app buni buyurtma formasiga avtomatik qo'yadi (F-26).
-    saved = db.get_user(user.id) or {}
-    if not saved.get("phone"):
-        await message.answer(tr.t("ask_phone", lang), reply_markup=contact_kb(lang))
+    # Telefon raqami bu yerda so'ralmaydi — mijoz uni buyurtma berishda
+    # rasmiylashtirish formasida o'zi yozadi.
 
 
 # ─── Til tanlash ──────────────────────────────────────────────
@@ -892,7 +889,7 @@ async def cb_language(callback: CallbackQuery):
     except Exception as e:
         logger.debug(f"[LANG] xabar yangilanmadi: {e}")
 
-    # Salomlashish, admin paneli va telefon so'rovi — /start dagidek
+    # Salomlashish va admin paneli — /start dagidek
     await send_welcome(callback.message, user, can_open_panel(user.id), lang)
 
 
