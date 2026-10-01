@@ -13,6 +13,7 @@ import { promotionDelete, promotionSave } from '../_lib/actions/promotions.js'
 import { adSave } from '../_lib/actions/ads.js'
 import { homeBannersSave } from '../_lib/actions/home.js'
 import { sourcesStats } from '../_lib/actions/sources.js'
+import { dailyGet, dailyPreview, dailySave, dailySendNow, dailyTest } from '../_lib/actions/daily.js'
 import { paymentCheck, paymentWebhook, settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
 import {
   linkoAutoLink, linkoLink, linkoPing, linkoPull, linkoSettingsSave, linkoStatus,
@@ -110,6 +111,11 @@ const HANDLERS: Record<string, Handler> = {
   'schedule.list': (staff) => (requireChannelAccess(staff), scheduleList()),
   'schedule.create': (staff, body) => (requireChannelAccess(staff), scheduleCreate(staff, body)),
   'schedule.cancel': (staff, body) => (requireChannelAccess(staff), scheduleCancel(staff, body)),
+  'daily.get': (staff) => (requireChannelAccess(staff), dailyGet()),
+  'daily.save': (staff, body) => (requireChannelAccess(staff), dailySave(staff, body)),
+  'daily.preview': (staff, body) => (requireChannelAccess(staff), dailyPreview(staff, body)),
+  'daily.test': (staff, body) => (requireChannelAccess(staff), dailyTest(staff, body)),
+  'daily.send': (staff, body) => (requireChannelAccess(staff), dailySendNow(staff, body)),
 
   // Tizim — faqat ega: harakatlar jurnali va zaxira nusxalar
   'audit.list': (staff, body) => (requireOwner(staff), auditList(body)),

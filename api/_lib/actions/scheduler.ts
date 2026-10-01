@@ -4,6 +4,7 @@ import { broadcast, readButtons, readMedia } from './people.js'
 import { broadcastStart } from './broadcasts.js'
 import { postToChannel } from './channel.js'
 import { maybeAutoBackup } from './backup.js'
+import { announceDailyPicks } from './daily.js'
 
 /**
  * Jadval: rejalashtirilgan e'lonlar, aksiya boshlanganda avtomatik e'lon
@@ -367,9 +368,13 @@ export async function announcePromotions() {
 
 /** Har daqiqalik turtki — bot/bot.py → scheduler_loop. */
 export async function runTasks() {
+  const started = Date.now()
   const out: Record<string, unknown> = {}
   try { out.promotions = await announcePromotions() } catch (e) { out.promotions = { error: String(e) } }
-  try { out.schedules = await runDueSchedules() } catch (e) { out.schedules = { error: String(e) } }
+  // Kunlik e'lon: vaqti kelsa rasm chiziladi (bir necha soniya) va jadvalga qo'yiladi
+  try { out.daily = await announceDailyPicks() } catch (e) { out.daily = { error: String(e) } }
+  const budget = Math.max(10_000, 40_000 - (Date.now() - started))
+  try { out.schedules = await runDueSchedules(budget) } catch (e) { out.schedules = { error: String(e) } }
   try { out.backup = await maybeAutoBackup() } catch (e) { out.backup = { error: String(e) } }
   const schedules = out.schedules as { more?: boolean }
   return { ...out, more: Boolean(schedules?.more) }

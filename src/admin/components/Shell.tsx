@@ -1,5 +1,5 @@
 import {
-  BarChart3, BrainCircuit, Boxes, Clapperboard, ExternalLink, FileBarChart, Flame, Headset, Layers, LayoutGrid, LogOut, Map as MapIcon, Maximize2, Wallet,
+  BarChart3, BrainCircuit, CalendarClock, Boxes, Clapperboard, ExternalLink, FileBarChart, Flame, Headset, Layers, LayoutGrid, LogOut, Map as MapIcon, Maximize2, Wallet,
   DatabaseBackup, History, Images, Link2, Megaphone, Menu, Radio, Minimize2, Moon, PlugZap, Send, Settings, ShoppingBag, Sun, Tag, Users, UserCog, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -40,6 +40,7 @@ const NAV: NavEntry[] = [
   { route: 'customers', label: 'Mijozlar', icon: Users, min: 'admin', section: 'Odamlar' },
   { route: 'broadcast', label: 'Ommaviy xabar', icon: Megaphone, min: 'admin' },
   { route: 'channel', label: 'Telegram kanal', icon: Radio, min: 'admin' },
+  { route: 'daily', label: 'Kunlik e’lon', icon: CalendarClock, min: 'admin' },
   { route: 'support', label: 'Qo‘llab-quvvatlash', icon: Headset, min: 'admin' },
   { route: 'cash', label: 'Kuryerlar kassasi', icon: Wallet, min: 'admin' },
   { route: 'staff', label: 'Xodimlar', icon: UserCog, min: 'owner' },
@@ -69,6 +70,7 @@ const TITLES: Record<Route, string> = {
   customers: 'Mijozlar',
   broadcast: 'Ommaviy xabar',
   channel: 'Telegram kanal',
+  daily: 'Kunlik e’lon',
   support: 'Qo‘llab-quvvatlash',
   cash: 'Kuryerlar kassasi',
   staff: 'Xodimlar',
