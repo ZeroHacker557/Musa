@@ -21,10 +21,12 @@
   ],
   "functions": {
     "api/admin/action.ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "node_modules/{harfbuzzjs/hb.wasm,@resvg/resvg-js-linux-x64-gnu/**}"
     },
     "api/linko-cron.ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "node_modules/{harfbuzzjs/hb.wasm,@resvg/resvg-js-linux-x64-gnu/**}"
     }
   }
 }
