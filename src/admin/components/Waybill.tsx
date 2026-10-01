@@ -1,7 +1,7 @@
 import { formatPrice } from '../../data'
 import { datedNumber } from '../../utils/order-label'
 import { BRAND } from '../../config/brand'
-import type { AdminOrder, CompanySettings } from '../lib/live'
+import { useContact, type AdminOrder, type CompanySettings } from '../lib/live'
 import { bundleText } from '../../utils/bundle'
 import { isCashPayment } from '../../utils/payment'
 import { sumInWords } from '../lib/words'
@@ -69,6 +69,7 @@ const dateText = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 
 function WaybillPage({ order, company }: { order: AdminOrder; company: CompanySettings }) {
+  const contact = useContact()
   const lines = order.products || []
   const subtotal = order.subtotal ?? lines.reduce((s, l) => s + (l.product?.price || 0) * (l.quantity || 0), 0)
   const recipient = order.customer?.recipientName
@@ -151,7 +152,7 @@ function WaybillPage({ order, company }: { order: AdminOrder; company: CompanySe
         <div>Rahbar{company.director ? `: ${company.director}` : ''}<span>imzo</span></div>
       </div>
       <p className="wb__stamp">M.O‘.</p>
-      <p className="wb__foot">Mahsulot soni va sifatiga e’tirozim yo‘q. · {BRAND.telegram} · {BRAND.phone}</p>
+      <p className="wb__foot">Mahsulot soni va sifatiga e’tirozim yo‘q. · @{contact.telegram} · {contact.phone}</p>
     </div>
   )
 }

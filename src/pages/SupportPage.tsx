@@ -9,13 +9,14 @@ import {
   Headphones,
   Clock,
   CheckCircle2,
-  Code2,
   ChefHat,
   IceCreamCone,
   Snowflake,
 } from 'lucide-react'
-import { useState } from 'react'
-import { BRAND, DEVELOPER } from '../config/brand'
+import { useEffect, useState } from 'react'
+import { BRAND } from '../config/brand'
+import { DEFAULT_CONTACT, phoneHref, telegramHref, type ContactInfo } from '../config/contact'
+import { subscribeToContact } from '../lib/firebase'
 import { useT } from '../i18n'
 import { PageTitle } from '../components/layout/PageTitle'
 
@@ -128,14 +129,17 @@ export function SupportPage({ onBack }: Props) {
   // detect lang from localStorage
   const lang = (localStorage.getItem('musaShopLang') ?? 'uz') as 'uz' | 'ru'
   const faqs = lang === 'ru' ? faqs_ru : faqs_uz
+  // Aloqa ma'lumotlari admin paneldan (Sozlamalar → «Biz bilan aloqa»)
+  const [contact, setContact] = useState<ContactInfo>(DEFAULT_CONTACT)
+  useEffect(() => subscribeToContact(setContact), [])
 
   const contacts = [
     {
       id: 'phone',
       icon: Phone,
       label: lang === 'ru' ? 'Телефон' : 'Telefon',
-      value: BRAND.phone,
-      href: BRAND.phoneHref,
+      value: contact.phone,
+      href: phoneHref(contact.phone),
       color: 'var(--brand)',
       bg: 'var(--brand-soft)',
     },
@@ -143,8 +147,8 @@ export function SupportPage({ onBack }: Props) {
       id: 'telegram',
       icon: MessageCircle,
       label: 'Telegram',
-      value: BRAND.telegram,
-      href: BRAND.telegramHref,
+      value: `@${contact.telegram}`,
+      href: telegramHref(contact.telegram),
       color: '#0ea5e9',
       bg: 'rgba(14,165,233,0.12)',
     },
@@ -152,17 +156,11 @@ export function SupportPage({ onBack }: Props) {
       id: 'email',
       icon: Mail,
       label: 'Email',
-      value: BRAND.email,
-      href: `mailto:${BRAND.email}`,
+      value: contact.email,
+      href: `mailto:${contact.email}`,
       color: 'var(--gold)',
       bg: 'var(--gold-soft)',
     },
-  ]
-
-  const devContacts = [
-    { icon: Phone, value: DEVELOPER.phone, href: DEVELOPER.phoneHref },
-    { icon: MessageCircle, value: DEVELOPER.telegram, href: DEVELOPER.telegramHref },
-    { icon: Mail, value: DEVELOPER.email, href: `mailto:${DEVELOPER.email}` },
   ]
 
   const about = lang === 'ru'
@@ -179,14 +177,14 @@ export function SupportPage({ onBack }: Props) {
 
   const features = lang === 'ru'
     ? [
-        { icon: Clock, text: `Приём заказов ${BRAND.workHours}` },
+        { icon: Clock, text: `Приём заказов ${contact.workHours}` },
         { icon: CheckCircle2, text: 'Быстрый ответ' },
-        { icon: MapPin, text: BRAND.city },
+        { icon: MapPin, text: contact.address },
       ]
     : [
-        { icon: Clock, text: `Buyurtmalar ${BRAND.workHours}` },
+        { icon: Clock, text: `Buyurtmalar ${contact.workHours}` },
         { icon: CheckCircle2, text: 'Tez javob' },
-        { icon: MapPin, text: BRAND.city },
+        { icon: MapPin, text: contact.address },
       ]
 
   return (
@@ -336,55 +334,6 @@ export function SupportPage({ onBack }: Props) {
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* Dasturchi — texnik savollar shu yerga */}
-      <section
-        className="px-5 pt-7 sm:px-10"
-        style={{ animation: 'fadeInUp 0.4s ease 0.14s both' }}
-      >
-        <h2 className="section-title mb-4">
-          {lang === 'ru' ? 'Разработчик' : 'Dasturchi'}
-        </h2>
-        <div
-          className="rounded-2xl border p-5"
-          style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}
-        >
-          <div className="flex items-center gap-3">
-            <span
-              className="grid size-12 shrink-0 place-items-center rounded-2xl"
-              style={{ background: 'var(--gold-soft)', color: 'var(--gold)' }}
-            >
-              <Code2 size={22} />
-            </span>
-            <div className="min-w-0">
-              <p className="font-bold" style={{ color: 'var(--ink)' }}>{DEVELOPER.name}</p>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                {lang === 'ru'
-                  ? 'Разработка приложения и технические вопросы'
-                  : "Ilova dasturchisi — texnik savollar bo'yicha"}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-col gap-2">
-            {devContacts.map(({ icon: Icon, value, href }) => (
-              <a
-                key={value}
-                href={href}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition active:scale-[0.98]"
-                style={{ background: 'var(--surface-2)', textDecoration: 'none' }}
-              >
-                <Icon size={17} style={{ color: 'var(--gold)' }} />
-                <span className="truncate text-sm font-semibold" style={{ color: 'var(--ink-2)' }}>
-                  {value}
-                </span>
-              </a>
-            ))}
-          </div>
         </div>
       </section>
 

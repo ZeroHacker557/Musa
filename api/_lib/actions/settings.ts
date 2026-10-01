@@ -129,6 +129,30 @@ export async function settingsSave(actor: Staff, body: Record<string, unknown>) 
     return { ok: true }
   }
 
+  // «Biz bilan aloqa» — mini app «Yordam» sahifasi, bot, chek (src/config/contact.ts)
+  if (section === 'contact') {
+    const field = (key: string, max: number) => text(body[key]).slice(0, max)
+    const phone = field('phone', 40)
+    const telegram = field('telegram', 100)
+      .replace(/^(https?:\/\/)?(t\.me|telegram\.me)\//i, '')
+      .replace(/^@/, '')
+      .replace(/[/?#].*$/, '')
+    const email = field('email', 120)
+    if (!phone) throw new Error('Telefon raqamini kiriting')
+    if (phone.replace(/\D/g, '').length < 7) throw new Error('Telefon raqami noto‘g‘ri')
+    if (telegram && !/^[A-Za-z][\w]{3,31}$/.test(telegram)) throw new Error('Telegram username noto‘g‘ri (masalan @musa_support)')
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Email noto‘g‘ri')
+    await db.collection('settings').doc('contact').set({
+      phone,
+      telegram,
+      email,
+      address: field('address', 200),
+      workHours: field('workHours', 60),
+      updatedAt: new Date().toISOString(),
+    }, { merge: true })
+    return { ok: true }
+  }
+
   if (section === 'delivery') {
     const fee = num(body.fee)
     const freeFrom = num(body.freeFrom)

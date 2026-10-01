@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import { datedNumber } from '../../utils/order-label'
 import { formatPrice } from '../../data'
 import { BRAND } from '../../config/brand'
-import type { AdminOrder } from '../lib/live'
+import { useContact, type AdminOrder } from '../lib/live'
 import { bundleText } from '../../utils/bundle'
 
 /**
@@ -22,6 +22,7 @@ import { bundleText } from '../../utils/bundle'
  * ketardi. Bu ko'rinish A4 da ham, tor sahifada ham bir xil toza turadi.
  */
 export function Receipt({ order }: { order: AdminOrder }) {
+  const contact = useContact()
   const created = order.createdAt ? new Date(order.createdAt) : null
   const lines = order.products || []
   const subtotal = order.subtotal ?? order.total
@@ -112,8 +113,8 @@ export function Receipt({ order }: { order: AdminOrder }) {
             <p>
               <b>{BRAND.legalName}</b>
             </p>
-            <p className="rcp__nowrap">{BRAND.phone}</p>
-            <p>{BRAND.city}</p>
+            <p className="rcp__nowrap">{contact.phone}</p>
+            <p>{contact.address}</p>
             {order.courierName && <p>Kuryer: {order.courierName}</p>}
           </section>
         </div>
@@ -183,7 +184,7 @@ export function Receipt({ order }: { order: AdminOrder }) {
 
         <footer className="rcp__foot">
           <span>
-            {BRAND.telegram} · {BRAND.phone}
+            @{contact.telegram} · {contact.phone}
           </span>
           <span>Xaridingiz uchun rahmat!</span>
         </footer>

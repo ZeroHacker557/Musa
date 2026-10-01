@@ -14,6 +14,7 @@ from firebase_admin import credentials, firestore, storage
 from config import (
     CARD_NUMBER, CARD_OWNER,
     FIREBASE_KEY_FILE, FIREBASE_STORAGE_BUCKET,
+    SUPPORT_PHONE, SUPPORT_EMAIL, SUPPORT_TELEGRAM, COMPANY_CITY, WORK_HOURS,
 )
 
 KEY_FILENAME = FIREBASE_KEY_FILE
@@ -857,6 +858,34 @@ def update_payment_settings(card_number: str, card_owner: str):
 
 
 # ─── Delivery settings ────────────────────────────────────────
+
+def get_contact_settings() -> dict:
+    """
+    «Biz bilan aloqa» — admin panel → Sozlamalar (settings/contact).
+    Bo'sh maydon yoki hujjat yo'q bo'lsa — config.py dagi standart.
+    Mini app ham shu hujjatni o'qiydi (src/config/contact.ts).
+    """
+    contact = {
+        "phone": SUPPORT_PHONE,
+        "telegram": SUPPORT_TELEGRAM,
+        "email": SUPPORT_EMAIL,
+        "address": COMPANY_CITY,
+        "workHours": WORK_HOURS,
+    }
+    try:
+        snap = db.collection("settings").document("contact").get()
+        if snap.exists:
+            data = snap.to_dict() or {}
+            for key in contact:
+                value = str(data.get(key) or "").strip()
+                if value:
+                    contact[key] = value
+    except Exception as e:
+        print(f"[ERR] get_contact_settings: {e}")
+    username = contact["telegram"].lstrip("@")
+    contact["telegram"] = f"@{username}" if username else ""
+    return contact
+
 
 def get_delivery_settings() -> dict:
     try:

@@ -2,6 +2,7 @@ import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/fir
 import { useEffect, useState } from 'react'
 import { db } from './auth'
 import { readBanners, type HomeBanner } from '../../config/banners'
+import { DEFAULT_CONTACT, readContact, type ContactInfo } from '../../config/contact'
 import type { Category, Order, Product, PromoCode, Section } from '../../types/domain'
 import { readPromotion, type Promotion } from '../../utils/promotions'
 import { tashkentToday } from '../../utils/order-label'
@@ -454,6 +455,8 @@ export type AllSettings = {
   linko: LinkoSettings
   /** Kompaniya rekvizitlari — nakladnoy uchun (Sozlamalar → Rekvizitlar). */
   company: CompanySettings
+  /** «Biz bilan aloqa» — mini app «Yordam» sahifasi va bot. */
+  contact: ContactInfo
 }
 
 export type CompanySettings = {
@@ -477,6 +480,7 @@ const SETTINGS_FALLBACK: AllSettings = {
     lastSyncAt: null, lastReport: null,
   },
   company: { legalName: '', inn: '', address: '', phone: '', bank: '', account: '', mfo: '', director: '' },
+  contact: DEFAULT_CONTACT,
 }
 
 /** Linko katalogining nusxasi — `linko_products` (server yozadi). */
@@ -540,11 +544,21 @@ export function useLinkoProducts() {
 }
 
 
+/** «Biz bilan aloqa» — chek va nakladnoy pastida. */
+export function useContact() {
+  const [contact, setContact] = useState<ContactInfo>(DEFAULT_CONTACT)
+  useEffect(
+    () => onSnapshot(doc(db, 'settings', 'contact'), (snap) => setContact(readContact(snap.data())), () => {}),
+    [],
+  )
+  return contact
+}
+
 export function useSettings() {
   const [settings, setSettings] = useState<AllSettings>(SETTINGS_FALLBACK)
 
   useEffect(() => {
-    const sections = ['payment', 'delivery', 'courier', 'linko', 'company'] as const
+    const sections = ['payment', 'delivery', 'courier', 'linko', 'company', 'contact'] as const
     const unsubs = sections.map((section) =>
       onSnapshot(
         doc(db, 'settings', section),

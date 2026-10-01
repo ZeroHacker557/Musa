@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app'
+import { DEFAULT_CONTACT, readContact, type ContactInfo } from '../config/contact'
 import { getFirestore, collection, onSnapshot, query, where, doc, updateDoc, writeBatch, getDocs, getDoc } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 import { firebaseConfig } from '../config/firebase'
@@ -237,6 +238,15 @@ export function subscribeToHomeBanners(callback: (banners: HomeBanner[]) => void
       console.warn("[Firebase] Bannerlarni o'qib bo'lmadi:", error)
       callback([])
     },
+  )
+}
+
+/** «Biz bilan aloqa» (admin → Sozlamalar). Xato yoki hujjat yo'q — brend standarti. */
+export function subscribeToContact(callback: (contact: ContactInfo) => void) {
+  return onSnapshot(
+    doc(db, 'settings', 'contact'),
+    (snap) => callback(readContact(snap.data())),
+    () => callback(DEFAULT_CONTACT),
   )
 }
 

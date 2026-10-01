@@ -27,7 +27,6 @@ from aiogram.client.default import DefaultBotProperties
 # Karta ma'lumoti config.py dan emas, settings/payment hujjatidan olinadi (F-07)
 from config import (
     BOT_TOKEN, MINI_APP_URL, ADMIN_PANEL_URL, CRON_SECRET,
-    SUPPORT_PHONE, SUPPORT_EMAIL, SUPPORT_TELEGRAM, COMPANY_CITY, WORK_HOURS,
 )
 # Adminlar ro'yxati dinamik — panel orqali qo'shiladi/o'chiriladi
 from admins import all_admins, is_admin, can_open_panel
@@ -932,10 +931,12 @@ async def handle_open_catalog(message: Message):
 @dp.message(F.text.in_(tr.labels("contact")))
 async def cmd_contact(message: Message):
     lang = tr.normalize(db.get_user_language(message.from_user.id))
+    # Admin panel → Sozlamalar → «Biz bilan aloqa» (bo'sh bo'lsa config.py)
+    c = db.get_contact_settings()
     await message.answer(tr.t(
         "contact", lang,
-        telegram=SUPPORT_TELEGRAM, phone=SUPPORT_PHONE,
-        email=SUPPORT_EMAIL, city=COMPANY_CITY, hours=WORK_HOURS,
+        telegram=c["telegram"], phone=c["phone"],
+        email=c["email"], city=c["address"], hours=c["workHours"],
     ))
 
 

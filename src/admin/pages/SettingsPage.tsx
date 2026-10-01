@@ -1,8 +1,9 @@
-import { Building2, CreditCard, Loader2, PlugZap, Send, Smartphone, Truck, Users2, Webhook } from 'lucide-react'
+import { Building2, CreditCard, Headphones, Loader2, PlugZap, Send, Smartphone, Truck, Users2, Webhook } from 'lucide-react'
 import { PAY_PROVIDERS } from '../../utils/payment'
 import { useState } from 'react'
 import { apiPost } from '../lib/api'
 import { useSettings, type CompanySettings } from '../lib/live'
+import type { ContactInfo } from '../../config/contact'
 import { useToast } from '../components/Toast'
 import { FreeDeliveryBar } from '../../components/cart/FreeDeliveryBar'
 import { formatPrice } from '../../data'
@@ -55,6 +56,12 @@ export function SettingsPage() {
           onSave={save}
           onError={(m) => show(m, 'error')}
           onOk={(m) => show(m)}
+        />
+        <ContactCard
+          key={`ct:${Object.values(settings.contact).join('|')}`}
+          settings={settings.contact}
+          busy={busy === 'contact'}
+          onSave={save}
         />
         <CompanyCard
           key={`co:${Object.values(settings.company).join('|')}`}
@@ -492,6 +499,45 @@ function Toggle({
         </span>
       </span>
     </label>
+  )
+}
+
+/**
+ * «Biz bilan aloqa» — mijoz ko'radigan aloqa ma'lumotlari: mini app
+ * «Yordam» sahifasi, botdagi «📞 Biz bilan aloqa» tugmasi va chek.
+ */
+function ContactCard({ settings, busy, onSave }: { settings: ContactInfo; busy: boolean; onSave: SaveFn }) {
+  const [form, setForm] = useState<ContactInfo>({ ...settings, telegram: settings.telegram ? `@${settings.telegram}` : '' })
+  const set = (key: keyof ContactInfo, value: string) => setForm({ ...form, [key]: value })
+
+  return (
+    <Section title="Biz bilan aloqa" icon={Headphones} hint="Mini app «Yordam» sahifasi, botdagi «📞 Biz bilan aloqa» va chekda chiqadi">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="adm-label" htmlFor="ct-phone">Telefon</label>
+          <input id="ct-phone" className="adm-input" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+998 90 123 45 67" maxLength={40} />
+        </div>
+        <div>
+          <label className="adm-label" htmlFor="ct-tg">Telegram (mijozlar xizmati)</label>
+          <input id="ct-tg" className="adm-input" value={form.telegram} onChange={(e) => set('telegram', e.target.value)} placeholder="@musa_support" maxLength={100} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="adm-label" htmlFor="ct-email">Email</label>
+          <input id="ct-email" className="adm-input" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="info@musa.uz" maxLength={120} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="adm-label" htmlFor="ct-address">Manzil</label>
+          <input id="ct-address" className="adm-input" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Toshkent, O‘zbekiston" maxLength={200} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="adm-label" htmlFor="ct-hours">Ish vaqti</label>
+          <input id="ct-hours" className="adm-input" value={form.workHours} onChange={(e) => set('workHours', e.target.value)} placeholder="09:00 — 20:00" maxLength={60} />
+        </div>
+      </div>
+      <button className="adm-btn adm-btn--primary mt-4 w-full" onClick={() => onSave('contact', form)} disabled={busy}>
+        {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash
+      </button>
+    </Section>
   )
 }
 
