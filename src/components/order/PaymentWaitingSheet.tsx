@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { datedNumber } from '../../utils/order-label'
 import { createPortal } from 'react-dom'
 import { CreditCard, ExternalLink, Loader2, XCircle } from 'lucide-react'
 import { useT } from '../../i18n'
@@ -90,7 +91,7 @@ export function PaymentWaitingSheet({ order, onPaid, onClose, onCheck }: Props) 
 
             {order && (
               <div className="pws-amount">
-                <span>{order.orderNumber}</span>
+                <span>{datedNumber(order.orderNumber, order.orderDay, order.createdAt)}</span>
                 <b>{formatPrice(order.total)}</b>
               </div>
             )}

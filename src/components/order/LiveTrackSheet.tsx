@@ -1,4 +1,5 @@
 import L from 'leaflet'
+import { datedNumber } from '../../utils/order-label'
 import { ChevronLeft, Crosshair, Info, MapPin, MapPinned, Phone, Radio, Receipt } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet'
@@ -201,12 +202,12 @@ export default function LiveTrackSheet({ order, onClose, onReceipt }: Props) {
                   )}
                 </span>
                 <span className="block truncate text-xs" style={{ color: 'var(--faint)' }}>
-                  {order.orderNumber}{km !== null && !arrived ? ` · ${fresh ? '' : '~'}${formatKm(km, lang)}` : ''}
+                  {datedNumber(order.orderNumber, order.orderDay, order.createdAt)}{km !== null && !arrived ? ` · ${fresh ? '' : '~'}${formatKm(km, lang)}` : ''}
                 </span>
               </>
             ) : (
               <span className="block truncate text-sm" style={{ color: 'var(--muted)' }}>
-                {order.orderNumber} · {order.customer?.address || '—'}
+                {datedNumber(order.orderNumber, order.orderDay, order.createdAt)} · {order.customer?.address || '—'}
               </span>
             )}
           </div>

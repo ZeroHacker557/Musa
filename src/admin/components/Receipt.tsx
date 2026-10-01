@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { datedNumber } from '../../utils/order-label'
 import { formatPrice } from '../../data'
 import { BRAND } from '../../config/brand'
 import type { AdminOrder } from '../lib/live'
@@ -81,7 +82,7 @@ export function Receipt({ order }: { order: AdminOrder }) {
             <div className="rcp__tag">{BRAND.tagline}</div>
           </div>
           <div className="rcp__no">
-            <b>{order.orderNumber}</b>
+            <b>{datedNumber(order.orderNumber, order.orderDay, order.createdAt)}</b>
             <span>
               {created
                 ? created.toLocaleString('ru-RU', {

@@ -4,6 +4,7 @@ import type { Staff } from '../admin-auth.js'
 import { canDeliver } from '../courier-staff.js'
 import { escapeHtml, sendMessage } from '../telegram.js'
 import { adminTargets, panelUrl } from './orders.js'
+import { orderLabel } from '../order-number.js'
 
 /**
  * Kuryerlar kassasi — naqd pulni topshirish.
@@ -25,6 +26,8 @@ import { adminTargets, panelUrl } from './orders.js'
 type Body = Record<string, unknown>
 type OrderLike = {
   orderNumber?: string
+  orderDay?: string
+  createdAt?: string
   total?: number
   paymentMethod?: string
   cashStatus?: 'held' | 'pending' | 'settled'
@@ -95,7 +98,7 @@ export async function courierCashHandover(staff: Staff) {
     courierName: staff.name,
     courierTg: staff.telegramId ?? null,
     orderIds: held.map((doc) => doc.id),
-    orderNumbers: held.map((doc) => String((doc.data() as OrderLike).orderNumber || doc.id)),
+    orderNumbers: held.map((doc) => orderLabel(doc.data() as OrderLike, doc.id)),
     amount,
     status: 'pending',
     createdAt: now,

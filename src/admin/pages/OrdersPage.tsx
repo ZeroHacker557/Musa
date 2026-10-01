@@ -170,7 +170,7 @@ export function OrdersPage({ staff, focusId }: { staff: Staff; focusId?: string 
       if (view === 'list' && filter !== 'all' && order.status !== filter) return false
       if (!needle) return true
       // «0005 23.09» ham topilsin — raqam har kuni takrorlanadi
-      const dated = order.orderDay ? `${order.orderNumber} ${shortDay(order.orderDay)}`.toLowerCase() : ''
+      const dated = order.orderDay ? `${order.orderNumber} ${shortDay(order.orderDay)} ${datedNumber(order.orderNumber, order.orderDay)}`.toLowerCase() : ''
       return (
         order.orderNumber.toLowerCase().includes(needle) ||
         (dated && needle.split(/\s+/).every((part) => dated.includes(part))) ||

@@ -273,8 +273,22 @@ def delete_order(doc_id: str) -> bool:
 
 
 def order_display_id(order: dict) -> str:
-    """Foydalanuvchiga ko'rsatiladigan raqam (eski yozuvlarda 'id' maydoni)."""
-    return order.get("orderNumber") or order.get("id") or "—"
+    """Foydalanuvchiga ko'rsatiladigan raqam: «#0005 · 23.09.2026».
+
+    Raqam har kuni #0001 dan boshlanadi, shuning uchun doim to'liq sana
+    bilan — aks holda kechagi #0005 bugungisi bilan adashib ketardi.
+    Eski yozuvlarda raqam o'rnida 'id' maydoni.
+    """
+    number = order.get("orderNumber") or order.get("id") or "—"
+    day = str(order.get("orderDay") or "")
+    if len(day) != 10 or day[4] != "-" or day[7] != "-":
+        # orderDay yo'q — createdAt dan Toshkent sanasi
+        try:
+            created = datetime.fromisoformat(str(order.get("createdAt") or "").replace("Z", "+00:00"))
+            day = (created.astimezone(timezone.utc) + timedelta(hours=5)).strftime("%Y-%m-%d")
+        except ValueError:
+            return number
+    return f"{number} · {day[8:10]}.{day[5:7]}.{day[0:4]}"
 
 
 _MONTHS_UZ = ["yan", "fev", "mar", "apr", "may", "iyun",

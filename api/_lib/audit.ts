@@ -1,4 +1,5 @@
 import { adminDb } from './firebase-admin.js'
+import { orderLabel } from './order-number.js'
 
 /**
  * Harakatlar jurnali — kim, qachon, nimani o'zgartirdi.
@@ -21,7 +22,7 @@ export type AuditSource = 'panel' | 'bot' | 'courier' | 'system'
 /** O'qish amallari — jurnalga tushmaydi. */
 const READ_ONLY = new Set([
   'overview', 'location', 'support.read', 'linko.status', 'linko.ping', 'channel.status',
-  'audit.list', 'backup.list', 'sources.stats', 'template.list', 'campaign.stats', 'schedule.list', 'broadcast.history',
+  'audit.list', 'backup.list', 'sources.stats', 'template.list', 'campaign.stats', 'schedule.list', 'broadcast.history', 'daily.get', 'daily.preview',
   'payment.check', 'settings.testGroup',
 ])
 
@@ -71,6 +72,9 @@ export const AUDIT_LABELS: Record<string, string> = {
   'template.delete': 'Shablon o‘chirildi',
   'schedule.create': 'E’lon rejalashtirildi',
   'schedule.cancel': 'Rejalashtirilgan e’lon bekor qilindi',
+  'daily.save': 'Kunlik e’lon sozlandi',
+  'daily.test': 'Kunlik e’lon sinab yuborildi',
+  'daily.send': 'Kunlik e’lon hozir yuborildi',
   'support.reply': 'Murojaatga javob',
   'support.close': 'Murojaat yopildi',
   'cash.confirm': 'Kassa tasdiqlandi',
@@ -92,7 +96,7 @@ export const AUDIT_LABELS: Record<string, string> = {
 export const AUDIT_GROUPS: Record<string, string[]> = {
   orders: ['order.status', 'order.assign', 'order.linkoPush', 'courier.', 'take', 'deliver', 'arrived', 'problem', 'shift', 'cash.'],
   catalog: ['product.', 'category.', 'section.', 'promotion.', 'promo.', 'ad.', 'home.', 'catalog.', 'order.sort'],
-  messages: ['broadcast.', 'channel.', 'template.', 'schedule.', 'support.'],
+  messages: ['broadcast.', 'channel.', 'template.', 'schedule.', 'support.', 'daily.'],
   staff: ['staff.', 'session.'],
   system: ['settings.', 'payment.', 'linko.', 'backup.'],
 }
@@ -146,7 +150,10 @@ function summarize(body: Record<string, unknown>): Record<string, unknown> {
 /** Nima haqida: id va nom (jurnal qatorida ko'rinadi). */
 function targetOf(body: Record<string, unknown>, before: Record<string, unknown> | null) {
   const id = [body.id, body.orderId, body.uid, body.docId, body.productId].find((v) => v !== undefined && v !== '')
-  const name = [body.name, body.title, before?.name, before?.title, before?.orderNumber, body.code]
+  const orderName = typeof before?.orderNumber === 'string' && before.orderNumber
+    ? orderLabel(before as { orderNumber: string; orderDay?: string; createdAt?: string }, '')
+    : null
+  const name = [body.name, body.title, before?.name, before?.title, orderName, body.code]
     .find((v) => typeof v === 'string' && v.trim())
   return { id: id === undefined ? null : String(id).slice(0, 80), name: name ? String(name).slice(0, 120) : null }
 }

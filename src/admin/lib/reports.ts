@@ -1,4 +1,5 @@
 import type { AdminOrder, ProductRow } from './live'
+import { datedNumber } from '../../utils/order-label'
 import type { SheetSpec } from './xlsx'
 import { isCashPayment } from '../../utils/payment'
 
@@ -301,7 +302,7 @@ export function reportSheets(r: Report): SheetSpec[] {
       rows: [...r.orders].sort((a, b) => time(a) - time(b)).map((o) => {
         const d = new Date(time(o))
         return [
-          o.orderNumber,
+          datedNumber(o.orderNumber, o.orderDay, o.createdAt),
           dayLabel(d),
           d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
           o.status,

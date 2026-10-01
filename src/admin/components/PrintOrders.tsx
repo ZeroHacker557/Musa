@@ -1,4 +1,5 @@
 import { FileText, Map as MapIcon, Printer } from 'lucide-react'
+import { datedNumber } from '../../utils/order-label'
 import { useMemo, useState } from 'react'
 import { formatPrice } from '../../data'
 import type { AdminOrder } from '../lib/live'
@@ -95,7 +96,7 @@ export function PrintOrdersModal({
         {pool.map((o) => (
           <label key={o.id}>
             <input type="checkbox" checked={!unchecked.has(o.id)} onChange={() => flip(o.id)} />
-            <span className="truncate"><b>{o.orderNumber}</b> · {o.customer?.name || '—'} · {o.customer?.address || ''}</span>
+            <span className="truncate"><b>{datedNumber(o.orderNumber, o.orderDay)}</b> · {o.customer?.name || '—'} · {o.customer?.address || ''}</span>
             <small>{formatPrice(o.total)}</small>
           </label>
         ))}

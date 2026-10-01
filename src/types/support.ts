@@ -2,6 +2,8 @@
  * Kuryer ↔ admin qo'llab-quvvatlash chati.
  * Server tomoni: api/_lib/actions/support.ts (ThreadDoc bilan bir xil).
  */
+import { datedNumber } from '../utils/order-label'
+
 export type SupportFrom = 'courier' | 'admin'
 
 export type SupportThread = {
@@ -59,8 +61,8 @@ export function readMessage(id: string, data: Record<string, unknown>): SupportM
   }
 }
 
-/** «#0005 · 23.09» — chek raqami har kuni qaytadan boshlanadi, sana bilan farqlanadi. */
+/** «#0005 · 23.09.2026» — chek raqami har kuni qaytadan boshlanadi, sana bilan farqlanadi. */
 export function orderLabel(orderNumber: string | null, orderDay: string | null): string | null {
   if (!orderNumber) return null
-  return orderDay ? `${orderNumber} · ${orderDay.slice(8, 10)}.${orderDay.slice(5, 7)}` : orderNumber
+  return datedNumber(orderNumber, orderDay)
 }

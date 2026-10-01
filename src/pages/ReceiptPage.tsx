@@ -1,4 +1,5 @@
 import { Check, ChevronLeft, CreditCard, Home, RotateCcw, Wallet } from 'lucide-react'
+import { datedNumber } from '../utils/order-label'
 import { formatPrice } from '../data'
 import { BRAND } from '../config/brand'
 import { productThumb } from '../utils/product-image'
@@ -74,7 +75,7 @@ export function ReceiptPage({ order, onBack, onHome, onReorder }: Props) {
             <div className="rcpt__head">
               <div className="min-w-0">
                 <h2 className="rcpt__name">{t('receipt.title')}</h2>
-                <p className="rcpt__no">{order.orderNumber}</p>
+                <p className="rcpt__no">{datedNumber(order.orderNumber, order.orderDay, order.createdAt)}</p>
                 <p className="rcpt__date">{formatDateTime(order.createdAt) || order.date}</p>
               </div>
               <div className={'rcpt__state ' + (cancelled ? 'is-off' : '')}>
@@ -187,7 +188,7 @@ export function ReceiptPage({ order, onBack, onHome, onReorder }: Props) {
               <div className="rcpt__foot-left">
                 <div className="min-w-0">
                   <p className="rcpt__pay-label">{t('receipt.orderId')}</p>
-                  <p className="rcpt__id">{order.orderNumber.replace(/^#/, '')}</p>
+                  <p className="rcpt__id">{datedNumber(order.orderNumber, order.orderDay, order.createdAt).replace(/^#/, '')}</p>
                   <p className="rcpt__note">{t('receipt.note')}</p>
                 </div>
               </div>

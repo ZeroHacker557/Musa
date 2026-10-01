@@ -110,6 +110,8 @@ export type Order = {
   id: string
   /** Foydalanuvchiga ko'rsatiladigan ketma-ket raqam, masalan "#1042". */
   orderNumber: string
+  /** Toshkent bo'yicha kun «2026-09-23» — raqam har kuni #0001 dan boshlanadi. */
+  orderDay?: string | null
   /** ISO 8601. Saralash va sana ko'rsatish shu maydondan. */
   createdAt: string
   products: { product: Product; quantity: number; size?: string; color?: string; cartKey?: string }[]

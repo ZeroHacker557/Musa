@@ -415,7 +415,7 @@ export async function courierOverview(staff: Staff) {
     },
     // Mijozlarning oxirgi izohlari — profilda
     reviews: delivered
-      .map((o) => ({ number: o.data.orderNumber || '', at: deliveredAt(o.data), rating: o.data.courierRating }))
+      .map((o) => ({ number: o.data.orderNumber ? orderLabel(o.data, o.id) : '', at: deliveredAt(o.data), rating: o.data.courierRating }))
       .filter((r) => r.rating && Number(r.rating.stars) > 0)
       .sort((a, b) => String(b.at).localeCompare(String(a.at)))
       .slice(0, 5)

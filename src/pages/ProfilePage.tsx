@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import { datedNumber } from '../utils/order-label'
 import { Bell, Bike, ChevronRight, CircleHelp, ClipboardList, Languages, MapPin, Moon, Star, Sun, UserRound } from 'lucide-react'
 import { formatPrice } from '../data'
 import { formatOrderDate } from '../utils/date'
@@ -167,7 +168,7 @@ export function ProfilePage({ profile, orders, ordersReady, theme, onToggleTheme
               <h3 className="truncate text-base font-extrabold" style={{ color: 'var(--ink)' }}>
                 {lastOrder.products.map((p) => p.product.name).join(', ')}
               </h3>
-              <p className="mt-1 text-xs font-bold" style={{ color: 'var(--muted)' }}>{lastOrder.orderNumber}</p>
+              <p className="mt-1 text-xs font-bold" style={{ color: 'var(--muted)' }}>{datedNumber(lastOrder.orderNumber, lastOrder.orderDay, lastOrder.createdAt)}</p>
               <div className="mt-2">
                 <OrderImages products={lastOrder.products} />
                 <p className="mt-1 text-[11px]" style={{ color: 'var(--muted)' }}>

@@ -1,4 +1,5 @@
 import { Bike, Loader2, ShoppingBag, Star } from 'lucide-react'
+import { datedNumber } from '../../utils/order-label'
 import { useState } from 'react'
 import { useI18n, type TranslationKey } from '../../i18n'
 import { usePresence } from '../../hooks/use-presence'
@@ -163,7 +164,7 @@ export function CourierRatingSheet({ orders, blocked, submit }: Props) {
               </span>
               <b className="mt-3 block text-lg font-extrabold" style={{ color: 'var(--ink)' }}>{t('rating.title')}</b>
               <span className="mt-0.5 block text-sm" style={{ color: 'var(--muted)' }}>
-                {t('rating.subtitle', { name: shown.courierName || t('rating.courier'), number: shown.orderNumber })}
+                {t('rating.subtitle', { name: shown.courierName || t('rating.courier'), number: datedNumber(shown.orderNumber, shown.orderDay, shown.createdAt) })}
               </span>
             </div>
 

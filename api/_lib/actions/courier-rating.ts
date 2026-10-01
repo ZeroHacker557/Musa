@@ -1,6 +1,7 @@
 import { adminDb } from '../firebase-admin.js'
 import { escapeHtml, sendMessage } from '../telegram.js'
 import { adminTargets } from './orders.js'
+import { orderLabel } from '../order-number.js'
 
 /**
  * Mijoz kuryerni baholaydi (mini app'dagi 5 yulduzli oyna).
@@ -57,7 +58,7 @@ export async function rateCourier(userId: number, body: Record<string, unknown>)
     if (!snap.exists) throw new RatingError('ORDER_GONE', 'Buyurtma topilmadi')
     const order = snap.data() as {
       userId?: number; status?: string; courierId?: string | null; courierName?: string
-      orderNumber?: string; courierRating?: unknown
+      orderNumber?: string; orderDay?: string; createdAt?: string; courierRating?: unknown
     }
     if (Number(order.userId) !== userId) throw new RatingError('NOT_YOURS', 'Bu buyurtma sizniki emas')
     if (order.status !== 'Yetkazildi') throw new RatingError('NOT_DELIVERED', 'Buyurtma hali yetkazilmagan')
@@ -75,7 +76,7 @@ export async function rateCourier(userId: number, body: Record<string, unknown>)
         ratingCount: (Number(staff.ratingCount) || 0) + 1,
       })
     }
-    return { courierName: order.courierName || 'Kuryer', orderNumber: order.orderNumber || `#${orderId.slice(0, 6)}` }
+    return { courierName: order.courierName || 'Kuryer', orderNumber: orderLabel(order, orderId) }
   })
 
   // Past baho — admin darhol bilsin

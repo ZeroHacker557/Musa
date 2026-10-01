@@ -1,4 +1,5 @@
 import { formatPrice } from '../../data'
+import { datedNumber } from '../../utils/order-label'
 import { BRAND } from '../../config/brand'
 import type { AdminOrder, CompanySettings } from '../lib/live'
 import { bundleText } from '../../utils/bundle'
@@ -80,7 +81,7 @@ function WaybillPage({ order, company }: { order: AdminOrder; company: CompanySe
           <small>{company.legalName || BRAND.legalName} · {BRAND.tagline}</small>
         </div>
         <div className="wb__no">
-          <b>№ {order.orderNumber}</b>
+          <b>№ {datedNumber(order.orderNumber, order.orderDay, order.createdAt)}</b>
           <small>{dateText(order.createdAt)}</small>
         </div>
       </header>
@@ -205,7 +206,7 @@ export function RouteSheetDoc({ orders, company }: { orders: AdminOrder[]; compa
             {orders.map((o, i) => (
               <tr key={o.id}>
                 <td className="c">{i + 1}</td>
-                <td>{o.orderNumber}</td>
+                <td>{datedNumber(o.orderNumber, o.orderDay, o.createdAt)}</td>
                 <td>
                   <b>{o.customer?.recipientName || o.customer?.name || '—'}</b><br />
                   {o.customer?.recipientPhone || o.customer?.phone || ''}

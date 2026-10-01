@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { datedNumber } from '../../utils/order-label'
 import { createBrain, type Brain, type BrainData } from '../brain/engine.js'
 import '../brain/brain.css'
 import { useCategories, useCustomers, useOrders, useProducts, useSections, useStaff } from '../lib/live'
@@ -70,7 +71,7 @@ export function BrainPage({ staff }: { staff: Staff }) {
       })),
       orders: recent.map((o) => ({
         id: o.id,
-        number: o.orderNumber,
+        number: datedNumber(o.orderNumber, o.orderDay, o.createdAt),
         status: o.status,
         total: Number(o.total) || 0,
         createdAt: String(o.createdAt || ''),

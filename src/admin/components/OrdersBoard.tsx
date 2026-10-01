@@ -94,7 +94,7 @@ export function OrdersBoard({
 
   const move = (order: AdminOrder, to: OrderStatus) => {
     if (columnOf(order.status) === to) return
-    if (to === 'Bekor qilingan' && !window.confirm(`${order.orderNumber} ni bekor qilasizmi? Mijozga xabar boradi.`)) return
+    if (to === 'Bekor qilingan' && !window.confirm(`${datedNumber(order.orderNumber, order.orderDay)} ni bekor qilasizmi? Mijozga xabar boradi.`)) return
     onMove(order, to)
   }
 

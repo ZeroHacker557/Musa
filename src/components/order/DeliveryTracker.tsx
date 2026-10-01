@@ -1,4 +1,5 @@
 import { Car, ChevronDown, ChevronRight, MapPin, Phone } from 'lucide-react'
+import { datedNumber } from '../../utils/order-label'
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../../i18n'
 import { TRACKING_FRESH_MS, liveMinutes, useOrderTracking } from '../../lib/tracking'
@@ -173,9 +174,9 @@ export function DeliveryTracker({ orders, onOpen }: Props) {
           type="button"
           className="dlv__num"
           onClick={onWay.length > 1 ? nextOrder : () => onOpen(order)}
-          aria-label={onWay.length > 1 ? t('delivery.pickOrder') : order.orderNumber}
+          aria-label={onWay.length > 1 ? t('delivery.pickOrder') : datedNumber(order.orderNumber, order.orderDay, order.createdAt)}
         >
-          {order.orderNumber}
+          {datedNumber(order.orderNumber, order.orderDay, order.createdAt)}
           {onWay.length > 1 && <span className="dlv__more">+{onWay.length - 1}</span>}
         </button>
         <div className="flex items-center gap-1.5">

@@ -1,6 +1,7 @@
 import { adminDb } from '../firebase-admin.js'
 import { linkoGet, linkoPost, linkoToken, readLinkoSettings, type LinkoSettings } from '../linko.js'
 import { isCashPayment } from '../pay-method.js'
+import { orderLabel } from '../order-number.js'
 
 /**
  * Buyurtmalarni Linko'ga yuborish.
@@ -423,7 +424,7 @@ export async function linkoPushOrders(_staff: unknown, body: Record<string, unkn
     else if (result.skipped) skipped++
     else {
       failed++
-      errors.push(`${order.orderNumber || doc.id}: ${String(result.error || '').slice(0, 120)}`)
+      errors.push(`${orderLabel(order, doc.id)}: ${String(result.error || '').slice(0, 120)}`)
     }
   }
 

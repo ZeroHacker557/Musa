@@ -110,7 +110,7 @@ export function LinkoOrdersPage() {
         action: 'order.linkoPush',
         orderId: order.id,
       })
-      if (result.ok) show(`${order.orderNumber} Linko’ga yuborildi (№${result.linkoOrderId})`)
+      if (result.ok) show(`${datedNumber(order.orderNumber, order.orderDay)} Linko’ga yuborildi (№${result.linkoOrderId})`)
       else show(result.error || 'Yuborilmadi', 'error')
     } catch (err) {
       show(err instanceof Error ? err.message : 'Yuborilmadi', 'error')

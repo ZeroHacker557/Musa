@@ -1,4 +1,5 @@
 import { Bike, Check, CreditCard, Package, Wallet } from 'lucide-react'
+import { datedNumber } from '../utils/order-label'
 import { useState } from 'react'
 import { formatPrice } from '../data'
 import { BRAND } from '../config/brand'
@@ -36,7 +37,7 @@ export function CourierReceipt({ order }: { order: CourierOrder }) {
         <div className="rcpt__head">
           <div className="min-w-0">
             <h2 className="rcpt__name">{t('receipt.title')}</h2>
-            <p className="rcpt__no">{order.number}</p>
+            <p className="rcpt__no">{datedNumber(order.number, order.orderDay, order.createdAt)}</p>
             <p className="rcpt__date">{formatDateTime(order.createdAt || undefined)}</p>
           </div>
           <div className="rcpt__state">

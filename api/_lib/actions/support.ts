@@ -2,6 +2,7 @@ import { adminDb } from '../firebase-admin.js'
 import { CodedError } from '../errors.js'
 import type { Staff } from '../admin-auth.js'
 import { canDeliver } from '../courier-staff.js'
+import { fullDay } from '../order-number.js'
 import { escapeHtml, sendMessage, sendRows } from '../telegram.js'
 import { adminTargets, miniAppUrl, panelUrl } from './orders.js'
 
@@ -60,11 +61,11 @@ function requireCourier(staff: Staff) {
   if (!staff.telegramId) throw new CodedError('NO_TELEGRAM', 'Telegram ID ulanmagan')
 }
 
-/** «#0005 · 23.09» yoki «Umumiy savol». */
+/** «#0005 · 23.09.2026» yoki «Umumiy savol». */
 function threadLabel(thread: Pick<ThreadDoc, 'orderNumber' | 'orderDay'>): string {
   if (!thread.orderNumber) return 'Umumiy savol'
-  const day = thread.orderDay ? ` · ${thread.orderDay.slice(8, 10)}.${thread.orderDay.slice(5, 7)}` : ''
-  return `${thread.orderNumber}${day}`
+  const day = fullDay(thread.orderDay)
+  return day ? `${thread.orderNumber} · ${day}` : thread.orderNumber
 }
 
 /** Xabarni yozadi va murojaatning oxirgi holatini yangilaydi — atomar. */

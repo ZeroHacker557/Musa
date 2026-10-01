@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { datedNumber } from '../utils/order-label'
 import { ChevronRight, CreditCard, ExternalLink, Loader2, MapPin, Radio, RotateCcw, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '../data'
 import { openBotDeepLink } from '../utils/telegram'
@@ -162,7 +163,7 @@ export function OrdersPage({
                   className="flex items-center justify-between border-t pt-2.5"
                   style={{ borderColor: 'var(--line-soft)' }}
                 >
-                  <p className="text-[11px] font-bold" style={{ color: 'var(--faint)' }}>{order.orderNumber}</p>
+                  <p className="text-[11px] font-bold" style={{ color: 'var(--faint)' }}>{datedNumber(order.orderNumber, order.orderDay, order.createdAt)}</p>
                   {/* Yopilgan buyurtma — bir bosishda yana savatga */}
                   {(order.status === 'Yetkazildi' || order.status === 'Bekor qilingan' || order.status === 'Rad etildi') && (
                     <button

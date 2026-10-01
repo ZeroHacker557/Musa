@@ -1,4 +1,5 @@
 import { Banknote, Bell, ClipboardList, CreditCard, Loader2, PackageCheck, UserRound, WifiOff } from 'lucide-react'
+import { datedNumber } from '../utils/order-label'
 import { useEffect, useRef, useState } from 'react'
 import { formatPrice } from '../data'
 import { useI18n } from '../i18n'
@@ -286,7 +287,7 @@ export function CourierApp({ focusId, supportId, photo, onOpenShop, onNotCourier
           <span className="crr-incoming__icon"><Bell size={20} /></span>
           <span className="min-w-0 flex-1 text-left">
             <b className="block text-sm">
-              {t('courier.newOrderTitle', { number: incoming.order.number })}
+              {t('courier.newOrderTitle', { number: datedNumber(incoming.order.number, incoming.order.orderDay) })}
               {incoming.more > 0 ? ` · +${incoming.more}` : ''}
             </b>
             <span className="block truncate text-xs">{incoming.order.customer.address || '—'}</span>
@@ -433,7 +434,7 @@ function DeliverSheet({
         <span className="crr-sheet__grip" />
         <span className="crr-sheet__icon"><PackageCheck size={28} /></span>
         <h3 className="mt-3 text-center text-xl font-extrabold" style={{ color: 'var(--ink)' }}>
-          {t('courier.confirmTitle', { number: shown.number })}
+          {t('courier.confirmTitle', { number: datedNumber(shown.number, shown.orderDay) })}
         </h3>
         <p className="mt-1 text-center text-sm" style={{ color: 'var(--muted)' }}>{shown.customer.address}</p>
 
