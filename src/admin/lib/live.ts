@@ -168,9 +168,25 @@ export type CustomerRow = {
   id: string
   first_name?: string
   last_name?: string
-  username?: string
+  username?: string | null
   phone?: string
+  photo_url?: string | null
+  language?: string
+  /** Oxirgi marta mini ilovani ochgan vaqt. */
   lastActive?: string
+  /** Birinchi marta ochgan vaqt (2026-10 dan; eskilarida yo'q). */
+  firstSeenAt?: string
+  visitCount?: number
+  /** Oxirgi 30 ta kirish, yangisi birinchi. */
+  visits?: string[]
+  /** Savat — ilova sinxronlaydi (key: `${productId}_${size}_${color}`). */
+  cart?: { key: string; quantity: number; size?: string; color?: string }[]
+  cartUpdatedAt?: string
+  /** Botga qayerdan kelgan (reklama havolasi). */
+  firstSource?: string
+  firstSourceAt?: string
+  lastSource?: string
+  lastSourceAt?: string
 }
 
 export function useCustomers() {

@@ -39,7 +39,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const courier = Boolean(await courierByTelegram(user.id))
 
     // Profil ma'lumotini serverda yangilaymiz — mijozga ishonmaymiz
-    await (await adminDb()).collection('users').doc(uid).set(
+    const ref = (await adminDb()).collection('users').doc(uid)
+    const prev = (await ref.get()).data() ?? {}
+    const now = new Date().toISOString()
+    // Kirishlar tarixi (admin → Mijozlar): birinchi kirish bir marta, oxirgi 30 tasi ro'yxatda
+    const visits = [now, ...(Array.isArray(prev.visits) ? prev.visits.map(String) : [])].slice(0, 30)
+    await ref.set(
       {
         id: user.id,
         courier,
@@ -47,7 +52,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         last_name: user.last_name ?? null,
         username: user.username ?? null,
         photo_url: user.photo_url ?? null,
-        lastActive: new Date().toISOString(),
+        lastActive: now,
+        firstSeenAt: typeof prev.firstSeenAt === 'string' ? prev.firstSeenAt : now,
+        visitCount: (Number(prev.visitCount) || 0) + 1,
+        visits,
       },
       { merge: true },
     )
