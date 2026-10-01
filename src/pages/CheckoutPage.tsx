@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FreeDeliveryBar } from '../components/cart/FreeDeliveryBar'
 import { useFreeDelivery } from '../hooks/use-free-delivery'
 import { productThumb } from '../utils/product-image'
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { formatPrice } from '../data'
 import { hapticFeedback } from '../utils/telegram'
+import { playSound, preloadSound } from '../utils/sound'
 import { getPaymentSettings, getDeliverySettings } from '../lib/firebase'
 import { apiErrorText } from '../utils/api-error'
 import { apiPost } from '../lib/api'
@@ -71,6 +72,11 @@ type Props = {
   /** Yangi manzil — joylashuv darhol so'raladi. */
   onAddAddress: () => void
 }
+
+/** Ovozli eslatmalar: ism / telefon / manzil kiritilmagan bo'lsa. */
+const NAME_VOICE = '/sounds/name-required.mp3'
+const PHONE_VOICE = '/sounds/phone-required.mp3'
+const ADDRESS_VOICE = '/sounds/address-required.mp3'
 
 export function CheckoutPage({
   cartProducts, cartTotal, orderForm, onUpdateForm, onSubmit, isSubmitting, onBack, onNavigate,
@@ -247,6 +253,63 @@ export function CheckoutPage({
   const isValid = Boolean(orderForm.name.trim() && orderForm.phone.trim() && orderForm.address.trim())
   const canSubmit = isValid && !isSubmitting && !belowMin && (!activeTile?.card || cardOk)
 
+  /*
+   * Tugma doim bosiladi: to'ldirilmagan joy bo'lsa — o'sha maydonga
+   * aylantiriladi, qizil bilan belgilanadi; telefon yo'q bo'lsa ovozli eslatma.
+   */
+  type Missing = 'name' | 'phone' | 'address' | 'card'
+  const [missing, setMissing] = useState<Missing[]>([])
+  /** Har bosishda silkinish animatsiyasi qayta boshlansin. */
+  const [shake, setShake] = useState(0)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const phoneRef = useRef<HTMLInputElement>(null)
+  const addressRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    preloadSound(NAME_VOICE)
+    preloadSound(PHONE_VOICE)
+    preloadSound(ADDRESS_VOICE)
+  }, [])
+  // Maydon to'ldirilishi bilan qizil belgisi ketadi
+  const stillMissing = missing.filter((key) =>
+    key === 'name' ? !orderForm.name.trim()
+      : key === 'phone' ? !orderForm.phone.trim()
+        : key === 'address' ? !orderForm.address.trim()
+          : Boolean(activeTile?.card) && !cardOk)
+
+  /** To'ldirilmaganini ko'rsatadi. `true` — hammasi joyida. */
+  const checkForm = (): boolean => {
+    const list: Missing[] = []
+    if (!orderForm.name.trim()) list.push('name')
+    if (!orderForm.phone.trim()) list.push('phone')
+    if (!orderForm.address.trim()) list.push('address')
+    if (activeTile?.card && !cardOk) list.push('card')
+    setMissing(list)
+    if (!list.length) return true
+
+    hapticFeedback('heavy')
+    setShake((n) => n + 1)
+    // Ovoz — bosish ichida (telefon brauzeri bloklamaydi). Ikkalasi bo'sh bo'lsa —
+    // faqat birinchisi (sahifa o'sha joyga aylanadi), ovozlar ustma-ust tushmasin
+    if (list.includes('name')) playSound(NAME_VOICE)
+    else if (list.includes('phone')) playSound(PHONE_VOICE)
+    else if (list.includes('address')) playSound(ADDRESS_VOICE)
+    const first = list[0]
+    const target = first === 'name' ? nameRef.current : first === 'phone' ? phoneRef.current : first === 'card' ? cardRef.current : addressRef.current
+    try {
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      if (target instanceof HTMLInputElement) target.focus({ preventScroll: true })
+    } catch {
+      // eski brauzer — aylantirishsiz ham qizil belgi ko'rinadi
+    }
+    return false
+  }
+  // Ikki xil nomli animatsiya almashadi — har bosishda qayta silkinadi, maydon qayta yaratilmaydi (fokus yo'qolmaydi)
+  const shakeClass = shake % 2 ? ' shake-a' : ' shake-b'
+  const fieldClass = (key: Missing) => 'field' + (stillMissing.includes(key) ? ' is-error' + shakeClass : '')
+  const errorText = (key: Missing, text: string) =>
+    stillMissing.includes(key) ? <p key={`${key}-${shake}`} className="field-error">{text}</p> : null
+
   return (
     <>
       <header className="page-head page-head--solo flex items-center gap-3 px-5 pt-8 sm:px-10 page-animate">
@@ -396,24 +459,27 @@ export function CheckoutPage({
               <label className="field-label">
                 {t('checkout.name')} <span style={{ color: 'var(--danger)' }}>*</span>
               </label>
-              <div className="field">
+              <div className={fieldClass('name')}>
                 <User size={19} className="shrink-0" style={{ color: 'var(--faint)' }} />
                 <input
+                  ref={nameRef}
                   value={orderForm.name}
                   onChange={(e) => onUpdateForm('name', e.target.value)}
                   placeholder={t('checkout.namePlaceholder')}
                   className="text-sm"
                 />
               </div>
+              {errorText('name', t('checkout.fillName'))}
             </div>
 
             <div>
               <label className="field-label">
                 {t('checkout.phone')} <span style={{ color: 'var(--danger)' }}>*</span>
               </label>
-              <div className="field">
+              <div className={fieldClass('phone')}>
                 <Phone size={19} className="shrink-0" style={{ color: 'var(--faint)' }} />
                 <input
+                  ref={phoneRef}
                   value={orderForm.phone}
                   onChange={(e) => onUpdateForm('phone', e.target.value)}
                   placeholder="+998 90 123 45 67"
@@ -422,12 +488,17 @@ export function CheckoutPage({
                   className="text-sm"
                 />
               </div>
+              {errorText('phone', t('checkout.fillPhone'))}
             </div>
 
-            <div>
+            <div
+              ref={addressRef}
+              className={stillMissing.includes('address') ? 'address-missing' + shakeClass : undefined}
+            >
               <label className="field-label">
                 {t('checkout.address')} <span style={{ color: 'var(--danger)' }}>*</span>
               </label>
+              {errorText('address', t('checkout.fillAddress'))}
 
               {addresses.length === 0 ? (
                 <div
@@ -629,6 +700,7 @@ export function CheckoutPage({
               <div className="field">
                 <CreditCard size={19} className="shrink-0" style={{ color: 'var(--faint)' }} />
                 <input
+                  ref={cardRef}
                   id="card-number"
                   value={cardNumber}
                   onChange={(e) => {
@@ -678,11 +750,13 @@ export function CheckoutPage({
         <button
           onClick={async () => {
             if (isSubmitting) return
+            if (!canSubmit && !checkForm()) return
+            if (!canSubmit) return
             const ok = await onSubmit(activeTile?.card ? { number: cardDigits, expiry: expiryDigits } : undefined)
             // Karta ma'lumoti ekranda qolmasin
             if (ok) { setCardNumber(''); setCardExpiry('') }
           }}
-          disabled={!canSubmit}
+          disabled={isSubmitting || belowMin}
           className="btn-primary mt-8 w-full py-4"
         >
           {isSubmitting ? (

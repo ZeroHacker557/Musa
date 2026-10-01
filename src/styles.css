@@ -2901,6 +2901,45 @@ a { color: inherit; text-decoration: none; }
 .field input::placeholder,
 .field textarea::placeholder { color: var(--faint); }
 
+/* To'ldirilmagan majburiy maydon — «Buyurtma berish» bosilganda */
+.field.is-error {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+.field.is-error.shake-a,
+.address-missing.shake-a .address-option,
+.address-missing.shake-a > .rounded-2xl { animation: field-shake 0.4s ease; }
+.field.is-error.shake-b,
+.address-missing.shake-b .address-option,
+.address-missing.shake-b > .rounded-2xl { animation: field-shake-2 0.4s ease; }
+.address-missing > .rounded-2xl {
+  border-color: var(--danger) !important;
+}
+.field-error {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--danger);
+  animation: fadeInUp 0.2s ease;
+}
+@keyframes field-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+@keyframes field-shake-2 {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .field.is-error, .address-missing .address-option, .address-missing > .rounded-2xl { animation: none !important; }
+}
+
 .field-label {
   display: block;
   margin-bottom: 0.4rem;
