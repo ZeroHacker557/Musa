@@ -69,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       items.forEach((item) => {
         const id = String(item?.product?.id ?? '')
         if (!id) return
-        restore.set(id, (restore.get(id) || 0) + (Number(item.quantity) || 0))
+        restore.set(id, (restore.get(id) || 0) + (Number(item.quantity) || 0) * (Number(item?.product?.pack) || 1))
       })
 
       const productRefs = [...restore.keys()].map((id) => db.collection('products').doc(id))

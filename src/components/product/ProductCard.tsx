@@ -186,7 +186,9 @@ export function ProductCard({ product, onOpen, onAddToCart, cartQtyOf, onChangeQ
           {/* Vazni bo'lmasa ham joy qoladi — qatordagi kartochkalar bir tekis turadi */}
           <p className="product-card-weight">
             {/* Setda vazn o'rniga — ichida nechta mahsulot borligi */}
-            {setCount > 0 ? t('product.setItems', { n: setCount }) : weight}
+            {setCount > 0
+              ? t('product.setItems', { n: setCount })
+              : [weight, product.pack ? t('product.pack', { count: product.pack }) : ''].filter(Boolean).join(' · ')}
           </p>
           {!compact && (
             <p className="product-card-rating">

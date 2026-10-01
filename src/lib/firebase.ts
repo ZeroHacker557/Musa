@@ -27,11 +27,20 @@ export function subscribeToProducts(callback: (products: Product[]) => void, onE
       const rawId = data.id || doc.id
       const numId = typeof rawId === 'number' ? rawId : (parseInt(String(rawId), 10) || Math.abs(hashString(doc.id)))
       
+      /*
+       * O'ram: bazada narx va qoldiq DONADA. Mijoz o'ramni ko'radi va
+       * o'ramni savatga qo'yadi — narx ×pack, qoldiq ÷pack. Server ham
+       * xuddi shunday hisoblaydi (api/orders.ts). Setda o'ram yo'q.
+       */
+      const isSet = Array.isArray(data.bundle) && data.bundle.length > 0
+      const pack = !isSet ? packOf(data.pack) : 1
+      const unitPrice = Number(data.price) || 0
       return {
         id: numId,
         name: data.name || '',
-        price: Number(data.price) || 0,
-        oldPrice: data.oldPrice ? Number(data.oldPrice) : undefined,
+        price: unitPrice * pack,
+        oldPrice: data.oldPrice ? Number(data.oldPrice) * pack : undefined,
+        ...(pack > 1 ? { pack, unitPrice } : {}),
         category: data.category || '',
         images: data.images || [],
         rating: data.rating || 5,
@@ -54,7 +63,7 @@ export function subscribeToProducts(callback: (products: Product[]) => void, onE
         descriptionRu: data.descriptionRu || '',
         descriptionEn: data.descriptionEn || '',
         discount: data.discount || '',
-        stock: typeof data.stock === 'number' ? data.stock : undefined,
+        stock: typeof data.stock === 'number' ? Math.floor(data.stock / pack) : undefined,
         thumbs: Array.isArray(data.thumbs) ? data.thumbs : undefined,
         optimized: Array.isArray(data.optimized) ? data.optimized : undefined,
         variantSources: Array.isArray(data.variantSources) ? data.variantSources : undefined,
@@ -72,6 +81,12 @@ export function subscribeToProducts(callback: (products: Product[]) => void, onE
     console.error('[Firebase] Go to Firebase Console → Firestore → Rules and set: allow read: if true;')
     if (onError) onError(error)
   })
+}
+
+/** O'ramdagi dona soni: 1–1000 butun son, aks holda 1. */
+function packOf(value: unknown): number {
+  const n = Math.floor(Number(value))
+  return Number.isFinite(n) && n > 1 ? Math.min(n, 1000) : 1
 }
 
 export function subscribeToCategories(callback: (categories: Category[]) => void, onError?: (err: unknown) => void) {

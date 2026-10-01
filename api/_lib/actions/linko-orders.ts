@@ -23,7 +23,7 @@ import { orderLabel } from '../order-number.js'
 type Result = Record<string, unknown>
 
 type OrderProduct = {
-  product?: { id?: number | string; name?: string; price?: number; originalPrice?: number }
+  product?: { id?: number | string; name?: string; price?: number; originalPrice?: number; pack?: number }
   quantity?: number
 }
 
@@ -184,7 +184,9 @@ export async function pushOrder(orderId: string, order: OrderDoc): Promise<Resul
         continue
       }
 
-      const price = Math.round(num(item.product?.price))
+      // O'ram: Linko'da hammasi DONADA — miqdor ×pack, narx ÷pack
+      const pack = Math.max(1, Math.floor(num(item.product?.pack, 1)))
+      const price = Math.round(num(item.product?.price) / pack)
       lines.push({
         product: { linko_id: linkoId },
         price,
@@ -193,8 +195,8 @@ export async function pushOrder(orderId: string, order: OrderDoc): Promise<Resul
          * TALAB qiladi (sinovda: «origin_price: This field is required»).
          * Aksiya bo'lmasa — sotuv narxining o'zi.
          */
-        origin_price: Math.round(num(item.product?.originalPrice, price)),
-        amount,
+        origin_price: Math.round(num(item.product?.originalPrice, num(item.product?.price)) / pack),
+        amount: amount * pack,
       })
     }
 

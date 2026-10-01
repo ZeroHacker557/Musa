@@ -28,7 +28,8 @@ export async function restoreStock(orderId: string): Promise<boolean> {
     for (const item of items) {
       const id = String(item?.product?.id ?? '')
       if (!id) continue
-      restore.set(id, (restore.get(id) || 0) + (Number(item?.quantity) || 0))
+      // O'ramli qatorda bitta «dona» = pack ta dona
+      restore.set(id, (restore.get(id) || 0) + (Number(item?.quantity) || 0) * (Number(item?.product?.pack) || 1))
     }
 
     const refs = [...restore.keys()].map((id) => db.collection('products').doc(id))

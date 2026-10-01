@@ -43,6 +43,15 @@ export type Product = {
   descriptionEn?: string
   /** Hozir amal qilayotgan vaqtli aksiya (ilovada hisoblanadi). */
   promotion?: { id: string; title: string; percent: number; endsAt: string } | null
+  /**
+   * O'ram (quti) — mahsulot shuncha donadan sotiladi, masalan sirok 30 tadan.
+   * Bazada `price` va `stock` DONA hisobida (Linko shunday beradi); mini
+   * app yuklashda narxni o'ramga ko'paytiradi, qoldiqni o'ramga bo'ladi.
+   * 1 yoki yo'q — oddiy mahsulot.
+   */
+  pack?: number
+  /** Mini app: bitta donaning narxi (o'ramli mahsulotda). */
+  unitPrice?: number
   images: string[]
   /**
    * Siqilgan nusxalar — `images` bilan bir xil tartibda.

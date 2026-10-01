@@ -80,6 +80,9 @@ export const ru: Record<TranslationKey, string> = {
   'product.soldOut': 'Нет в наличии',
   'product.soldOutLong': 'Сейчас нет в наличии',
   'product.lowStock': 'Осталось {count} шт',
+  'product.lowStockPack': 'Осталось {count} уп.',
+  'product.pack': '{count} шт',
+  'product.unitPrice': '1 шт — {price}',
   'product.ratingCount': 'оценок: {count}',
   'product.addedToCart': '{name} добавлен в корзину',
 

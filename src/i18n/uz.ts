@@ -85,6 +85,9 @@ export const uz = {
   'product.soldOut': "Sotuvda yo'q",
   'product.soldOutLong': "Hozircha sotuvda yo'q",
   'product.lowStock': 'Omborda {count} dona qoldi',
+  'product.lowStockPack': 'Omborda {count} quti qoldi',
+  'product.pack': '{count} dona',
+  'product.unitPrice': '1 donasi {price}',
   'product.ratingCount': '{count} ta baho',
   'product.addedToCart': "{name} savatga qo'shildi",
 

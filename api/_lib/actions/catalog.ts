@@ -110,6 +110,9 @@ export async function productSave(body: Record<string, unknown>): Promise<Result
   }
 
   const stock = Math.max(0, Math.round(num(body.stock)))
+  // O'ram — shuncha donadan sotiladi (1 = oddiy). Setda ma'nosi yo'q.
+  const packRaw = Math.floor(num(body.pack, 1))
+  const pack = Number.isFinite(packRaw) && packRaw > 1 ? Math.min(packRaw, 1000) : 1
 
   const data: Record<string, unknown> = {
     id,
@@ -139,6 +142,7 @@ export async function productSave(body: Record<string, unknown>): Promise<Result
     // forma yuborgan bo'lsa: Excel import va boshqalar tarkibni o'chirmasin
     ...('bundle' in body ? { bundle: await readBundle(body.bundle, id) } : {}),
     stock,
+    ...('pack' in body ? { pack } : {}),
     // Qoldiq to'ldirildi — keyingi safar ombor signali yana ishlasin
     lowStockAlerted: stock <= LOW_STOCK_AT,
     updatedAt: new Date().toISOString(),

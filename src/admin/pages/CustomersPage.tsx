@@ -207,7 +207,9 @@ function CustomerDetail({
   const byId = useMemo(() => new Map(products.map((p) => [String(p.id), p])), [products])
   const cart = (customer.cart ?? []).map((row) => {
     const product = byId.get(String(row.key).split('_')[0])
-    return { row, product, sum: (product?.price ?? 0) * (Number(row.quantity) || 0) }
+    // O'ramli mahsulot: savatda quti soni, narx bazada DONADA
+    const pack = product?.pack && product.pack > 1 ? product.pack : 1
+    return { row, product, pack, sum: (product?.price ?? 0) * pack * (Number(row.quantity) || 0) }
   })
   const cartTotal = cart.reduce((s, c) => s + c.sum, 0)
   const sortedOrders = [...orders].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
@@ -253,7 +255,7 @@ function CustomerDetail({
           ) : (
             <>
               <ul className="mt-2 flex flex-col gap-2">
-                {cart.map(({ row, product, sum }) => (
+                {cart.map(({ row, product, pack, sum }) => (
                   <li key={row.key} className="flex items-center gap-3 rounded-xl p-2" style={{ background: 'var(--surface)' }}>
                     <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg" style={{ background: '#fff' }}>
                       {product?.images?.[0] ? <img src={product.thumbs?.[0] || product.images[0]} alt="" className="size-full object-contain" /> : <ShoppingBag size={18} style={{ color: 'var(--faint)' }} />}
@@ -261,7 +263,7 @@ function CustomerDetail({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold">{product?.name ?? 'O‘chirilgan mahsulot'}</span>
                       <span className="block text-xs" style={{ color: 'var(--muted)' }}>
-                        {row.quantity} × {product ? formatPrice(product.price) : '—'}
+                        {row.quantity} × {product ? formatPrice(product.price * pack) : '—'}{pack > 1 ? ` (${pack} dona)` : ''}
                         {[row.size, row.color].filter(Boolean).length ? ` · ${[row.size, row.color].filter(Boolean).join(', ')}` : ''}
                       </span>
                     </span>

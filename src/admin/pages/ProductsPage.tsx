@@ -33,6 +33,8 @@ type Draft = {
   descriptionEn: string
   discount: string
   stock: string
+  /** O'ramda nechta dona (1 — oddiy, donalab). */
+  pack: string
   /** Vazni — bitta qiymat, kartochkada nom tagida ko'rinadi («500 gr»). */
   sizes: string
   color: string
@@ -67,7 +69,7 @@ const EMPTY: Draft = {
   kind: 'product',
   name: '', nameRu: '', nameEn: '', price: '', oldPrice: '', category: '',
   description: '', descriptionRu: '', descriptionEn: '',
-  discount: '', stock: '0', sizes: '', color: '', popular: false, sectionId: '',
+  discount: '', stock: '0', pack: '1', sizes: '', color: '', popular: false, sectionId: '',
   linkoIds: '',
   bundle: [],
   images: [], thumbs: [], optimized: [],
@@ -113,6 +115,7 @@ function toDraft(product: ProductRow, linko: LinkoRow[]): Draft {
     descriptionEn: product.descriptionEn || '',
     discount: product.discount || '',
     stock: String(product.stock ?? 0),
+    pack: String(product.pack && product.pack > 1 ? product.pack : 1),
     sizes: (product.sizes || []).join(', '),
     color: product.color || '',
     popular: product.popular === true,
@@ -185,6 +188,7 @@ export function ProductsPage() {
         descriptionEn: draft.descriptionEn,
         discount: draft.discount,
         stock: Number(draft.stock),
+        pack: draft.kind === 'set' ? 1 : Math.max(1, Number(draft.pack) || 1),
         // Bitta qiymat: «0,5 kg» dagi vergul endi bo'luvchi emas
         sizes: draft.sizes.trim() ? [draft.sizes.trim()] : [],
         color: draft.color,
@@ -366,6 +370,7 @@ export function ProductsPage() {
                   style={{ color: (product.stock ?? 0) > 0 ? 'var(--brand)' : 'var(--danger)' }}
                 >
                   {(product.stock ?? 0) > 0 ? `Omborda: ${product.stock}` : 'Tugagan'}
+                  {product.pack && product.pack > 1 ? ` · ${product.pack} donadan` : ''}
                 </p>
               </div>
 
@@ -624,6 +629,25 @@ function ProductForm({
           </Field>
         )}
 
+        {!isSet && (
+          <Field label="O‘ramda nechta dona — masalan sirok qutisi 30 ta">
+            <input
+              className="adm-input"
+              inputMode="numeric"
+              value={draft.pack}
+              onChange={(e) => set({ pack: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+              placeholder="1"
+            />
+            {Number(draft.pack) > 1 && (
+              <small className="mt-1 block text-xs" style={{ color: 'var(--brand-strong)' }}>
+                Mijoz ko‘radi: <b>{Number(draft.pack)} dona — {formatPrice((Number(draft.price) || 0) * Number(draft.pack))}</b>.
+                {' '}1 ta buyurtmada ombordan {Number(draft.pack)} dona ayiriladi.
+                {' '}Yuqoridagi narx — 1 donasining narxi.
+              </small>
+            )}
+          </Field>
+        )}
+
         {isSet && (
           <BundleField
             value={draft.bundle}
@@ -668,7 +692,7 @@ function ProductForm({
           </select>
         </Field>
 
-        <Field label="Ombordagi qoldiq">
+        <Field label={!isSet && Number(draft.pack) > 1 ? `Ombordagi qoldiq (dona) — ${Math.floor((Number(draft.stock) || 0) / Number(draft.pack))} quti` : 'Ombordagi qoldiq'}>
           <input
             className="adm-input"
             inputMode="numeric"

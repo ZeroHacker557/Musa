@@ -217,7 +217,7 @@ export function DailyPicksPage() {
                     {p && productThumb(p) ? <img src={productThumb(p)} alt="" className="size-full object-contain" /> : <Package size={20} style={{ color: 'var(--faint)' }} />}
                   </span>
                   <span className="line-clamp-2 text-xs font-bold">{p?.name ?? 'O‘chirilgan mahsulot'}</span>
-                  {p && <span className="text-xs font-extrabold" style={{ color: 'var(--brand-strong)' }}>{formatPrice(p.price)}</span>}
+                  {p && <span className="text-xs font-extrabold" style={{ color: 'var(--brand-strong)' }}>{formatPrice(p.price * (p.pack && p.pack > 1 ? p.pack : 1))}{p.pack && p.pack > 1 ? ` · ${p.pack} dona` : ''}</span>}
                 </div>
               )
             })}
@@ -341,7 +341,7 @@ export function DailyPicksPage() {
 /** Rasm chizgich WebP ni o'qimaydi — asosiy rasmi PNG/JPG bo'lmagan mahsulot yaroqsiz. */
 function unusable(p: ProductRow): string {
   if (!(p.price > 0)) return 'narxi yo‘q'
-  if (typeof p.stock === 'number' && p.stock <= 0) return 'omborda yo‘q'
+  if (typeof p.stock === 'number' && p.stock < (p.pack && p.pack > 1 ? p.pack : 1)) return 'omborda yo‘q'
   const url = p.images?.[0] || ''
   if (!url) return 'rasmi yo‘q'
   if (!/\.(png|jpe?g|jfif)$/i.test(decodeURIComponent(url.split('?')[0]))) return 'rasmi PNG/JPG emas'
@@ -392,7 +392,7 @@ function ProductPicker({ products, chosen, onPick, onClose }: {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-bold">{p.name}</span>
                   <span className="block text-xs" style={{ color: why ? 'var(--danger)' : 'var(--muted)' }}>
-                    {formatPrice(p.price)}{why ? ` · ${why}` : typeof p.stock === 'number' ? ` · omborda ${p.stock}` : ''}
+                    {formatPrice(p.price * (p.pack && p.pack > 1 ? p.pack : 1))}{p.pack && p.pack > 1 ? ` · ${p.pack} dona` : ''}{why ? ` · ${why}` : typeof p.stock === 'number' ? ` · omborda ${p.stock}` : ''}
                   </span>
                 </span>
                 {on && <b className="shrink-0 text-xs" style={{ color: 'var(--brand-strong)' }}>✓ {chosen.indexOf(p.docId) + 1}</b>}

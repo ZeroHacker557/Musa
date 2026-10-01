@@ -103,12 +103,17 @@ const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
  * bilan), «Buyurtma berish» tugmasi — aynan shu mahsulot sahifasini ochadi.
  */
 export function productDraft(p: {
-  id: number; name: string; nameRu?: string; price: number; oldPrice?: number
+  id: number; name: string; nameRu?: string; price: number; oldPrice?: number; pack?: number
   images?: string[]; sizes?: string[]; description?: string; descriptionRu?: string
 }, promo?: { title: string; percent: number } | null) {
-  const final = promo ? Math.round((p.price * (100 - promo.percent)) / 100) : p.price
-  const was = promo ? p.price : p.oldPrice && p.oldPrice > p.price ? p.oldPrice : 0
-  const size = p.sizes?.[0] ? String(p.sizes[0]) : ''
+  // O'ram: bazadagi narx DONADA — mijoz qutini oladi (src/lib/firebase.ts bilan bir xil)
+  const pack = p.pack && p.pack > 1 ? Math.floor(p.pack) : 1
+  const price = p.price * pack
+  const oldPrice = p.oldPrice ? p.oldPrice * pack : 0
+  const final = promo ? Math.round((price * (100 - promo.percent)) / 100) : price
+  const was = promo ? price : oldPrice > price ? oldPrice : 0
+  const size = [p.sizes?.[0] ? String(p.sizes[0]) : '', pack > 1 ? `${pack} dona` : ''].filter(Boolean).join(' · ')
+  const sizeRu = [p.sizes?.[0] ? String(p.sizes[0]) : '', pack > 1 ? `${pack} шт` : ''].filter(Boolean).join(' · ')
   const short = (v?: string) => {
     const t = (v ?? '').replace(/\s+/g, ' ').trim()
     return t.length > 180 ? t.slice(0, 177) + '…' : t
@@ -132,7 +137,7 @@ export function productDraft(p: {
     `🆕 <b>${esc(nameRu)}</b>`,
     short(p.descriptionRu) && `\n${esc(short(p.descriptionRu))}`,
     '',
-    size && `⚖️ ${esc(size)}`,
+    sizeRu && `⚖️ ${esc(sizeRu)}`,
     was
       ? `💰 <s>${moneyRu(was)}</s> → <b>${moneyRu(final)}</b>${promo ? ` (−${promo.percent}%)` : ''}`
       : `💰 Цена: <b>${moneyRu(final)}</b>`,

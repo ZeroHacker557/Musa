@@ -116,6 +116,13 @@ async function readSettings() {
 
 // ─── Mahsulot tanlash va rasm ─────────────────────────────────
 
+/** O'ramdagi dona soni (setda — 1). */
+function packOf(p: Record<string, unknown>): number {
+  if (Array.isArray(p.bundle) && p.bundle.length) return 1
+  const n = Math.floor(Number(p.pack))
+  return Number.isFinite(n) && n > 1 ? Math.min(n, 1000) : 1
+}
+
 type Picked = CardProduct & { id: string; nameRu: string }
 
 function shuffle<T>(list: T[]): T[] {
@@ -145,17 +152,27 @@ async function pickProducts(exclude: string[], chosen: string[] = []): Promise<P
   const eligible = productSnap.docs.filter((d) => {
     const p = d.data()
     const image = Array.isArray(p.images) ? String(p.images[0] || '') : ''
-    return Number(p.price) > 0 && (typeof p.stock !== 'number' || p.stock > 0) && /^https:\/\//.test(image) && String(p.name || '').trim()
+    return Number(p.price) > 0 && (typeof p.stock !== 'number' || p.stock >= packOf(p)) && /^https:\/\//.test(image) && String(p.name || '').trim()
   })
   const toPicked = async (doc: (typeof eligible)[number]): Promise<Picked | null> => {
     const p = doc.data()
     const image = await imageData(String(p.images[0]))
     if (!image || image.startsWith('data:image/webp')) return null
-    const base = Number(p.price)
+    // O'ram: narx bazada DONADA — mijoz qutini ko'radi (api/orders.ts bilan bir xil)
+    const pack = packOf(p)
+    const base = Number(p.price) * pack
     const promo = bestPromotion(promotions, { id: doc.id, category: String(p.category || ''), sectionId: p.sectionId ? String(p.sectionId) : null }, now)
     const price = promo ? promoPrice(base, promo.percent) : base
-    const old = promo ? base : Number(p.oldPrice) > base ? Number(p.oldPrice) : null
-    return { id: doc.id, name: String(p.name).trim(), nameRu: String(p.nameRu || '').trim(), price, oldPrice: old, image }
+    const old = promo ? base : Number(p.oldPrice) * pack > base ? Number(p.oldPrice) * pack : null
+    const suffix = (ru: boolean) => (pack > 1 ? ` (${pack} ${ru ? 'шт' : 'dona'})` : '')
+    return {
+      id: doc.id,
+      name: String(p.name).trim() + suffix(false),
+      nameRu: p.nameRu ? String(p.nameRu).trim() + suffix(true) : '',
+      price,
+      oldPrice: old,
+      image,
+    }
   }
 
   // 1) Admin tanlaganlari — tartibi bilan; yaroqsizi aniq xato bilan

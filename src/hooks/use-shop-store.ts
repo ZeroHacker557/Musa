@@ -176,7 +176,7 @@ export function useShopStore() {
       const bundleItems = p.bundle
         .map((line) => ({ product: byId.get(String(line.productId)), quantity: line.quantity }))
         .filter((line): line is { product: Product; quantity: number } => !!line.product)
-      const bundleValue = bundleItems.reduce((sum, line) => sum + line.product.price * line.quantity, 0)
+      const bundleValue = bundleItems.reduce((sum, line) => sum + (line.product.price / (line.product.pack || 1)) * line.quantity, 0)
       return { ...p, bundleItems, bundleValue }
     })
 

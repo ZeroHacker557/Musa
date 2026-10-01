@@ -100,6 +100,7 @@ export function CartDrawer({
                     )}
                     <p className="mt-1 text-sm font-extrabold" style={{ color: 'var(--ink)' }}>
                       {formatPrice(product.price)}
+                      {product.pack ? <span className="font-bold" style={{ color: 'var(--muted)' }}> · {t('product.pack', { count: product.pack })}</span> : null}
                     </p>
 
                     <div className="mt-3 flex items-center justify-between">

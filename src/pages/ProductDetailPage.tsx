@@ -232,6 +232,11 @@ export function ProductDetailPage({
           <strong className="text-3xl" style={{ color: 'var(--ink)' }}>{formatPrice(product.price)}</strong>
           {product.oldPrice && <del style={{ color: 'var(--faint)' }}>{formatPrice(product.oldPrice)}</del>}
         </div>
+        {product.pack && (
+          <p className="mt-1 text-sm font-bold" style={{ color: 'var(--muted)' }}>
+            {t('product.pack', { count: product.pack })} · {t('product.unitPrice', { price: formatPrice(Math.round(product.price / product.pack)) })}
+          </p>
+        )}
         {product.promotion && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <PromoTimer endsAt={product.promotion.endsAt} />
@@ -282,7 +287,7 @@ export function ProductDetailPage({
             className="mt-3 inline-block rounded-xl px-3 py-2 text-sm font-bold"
             style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}
           >
-            {t('product.lowStock', { count: stock! })}
+            {t(product.pack ? 'product.lowStockPack' : 'product.lowStock', { count: stock! })}
           </p>
         )}
 

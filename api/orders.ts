@@ -104,6 +104,13 @@ function readOrder(body: unknown): IncomingOrder {
  * olishini aytadi — narx, chegirma va jami Firestore'dagi haqiqiy
  * qiymatlardan qayta hisoblanadi (F-04, F-18).
  */
+/** O'ramdagi dona soni (setda — 1). Mini app: src/lib/firebase.ts → packOf. */
+function packOf(data: FirebaseFirestore.DocumentData): number {
+  if (Array.isArray(data.bundle) && data.bundle.length) return 1
+  const n = Math.floor(Number(data.pack))
+  return Number.isFinite(n) && n > 1 ? Math.min(n, 1000) : 1
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requirePost(req, res)) return
 
@@ -232,7 +239,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!snap.exists) throw new Error('PRODUCT_GONE')
         const data = snap.data() as FirebaseFirestore.DocumentData
 
-        const basePrice = Number(data.price)
+        // O'ram: narx va qoldiq bazada DONADA, mijoz o'ramni oladi (src/lib/firebase.ts bilan bir xil)
+        const pack = packOf(data)
+        const basePrice = Number(data.price) * pack
         if (!Number.isFinite(basePrice) || basePrice <= 0) throw new Error('PRODUCT_PRICE')
 
         const promo = bestPromotion(
@@ -245,7 +254,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const key = String(item.productId)
         if (!seenProducts.has(key) && typeof data.stock === 'number') {
           seenProducts.add(key)
-          const requested = requestedByProduct.get(key) || 0
+          const requested = (requestedByProduct.get(key) || 0) * pack
           if (data.stock < requested) {
             throw new Error(data.stock <= 0 ? 'OUT_OF_STOCK' : 'NOT_ENOUGH_STOCK')
           }
@@ -259,8 +268,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return {
           product: {
             id: Number(data.id ?? snap.id),
-            name: String(data.name || ''),
+            // O'ramli mahsulot nomida dona soni — chek, xabar, kuryer, nakladnoyda shu ko'rinadi
+            name: pack > 1 ? `${String(data.name || '')} (${pack} dona)` : String(data.name || ''),
             price,
+            ...(pack > 1 ? { pack } : {}),
             // Aksiya bo'lsa — asl narx va qaysi aksiya, hisobot va chek uchun
             ...(promo ? { originalPrice: basePrice, promotion: { id: promo.id, title: promo.title, percent: promo.percent } } : {}),
             images: Array.isArray(data.images) ? data.images : [],
