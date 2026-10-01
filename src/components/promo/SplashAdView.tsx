@@ -93,9 +93,14 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
   const close = useCallback(() => {
     if (leaving) return
     setLeaving(true)
-    // Darhol — bosish hodisasi ichida (kirish ovozi shunda bloklanmaydi)
-    onLeave?.()
+    // Avval yopilish — keyin nima bo'lsa ham reklama ekranda qotib qolmasin
     window.setTimeout(onClose, preview ? 0 : EXIT_MS)
+    // Darhol — bosish hodisasi ichida (kirish ovozi shunda bloklanmaydi)
+    try {
+      onLeave?.()
+    } catch {
+      // ovoz — bezak; xatosi reklamani to'xtatmaydi
+    }
   }, [leaving, onClose, onLeave, preview])
 
   const goTo = useCallback((target: number) => {

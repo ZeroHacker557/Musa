@@ -6,7 +6,7 @@ import { CartDrawer } from './components/cart/CartDrawer'
 import { CartPrompt } from './components/cart/CartPrompt'
 import { AddressPrompt } from './components/address/AddressPrompt'
 import { SplashAd } from './components/promo/SplashAd'
-import { playWelcomeVoice, prepareWelcomeVoice } from './utils/welcome-voice'
+import { playWelcomeVoice, prepareWelcomeVoice, watchWelcomeReturns } from './utils/welcome-voice'
 import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
 import { DeliveryTracker } from './components/order/DeliveryTracker'
@@ -136,12 +136,17 @@ function App() {
   // Ochilish reklamasi ko'rinib turganda manzil taklifi kutib turadi
   const [adVisible, setAdVisible] = useState(false)
   /*
-   * Kirish ovozi: intro (ochilish reklamasi) tugagach, asosiy sahifada
-   * bir marta. Boshqa sahifaga to'g'ridan-to'g'ri ochilgan bo'lsa — yo'q.
+   * Kirish ovozi: har kirishda — intro (ochilish reklamasi) tugagach va
+   * mini app qayta ochilganda, asosiy sahifada. Boshqa sahifaga
+   * to'g'ridan-to'g'ri ochilgan bo'lsa — yo'q.
    */
   const pageRef = useRef(shop.page)
   useEffect(() => { pageRef.current = shop.page }, [shop.page])
-  useEffect(() => prepareWelcomeVoice(), [])
+  useEffect(() => {
+    prepareWelcomeVoice()
+    // Mini app fonga ketib qayta ochilganda ham — har kirishda
+    return watchWelcomeReturns(() => pageRef.current === 'home')
+  }, [])
   const introDone = useCallback(() => {
     if (pageRef.current === 'home') playWelcomeVoice()
   }, [])

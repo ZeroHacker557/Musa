@@ -68,7 +68,9 @@ export function SplashAd({ products, sections, onOpenCategory, onOpenProduct, on
       if (cancelled) return
       // Reklama bu safar chiqmaydi — intro shu bilan tugadi
       if (!loaded || !shouldShowAd(loaded) || !(await preloadFirst(loaded))) {
-        if (!cancelled) finished.current?.()
+        if (!cancelled) {
+          try { finished.current?.() } catch { /* ovoz — bezak */ }
+        }
         return
       }
       if (cancelled) return
