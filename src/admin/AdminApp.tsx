@@ -27,6 +27,7 @@ import { ChannelPage } from './pages/ChannelPage'
 import { HomeBannersPage } from './pages/HomeBannersPage'
 import { SourcesPage } from './pages/SourcesPage'
 import { DailyPicksPage } from './pages/DailyPicksPage'
+import { VoicesPage } from './pages/VoicesPage'
 import { AuditPage } from './pages/AuditPage'
 import { BackupPage } from './pages/BackupPage'
 import { SupportPage } from './pages/SupportPage'
@@ -250,6 +251,7 @@ function AdminPanel({
       {route === 'channel' && (can(staff.role, 'admin') ? <ChannelPage /> : <NoAccess />)}
       {route === 'daily' && (can(staff.role, 'admin') ? <DailyPicksPage /> : <NoAccess />)}
       {route === 'banners' && (can(staff.role, 'admin') ? <HomeBannersPage /> : <NoAccess />)}
+      {route === 'voices' && (can(staff.role, 'admin') ? <VoicesPage /> : <NoAccess />)}
       {route === 'sources' && (can(staff.role, 'admin') ? <SourcesPage /> : <NoAccess />)}
       {route === 'audit' && (staff.role === 'owner' ? <AuditPage /> : <NoAccess />)}
       {route === 'backups' && (staff.role === 'owner' ? <BackupPage /> : <NoAccess />)}

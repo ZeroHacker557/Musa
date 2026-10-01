@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { db } from './auth'
 import { readBanners, type HomeBanner } from '../../config/banners'
 import { DEFAULT_CONTACT, readContact, type ContactInfo } from '../../config/contact'
+import { readVoices, type VoiceItem } from '../../config/voices'
 import type { Category, Order, Product, PromoCode, Section } from '../../types/domain'
 import { readPromotion, type Promotion } from '../../utils/promotions'
 import { tashkentToday } from '../../utils/order-label'
@@ -760,6 +761,21 @@ export function useOrderHistory(orderId: string | null) {
 }
 
 /** Bosh sahifa bannerlari (settings/home) — jonli, hammasi (o'chiqlari ham). */
+/** Kirish ovozlari — `settings/voices`. `exists: false` — hali saqlanmagan (ilovada standart ovoz). */
+export function useVoices() {
+  const [state, setState] = useState<{ items: VoiceItem[]; exists: boolean; loading: boolean }>({ items: [], exists: false, loading: true })
+  useEffect(
+    () =>
+      onSnapshot(
+        doc(db, 'settings', 'voices'),
+        (snap) => setState({ items: readVoices(snap.data()?.items), exists: snap.exists(), loading: false }),
+        () => setState((s) => ({ ...s, loading: false })),
+      ),
+    [],
+  )
+  return state
+}
+
 export function useHomeBanners() {
   const [banners, setBanners] = useState<HomeBanner[]>([])
   const [loading, setLoading] = useState(true)

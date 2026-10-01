@@ -49,6 +49,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   'promotion.delete': 'Aksiya o‘chirildi',
   'ad.save': 'Reklama banneri',
   'home.banners': 'Bosh sahifa bannerlari',
+  'voices.upload': 'Kirish ovozi yuklandi',
+  'voices.save': 'Kirish ovozlari saqlandi',
   'category.save': 'Kategoriya saqlandi',
   'category.delete': 'Kategoriya o‘chirildi',
   'promo.save': 'Promokod saqlandi',
@@ -96,7 +98,7 @@ export const AUDIT_LABELS: Record<string, string> = {
 /** Panel filtri: guruh → amal nomlari yoki prefikslari. */
 export const AUDIT_GROUPS: Record<string, string[]> = {
   orders: ['order.status', 'order.assign', 'order.linkoPush', 'courier.', 'take', 'deliver', 'arrived', 'problem', 'shift', 'cash.'],
-  catalog: ['product.', 'category.', 'section.', 'promotion.', 'promo.', 'ad.', 'home.', 'catalog.', 'order.sort'],
+  catalog: ['product.', 'category.', 'section.', 'promotion.', 'promo.', 'ad.', 'home.', 'voices.', 'catalog.', 'order.sort'],
   messages: ['broadcast.', 'channel.', 'template.', 'schedule.', 'support.', 'daily.'],
   staff: ['staff.', 'session.'],
   system: ['settings.', 'payment.', 'linko.', 'backup.'],

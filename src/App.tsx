@@ -6,7 +6,7 @@ import { CartDrawer } from './components/cart/CartDrawer'
 import { CartPrompt } from './components/cart/CartPrompt'
 import { AddressPrompt } from './components/address/AddressPrompt'
 import { SplashAd } from './components/promo/SplashAd'
-import { playWelcomeVoice, prepareWelcomeVoice, watchWelcomeReturns } from './utils/welcome-voice'
+import { playWelcomeVoice, watchWelcomeReturns } from './utils/welcome-voice'
 import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
 import { DeliveryTracker } from './components/order/DeliveryTracker'
@@ -142,11 +142,9 @@ function App() {
    */
   const pageRef = useRef(shop.page)
   useEffect(() => { pageRef.current = shop.page }, [shop.page])
-  useEffect(() => {
-    prepareWelcomeVoice()
-    // Mini app fonga ketib qayta ochilganda ham — har kirishda
-    return watchWelcomeReturns(() => pageRef.current === 'home')
-  }, [])
+  // Qaysi ovoz — sozlamadan (use-shop-store → subscribeToVoices). Fonga ketib
+  // qayta ochilganda ham — «har ochilganda» rejimida
+  useEffect(() => watchWelcomeReturns(() => pageRef.current === 'home'), [])
   const introDone = useCallback(() => {
     if (pageRef.current === 'home') playWelcomeVoice()
   }, [])

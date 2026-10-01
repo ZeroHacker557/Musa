@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { DEFAULT_CONTACT, readContact, type ContactInfo } from '../config/contact'
+import { readVoices, type VoiceItem } from '../config/voices'
 import { getFirestore, collection, onSnapshot, query, where, doc, updateDoc, writeBatch, getDocs, getDoc } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 import { firebaseConfig } from '../config/firebase'
@@ -247,6 +248,15 @@ export function subscribeToContact(callback: (contact: ContactInfo) => void) {
     doc(db, 'settings', 'contact'),
     (snap) => callback(readContact(snap.data())),
     () => callback(DEFAULT_CONTACT),
+  )
+}
+
+/** Kirish ovozlari (admin → «Kirish ovozlari»). Hujjat yo'q yoki o'qib bo'lmadi — null (standart ovoz). */
+export function subscribeToVoices(callback: (items: VoiceItem[] | null) => void) {
+  return onSnapshot(
+    doc(db, 'settings', 'voices'),
+    (snap) => callback(snap.exists() ? readVoices(snap.data()?.items) : null),
+    () => callback(null),
   )
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { withMainLines } from '../config/categories'
-import { subscribeToCategories, subscribeToHomeBanners, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead, markOrderNotificationsAsRead, updateUserProfile } from '../lib/firebase'
+import { subscribeToVoices, subscribeToCategories, subscribeToHomeBanners, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead, markOrderNotificationsAsRead, updateUserProfile } from '../lib/firebase'
+import { setWelcomeVoices } from '../utils/welcome-voice'
 import { ensureSignedIn, onAuthChanged, auth } from '../lib/auth'
 import { apiPost } from '../lib/api'
 import { apiErrorText } from '../utils/api-error'
@@ -381,6 +382,7 @@ export function useShopStore() {
     let unsubProfile: (() => void) | undefined
     let unsubNotifications: (() => void) | undefined
     let unsubBanners: (() => void) | undefined
+    let unsubVoices: (() => void) | undefined
 
     const stopAll = () => {
       unsubOrders?.()
@@ -388,6 +390,8 @@ export function useShopStore() {
       unsubNotifications?.()
       unsubBanners?.()
       unsubBanners = undefined
+      unsubVoices?.()
+      unsubVoices = undefined
       unsubOrders = undefined
       unsubProfile = undefined
       unsubNotifications = undefined
@@ -435,6 +439,8 @@ export function useShopStore() {
         }
       })
       unsubBanners = subscribeToHomeBanners(setHomeBanners)
+      // Kirish ovozi — admin → «Kirish ovozlari» (intro tugagach chalinadi)
+      unsubVoices = subscribeToVoices(setWelcomeVoices)
       unsubNotifications = subscribeToUserNotifications(userId, (notifs) => {
         setNotifications(notifs)
         setUnreadNotificationsCount(notifs.filter((n: Notification) => !n.read).length)
