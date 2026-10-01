@@ -176,7 +176,14 @@ export function CheckoutPage({
    * belgilash ortiqcha ish edi.
    */
   useEffect(() => {
-    if (addresses.length === 0) return
+    // Saqlangan manzil yo'q — formada eski matn qolmasin (manzilsiz buyurtma ketib qolardi)
+    if (addresses.length === 0) {
+      if (orderForm.address || orderForm.location) {
+        onUpdateForm('address', '')
+        onUpdateForm('location', null)
+      }
+      return
+    }
     const fresh = knownAddressIds ? addresses.find((a) => !knownAddressIds!.has(a.id)) : undefined
     knownAddressIds = new Set(addresses.map((a) => a.id))
     const current =
@@ -189,7 +196,7 @@ export function CheckoutPage({
       pick.location?.lng === orderForm.location?.lng
     if (!sameSpot) chooseAddress(pick)
     else pickedAddressId = pick.id
-  }, [addresses, lastUsedAddress, orderForm.address, orderForm.location, chooseAddress])
+  }, [addresses, lastUsedAddress, orderForm.address, orderForm.location, chooseAddress, onUpdateForm])
 
   const selectedAddressId = addresses.find((a) => a.address === orderForm.address)?.id ?? null
 
@@ -250,7 +257,9 @@ export function CheckoutPage({
     }
   }, [payment, onlineOn, activeTile, payTiles, orderForm.paymentMethod, onUpdateForm])
 
-  const isValid = Boolean(orderForm.name.trim() && orderForm.phone.trim() && orderForm.address.trim())
+  // Manzil — faqat saqlangan manzillardan biri haqiqatan tanlangan bo'lsa (matnning o'zi yetmaydi)
+  const addressOk = selectedAddressId !== null && Boolean(orderForm.address.trim())
+  const isValid = Boolean(orderForm.name.trim() && orderForm.phone.trim() && addressOk)
   const canSubmit = isValid && !isSubmitting && !belowMin && (!activeTile?.card || cardOk)
 
   /*
@@ -274,7 +283,7 @@ export function CheckoutPage({
   const stillMissing = missing.filter((key) =>
     key === 'name' ? !orderForm.name.trim()
       : key === 'phone' ? !orderForm.phone.trim()
-        : key === 'address' ? !orderForm.address.trim()
+        : key === 'address' ? !addressOk
           : Boolean(activeTile?.card) && !cardOk)
 
   /** To'ldirilmaganini ko'rsatadi. `true` — hammasi joyida. */
@@ -282,7 +291,7 @@ export function CheckoutPage({
     const list: Missing[] = []
     if (!orderForm.name.trim()) list.push('name')
     if (!orderForm.phone.trim()) list.push('phone')
-    if (!orderForm.address.trim()) list.push('address')
+    if (!addressOk) list.push('address')
     if (activeTile?.card && !cardOk) list.push('card')
     setMissing(list)
     if (!list.length) return true

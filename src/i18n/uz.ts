@@ -420,6 +420,7 @@ export const uz = {
    * ko'rinadi, server esa faqat sababni aytadi.
    */
   'error.PRODUCT_GONE': 'Savatdagi mahsulotlardan biri endi mavjud emas',
+  'error.ADDRESS_REQUIRED': 'Yetkazish manzilini tanlang yoki qo‘shing',
   'error.PRODUCT_PRICE': "Mahsulot narxi noto'g'ri, adminga murojaat qiling",
   'error.OUT_OF_STOCK': 'Savatdagi mahsulotlardan biri sotuvda qolmadi',
   'error.NOT_ENOUGH_STOCK': "Omborda yetarli miqdor yo'q — savatdagi sonni kamaytiring",

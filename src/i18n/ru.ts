@@ -409,6 +409,7 @@ export const ru: Record<TranslationKey, string> = {
 
   // Причины с сервера — ключ совпадает с кодом из `/api/*`
   'error.PRODUCT_GONE': 'Одного из товаров в корзине больше нет',
+  'error.ADDRESS_REQUIRED': 'Выберите или добавьте адрес доставки',
   'error.PRODUCT_PRICE': 'Неверная цена товара, свяжитесь с админом',
   'error.OUT_OF_STOCK': 'Один из товаров в корзине закончился',
   'error.NOT_ENOUGH_STOCK': 'На складе не хватает — уменьшите количество в корзине',

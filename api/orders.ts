@@ -174,6 +174,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const userRef = db.collection('users').doc(uid)
       const userSnap = await tx.get(userRef)
 
+      // Manzil — mijozning SAQLANGAN manzillaridan biri bo'lishi shart (ilovada tanlanadi).
+      // Formada eski matn qolib, manzil tanlanmasdan buyurtma ketib qolmasin.
+      const savedAddresses = userSnap.data()?.addresses
+      const addressSaved = Array.isArray(savedAddresses) &&
+        savedAddresses.some((a: { address?: unknown } | null) => String(a?.address ?? '').trim().slice(0, 300) === order.customer.address)
+      if (!addressSaved) throw new Error('ADDRESS_REQUIRED')
+
       const deliveryRef = db.collection('settings').doc('delivery')
       const deliverySnap = await tx.get(deliveryRef)
 
@@ -500,6 +507,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const code = raw
     const messages: Record<string, string> = {
       PRODUCT_GONE: 'Savatdagi mahsulotlardan biri endi mavjud emas',
+      ADDRESS_REQUIRED: 'Yetkazish manzilini tanlang yoki qo‘shing',
       PRODUCT_PRICE: "Mahsulot narxi noto'g'ri, adminga murojaat qiling",
       PROMO_NOT_FOUND: 'Bunday promokod topilmadi',
       PROMO_INACTIVE: 'Promokod faol emas',
