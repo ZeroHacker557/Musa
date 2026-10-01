@@ -36,6 +36,12 @@ export type DailySettings = {
   textRu: string
   button: string
   buttonRu: string
+  /**
+   * Admin tanlagan mahsulotlar (4 tagacha) — keyingi BITTA yuborishda
+   * ishlatiladi, keyin tozalanadi va yana tasodifiy tanlanadi.
+   * 4 tadan kam bo'lsa qolgani tasodifiy to'ldiriladi.
+   */
+  chosen: string[]
 }
 
 type DailyState = {
@@ -58,6 +64,7 @@ export const DAILY_DEFAULTS: DailySettings = {
   textRu: '❄️ <b>Выбор дня</b>\n\nЗакажите сегодня — доставим замороженным прямо к двери! 👇',
   button: '🛒 Katalogni ochish',
   buttonRu: '🛒 Открыть каталог',
+  chosen: [],
 }
 
 const str = (value: unknown, max: number) => (typeof value === 'string' ? value.trim().slice(0, max) : '')
@@ -76,6 +83,9 @@ export function readDaily(raw: unknown): DailySettings & DailyState {
     textRu: str(d.textRu, 700),
     button: str(d.button, 40) || DAILY_DEFAULTS.button,
     buttonRu: str(d.buttonRu, 40),
+    chosen: Array.isArray(d.chosen)
+      ? [...new Set(d.chosen.map((v) => String(v).trim()).filter((v) => /^[\w-]{1,60}$/.test(v)))].slice(0, 4)
+      : [],
     lastDay: typeof d.lastDay === 'string' ? d.lastDay : null,
     lastProducts: Array.isArray(d.lastProducts) ? d.lastProducts.map(String) : [],
     lastJobId: typeof d.lastJobId === 'string' ? d.lastJobId : null,
@@ -94,7 +104,7 @@ function readDraft(body: Record<string, unknown>, base: DailySettings): DailySet
   return {
     enabled: draft.enabled, time: draft.time, customers: draft.customers, channel: draft.channel,
     title: draft.title, accent: draft.accent, text: draft.text, textRu: draft.textRu,
-    button: draft.button, buttonRu: draft.buttonRu,
+    button: draft.button, buttonRu: draft.buttonRu, chosen: draft.chosen,
   }
 }
 
@@ -123,7 +133,7 @@ function shuffle<T>(list: T[]): T[] {
  * bo‘lishi kerak — WebP ni rasm chizgich o‘qiy olmaydi, bunday mahsulot
  * o‘tkazib yuboriladi.
  */
-async function pickProducts(exclude: string[]): Promise<Picked[]> {
+async function pickProducts(exclude: string[], chosen: string[] = []): Promise<Picked[]> {
   const db = await adminDb()
   const [productSnap, promoSnap] = await Promise.all([
     db.collection('products').get(),
@@ -137,23 +147,39 @@ async function pickProducts(exclude: string[]): Promise<Picked[]> {
     const image = Array.isArray(p.images) ? String(p.images[0] || '') : ''
     return Number(p.price) > 0 && (typeof p.stock !== 'number' || p.stock > 0) && /^https:\/\//.test(image) && String(p.name || '').trim()
   })
-  // Avval kechagida bo'lmaganlar, yetmasa — kechagilar ham
-  const pool = [
-    ...shuffle(eligible.filter((d) => !exclude.includes(d.id))),
-    ...shuffle(eligible.filter((d) => exclude.includes(d.id))),
-  ]
-
-  const picked: Picked[] = []
-  for (const doc of pool.slice(0, 16)) {
-    if (picked.length === 4) break
+  const toPicked = async (doc: (typeof eligible)[number]): Promise<Picked | null> => {
     const p = doc.data()
     const image = await imageData(String(p.images[0]))
-    if (!image || image.startsWith('data:image/webp')) continue
+    if (!image || image.startsWith('data:image/webp')) return null
     const base = Number(p.price)
     const promo = bestPromotion(promotions, { id: doc.id, category: String(p.category || ''), sectionId: p.sectionId ? String(p.sectionId) : null }, now)
     const price = promo ? promoPrice(base, promo.percent) : base
     const old = promo ? base : Number(p.oldPrice) > base ? Number(p.oldPrice) : null
-    picked.push({ id: doc.id, name: String(p.name).trim(), nameRu: String(p.nameRu || '').trim(), price, oldPrice: old, image })
+    return { id: doc.id, name: String(p.name).trim(), nameRu: String(p.nameRu || '').trim(), price, oldPrice: old, image }
+  }
+
+  // 1) Admin tanlaganlari — tartibi bilan; yaroqsizi aniq xato bilan
+  const picked: Picked[] = []
+  for (const id of chosen.slice(0, 4)) {
+    const doc = productSnap.docs.find((d) => d.id === id)
+    const name = String(doc?.data().name || id)
+    if (!doc) throw new Error(`Tanlangan mahsulot topilmadi (${id})`)
+    if (!eligible.includes(doc)) throw new Error(`«${name}» — narxi yo‘q, omborda tugagan yoki rasmi yo‘q`)
+    const item = await toPicked(doc)
+    if (!item) throw new Error(`«${name}» rasmi PNG/JPG emas — boshqa mahsulot tanlang`)
+    picked.push(item)
+  }
+
+  // 2) Qolgani tasodifiy: avval kechagida bo'lmaganlar, yetmasa — kechagilar ham
+  const rest = eligible.filter((d) => !chosen.includes(d.id))
+  const pool = [
+    ...shuffle(rest.filter((d) => !exclude.includes(d.id))),
+    ...shuffle(rest.filter((d) => exclude.includes(d.id))),
+  ]
+  for (const doc of pool.slice(0, 16)) {
+    if (picked.length === 4) break
+    const item = await toPicked(doc)
+    if (item) picked.push(item)
   }
   if (picked.length < 4) throw new Error('Rasmli (PNG/JPG) va omborda bor mahsulot yetarli emas')
   return picked
@@ -177,7 +203,7 @@ function caption(intro: string, products: Picked[], ru: boolean): string {
 }
 
 async function build(settings: DailySettings, exclude: string[]) {
-  const [products, note] = await Promise.all([pickProducts(exclude), deliveryNote()])
+  const [products, note] = await Promise.all([pickProducts(exclude, settings.chosen), deliveryNote()])
   const bot = String(process.env.BOT_USERNAME || 'musauz_bot').replace(/^@/, '')
   const png = await renderCard({
     products,
@@ -246,6 +272,8 @@ async function enqueue(settings: DailySettings, built: Awaited<ReturnType<typeof
     lastImage: imageUrl,
     lastRunAt: now,
     lastError: null,
+    // Tanlov bir martalik — keyingi kun yana tasodifiy
+    chosen: [],
   }, { merge: true })
   return job.id
 }

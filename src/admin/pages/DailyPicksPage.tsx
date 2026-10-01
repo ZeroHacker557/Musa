@@ -1,6 +1,9 @@
-import { CalendarClock, Eye, Loader2, Radio, Send, Smartphone, Sparkles, TriangleAlert, Users } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { CalendarClock, Eye, Loader2, Package, Plus, Radio, Search, Send, Shuffle, Smartphone, Sparkles, TriangleAlert, Users, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { apiPost } from '../lib/api'
+import { useProducts, type ProductRow } from '../lib/live'
+import { formatPrice } from '../../data'
+import { productThumb } from '../../utils/product-image'
 import { ConfirmDialog, Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
 
@@ -21,6 +24,7 @@ type Settings = {
   textRu: string
   button: string
   buttonRu: string
+  chosen: string[]
 }
 type State = Settings & {
   lastDay: string | null
@@ -51,6 +55,7 @@ const JOB_STATUS: Record<string, string> = {
 const pickSettings = (s: State): Settings => ({
   enabled: s.enabled, time: s.time, customers: s.customers, channel: s.channel,
   title: s.title, accent: s.accent, text: s.text, textRu: s.textRu, button: s.button, buttonRu: s.buttonRu,
+  chosen: s.chosen ?? [],
 })
 
 /** «2026-10-01» → «01.10.2026». */
@@ -63,6 +68,9 @@ export function DailyPicksPage() {
   const [busy, setBusy] = useState<'' | 'save' | 'preview' | 'test' | 'send'>('')
   const [preview, setPreview] = useState<Preview | null>(null)
   const [confirmSend, setConfirmSend] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const { products } = useProducts()
+  const byDocId = useMemo(() => new Map(products.map((p) => [p.docId, p])), [products])
 
   const load = useCallback(async () => {
     try {
@@ -162,6 +170,60 @@ export function DailyPicksPage() {
           />
         </section>
 
+        {/* ── Mahsulotlar ── */}
+        <section className="adm-card grid gap-3 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-extrabold"><Package size={16} /> Mahsulotlar</h3>
+            {draft.chosen.length > 0 && (
+              <button className="adm-btn adm-btn--ghost ml-auto" onClick={() => set({ chosen: [] })}>
+                <Shuffle size={15} /> Tasodifiyga qaytarish
+              </button>
+            )}
+          </div>
+          <p className="-mt-1 text-xs" style={{ color: 'var(--muted)' }}>
+            {draft.chosen.length
+              ? `${draft.chosen.length} ta tanlandi${draft.chosen.length < 4 ? ` — qolgan ${4 - draft.chosen.length} tasi tasodifiy` : ''}. Tanlov keyingi bitta yuborishda ishlatiladi, keyin yana tasodifiy.`
+              : 'Har kuni 4 tasi tasodifiy tanlanadi. Xohlasangiz o‘zingiz tanlang — keyingi yuborishda shular chiqadi.'}
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => {
+              const id = draft.chosen[i]
+              const p = id ? byDocId.get(id) : undefined
+              if (!id) {
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className="grid min-h-36 place-items-center rounded-xl border-2 border-dashed p-2 text-xs font-bold"
+                    style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
+                    onClick={() => setPicking(true)}
+                  >
+                    <span className="grid place-items-center gap-1"><Plus size={18} /> {draft.chosen.length ? 'Qo‘shish' : 'Tasodifiy'}</span>
+                  </button>
+                )
+              }
+              return (
+                <div key={id} className="relative grid gap-1 rounded-xl border p-2" style={{ borderColor: 'var(--brand)', background: 'var(--brand-soft)' }}>
+                  <button
+                    type="button"
+                    aria-label="Olib tashlash"
+                    className="absolute right-1 top-1 grid size-6 place-items-center rounded-full"
+                    style={{ background: 'var(--surface)', color: 'var(--muted)' }}
+                    onClick={() => set({ chosen: draft.chosen.filter((x) => x !== id) })}
+                  >
+                    <X size={14} />
+                  </button>
+                  <span className="grid h-20 place-items-center overflow-hidden rounded-lg" style={{ background: '#fff' }}>
+                    {p && productThumb(p) ? <img src={productThumb(p)} alt="" className="size-full object-contain" /> : <Package size={20} style={{ color: 'var(--faint)' }} />}
+                  </span>
+                  <span className="line-clamp-2 text-xs font-bold">{p?.name ?? 'O‘chirilgan mahsulot'}</span>
+                  {p && <span className="text-xs font-extrabold" style={{ color: 'var(--brand-strong)' }}>{formatPrice(p.price)}</span>}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
         {/* ── Matnlar ── */}
         <section className="adm-card grid gap-3 p-4">
           <h3 className="flex items-center gap-2 text-sm font-extrabold"><Sparkles size={16} /> Rasmdagi sarlavha</h3>
@@ -241,6 +303,19 @@ export function DailyPicksPage() {
         </Modal>
       )}
 
+      {picking && (
+        <ProductPicker
+          products={products}
+          chosen={draft.chosen}
+          onPick={(id) => {
+            const chosen = draft.chosen.includes(id) ? draft.chosen.filter((x) => x !== id) : [...draft.chosen, id].slice(0, 4)
+            set({ chosen })
+            if (chosen.length >= 4) setPicking(false)
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
+
       {confirmSend && (
         <ConfirmDialog
           title="Hozir hammaga yuborilsinmi?"
@@ -251,6 +326,8 @@ export function DailyPicksPage() {
             setConfirmSend(false)
             void run<Info & { queued: string }>('send', 'daily.send', (next) => {
               setInfo(next)
+              // Tanlov bir martalik — server tozaladi
+              setDraft((d) => (d ? { ...d, chosen: [] } : d))
               show('Navbatga qo‘yildi — bir daqiqa ichida yuboriladi')
             })
           }}
@@ -258,6 +335,75 @@ export function DailyPicksPage() {
       )}
       {toast}
     </div>
+  )
+}
+
+/** Rasm chizgich WebP ni o'qimaydi — asosiy rasmi PNG/JPG bo'lmagan mahsulot yaroqsiz. */
+function unusable(p: ProductRow): string {
+  if (!(p.price > 0)) return 'narxi yo‘q'
+  if (typeof p.stock === 'number' && p.stock <= 0) return 'omborda yo‘q'
+  const url = p.images?.[0] || ''
+  if (!url) return 'rasmi yo‘q'
+  if (!/\.(png|jpe?g|jfif)$/i.test(decodeURIComponent(url.split('?')[0]))) return 'rasmi PNG/JPG emas'
+  return ''
+}
+
+function ProductPicker({ products, chosen, onPick, onClose }: {
+  products: ProductRow[]
+  chosen: string[]
+  onPick: (docId: string) => void
+  onClose: () => void
+}) {
+  const [query, setQuery] = useState('')
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    return products.filter((p) => !needle || p.name.toLowerCase().includes(needle) || String(p.id).includes(needle))
+  }, [products, query])
+  const full = chosen.length >= 4
+
+  return (
+    <Modal title={`Mahsulot tanlash · ${chosen.length}/4`} onClose={onClose} wide>
+      <div className="relative mb-3">
+        <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--faint)' }} />
+        <input autoFocus className="adm-input icon-left" placeholder="Nomi yoki ID bo‘yicha qidirish..." value={query} onChange={(e) => setQuery(e.target.value)} />
+      </div>
+      <ul className="grid max-h-[60vh] gap-1.5 overflow-y-auto">
+        {visible.map((p) => {
+          const on = chosen.includes(p.docId)
+          const why = unusable(p)
+          const disabled = !on && (Boolean(why) || full)
+          return (
+            <li key={p.docId}>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onPick(p.docId)}
+                className="flex w-full items-center gap-3 rounded-xl border p-2 text-left"
+                style={{
+                  borderColor: on ? 'var(--brand)' : 'var(--line)',
+                  background: on ? 'var(--brand-soft)' : 'var(--surface)',
+                  opacity: disabled ? 0.5 : 1,
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg" style={{ background: '#fff' }}>
+                  {productThumb(p) ? <img src={productThumb(p)} alt="" className="size-full object-contain" /> : <Package size={18} style={{ color: 'var(--faint)' }} />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold">{p.name}</span>
+                  <span className="block text-xs" style={{ color: why ? 'var(--danger)' : 'var(--muted)' }}>
+                    {formatPrice(p.price)}{why ? ` · ${why}` : typeof p.stock === 'number' ? ` · omborda ${p.stock}` : ''}
+                  </span>
+                </span>
+                {on && <b className="shrink-0 text-xs" style={{ color: 'var(--brand-strong)' }}>✓ {chosen.indexOf(p.docId) + 1}</b>}
+              </button>
+            </li>
+          )
+        })}
+        {visible.length === 0 && <li className="p-4 text-center text-sm" style={{ color: 'var(--muted)' }}>Topilmadi</li>}
+      </ul>
+      <button className="adm-btn adm-btn--primary mt-3 w-full" onClick={onClose}>Tayyor</button>
+    </Modal>
   )
 }
 
