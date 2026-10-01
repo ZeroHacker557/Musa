@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { BottomNav } from './components/layout/BottomNav'
 import { TopBar } from './components/layout/TopBar'
 import { SearchOverlay } from './components/layout/SearchOverlay'
@@ -6,6 +6,7 @@ import { CartDrawer } from './components/cart/CartDrawer'
 import { CartPrompt } from './components/cart/CartPrompt'
 import { AddressPrompt } from './components/address/AddressPrompt'
 import { SplashAd } from './components/promo/SplashAd'
+import { playWelcomeVoice, prepareWelcomeVoice } from './utils/welcome-voice'
 import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
 import { DeliveryTracker } from './components/order/DeliveryTracker'
@@ -134,6 +135,16 @@ function App() {
 
   // Ochilish reklamasi ko'rinib turganda manzil taklifi kutib turadi
   const [adVisible, setAdVisible] = useState(false)
+  /*
+   * Kirish ovozi: intro (ochilish reklamasi) tugagach, asosiy sahifada
+   * bir marta. Boshqa sahifaga to'g'ridan-to'g'ri ochilgan bo'lsa — yo'q.
+   */
+  const pageRef = useRef(shop.page)
+  useEffect(() => { pageRef.current = shop.page }, [shop.page])
+  useEffect(() => prepareWelcomeVoice(), [])
+  const introDone = useCallback(() => {
+    if (pageRef.current === 'home') playWelcomeVoice()
+  }, [])
 
   /*
    * Faqat dev: `?deliveryDemo` — «Kuryer yo'lda» kartochkasi va baho
@@ -300,6 +311,7 @@ function App() {
           onOpenCategory={shop.openCategory}
           onOpenProduct={shop.openProduct}
           onVisibleChange={setAdVisible}
+          onFinished={introDone}
         />
 
         <div className="page-wrapper">

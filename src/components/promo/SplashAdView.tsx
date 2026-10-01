@@ -22,6 +22,8 @@ type Props = {
    */
   startIndex?: number
   onClose: () => void
+  /** Yopila boshlaganda (animatsiyadan oldin) — bosish hodisasi ichida chaqiriladi. */
+  onLeave?: () => void
   onAction: (link: AdLink) => void
   onTap?: () => void
 }
@@ -58,7 +60,7 @@ const MAX_CROP = 0.08
  * Yuklanmagan slayd jim o'tkazib yuboriladi: reklama hech qachon mijozni
  * do'kondan to'sib qolmasligi kerak.
  */
-export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onClose, onAction, onTap }: Props) {
+export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onClose, onLeave, onAction, onTap }: Props) {
   const slides = ad.slides
   const [index, setIndex] = useState(() => Math.min(startIndex, Math.max(0, slides.length - 1)))
   const [ready, setReady] = useState(false)
@@ -91,8 +93,10 @@ export function SplashAdView({ ad, labels, preview = false, startIndex = 0, onCl
   const close = useCallback(() => {
     if (leaving) return
     setLeaving(true)
+    // Darhol — bosish hodisasi ichida (kirish ovozi shunda bloklanmaydi)
+    onLeave?.()
     window.setTimeout(onClose, preview ? 0 : EXIT_MS)
-  }, [leaving, onClose, preview])
+  }, [leaving, onClose, onLeave, preview])
 
   const goTo = useCallback((target: number) => {
     let next = target

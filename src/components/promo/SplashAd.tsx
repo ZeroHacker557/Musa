@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useI18n, useT } from '../../i18n'
 import { fetchSplashAd } from '../../lib/firebase'
 import type { Product, Section } from '../../types/domain'
@@ -14,6 +14,11 @@ type Props = {
   onOpenProduct: (product: Product) => void
   /** Reklama ko'rinib turganda boshqa takliflar (manzil) chiqmasin. */
   onVisibleChange?: (visible: boolean) => void
+  /**
+   * Intro tugadi — reklama yopila boshladi yoki umuman chiqmadi.
+   * Reklama yopilganda bosish hodisasi ichida chaqiriladi (kirish ovozi uchun).
+   */
+  onFinished?: () => void
 }
 
 /** Ochilish animatsiyasidan keyin birinchi rasm shuncha vaqtda yuklanmasa, reklama bu safar chiqmaydi. */
@@ -49,17 +54,24 @@ function preloadFirst(ad: Ad): Promise<boolean> {
  * Reklama do'konni hech qachon to'sib qolmaydi: o'qib bo'lmasa,
  * rasm yuklanmasa yoki o'chirilgan bo'lsa — shunchaki chiqmaydi.
  */
-export function SplashAd({ products, sections, onOpenCategory, onOpenProduct, onVisibleChange }: Props) {
+export function SplashAd({ products, sections, onOpenCategory, onOpenProduct, onVisibleChange, onFinished }: Props) {
   const t = useT()
   const { lang } = useI18n()
   const [ad, setAd] = useState<Ad | null>(null)
+  const finished = useRef(onFinished)
+  useEffect(() => { finished.current = onFinished }, [onFinished])
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const [loaded] = await Promise.all([fetchSplashAd(), splashDone()])
-      if (cancelled || !loaded || !shouldShowAd(loaded)) return
-      if (!(await preloadFirst(loaded)) || cancelled) return
+      const [loaded] = await Promise.all([fetchSplashAd().catch(() => null), splashDone()])
+      if (cancelled) return
+      // Reklama bu safar chiqmaydi — intro shu bilan tugadi
+      if (!loaded || !shouldShowAd(loaded) || !(await preloadFirst(loaded))) {
+        if (!cancelled) finished.current?.()
+        return
+      }
+      if (cancelled) return
       markAdSeen(loaded)
       setAd(loaded)
     })()
@@ -98,6 +110,7 @@ export function SplashAd({ products, sections, onOpenCategory, onOpenProduct, on
         lang,
       }}
       onClose={() => setAd(null)}
+      onLeave={() => finished.current?.()}
       onAction={act}
       onTap={hapticSelection}
     />
