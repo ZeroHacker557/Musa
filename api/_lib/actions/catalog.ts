@@ -160,6 +160,17 @@ export async function productSave(body: Record<string, unknown>): Promise<Result
   return { id, created: !existing.exists }
 }
 
+/** Mahsulotni mijozlarga ko'rsatish / yashirish (admin panelda qoladi). */
+export async function productSetActive(body: Record<string, unknown>): Promise<Result> {
+  const id = text(body.id)
+  if (!id) throw new Error('id kerak')
+  if (typeof body.active !== 'boolean') throw new Error('Holat noto‘g‘ri')
+  const ref = (await adminDb()).collection('products').doc(id)
+  if (!(await ref.get()).exists) throw new Error('Mahsulot topilmadi')
+  await ref.set({ active: body.active, updatedAt: new Date().toISOString() }, { merge: true })
+  return { id, active: body.active }
+}
+
 export async function productDelete(body: Record<string, unknown>): Promise<Result> {
   const id = text(body.id)
   if (!id) throw new Error('id kerak')

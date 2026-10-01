@@ -8,7 +8,7 @@ import { broadcast } from './people.js'
 import { imageData, renderCard, som, type CardProduct } from '../daily/card.js'
 
 /**
- * Kunlik e’lon: har kuni belgilangan soatda 4 ta tasodifiy mahsulot
+ * Kunlik e’lon: har kuni belgilangan soatda 1–6 ta (odatda 4) mahsulot
  * bir xil shablondagi rasmda (narxlari bilan) bot foydalanuvchilariga
  * va/yoki Telegram kanalga yuboriladi.
  *
@@ -36,12 +36,20 @@ export type DailySettings = {
   textRu: string
   button: string
   buttonRu: string
+  /** Rasmda nechta mahsulot: 1–6 (standart 4). */
+  count: number
   /**
-   * Admin tanlagan mahsulotlar (4 tagacha) — keyingi BITTA yuborishda
+   * Admin tanlagan mahsulotlar (`count` tagacha) — keyingi BITTA yuborishda
    * ishlatiladi, keyin tozalanadi va yana tasodifiy tanlanadi.
-   * 4 tadan kam bo'lsa qolgani tasodifiy to'ldiriladi.
+   * Kam tanlansa qolgani tasodifiy to'ldiriladi.
    */
   chosen: string[]
+}
+
+export const MAX_PICKS = 6
+const readCount = (value: unknown) => {
+  const n = Math.floor(Number(value))
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_PICKS) : 4
 }
 
 type DailyState = {
@@ -64,6 +72,7 @@ export const DAILY_DEFAULTS: DailySettings = {
   textRu: '❄️ <b>Выбор дня</b>\n\nЗакажите сегодня — доставим замороженным прямо к двери! 👇',
   button: '🛒 Katalogni ochish',
   buttonRu: '🛒 Открыть каталог',
+  count: 4,
   chosen: [],
 }
 
@@ -83,8 +92,9 @@ export function readDaily(raw: unknown): DailySettings & DailyState {
     textRu: str(d.textRu, 700),
     button: str(d.button, 40) || DAILY_DEFAULTS.button,
     buttonRu: str(d.buttonRu, 40),
+    count: readCount(d.count),
     chosen: Array.isArray(d.chosen)
-      ? [...new Set(d.chosen.map((v) => String(v).trim()).filter((v) => /^[\w-]{1,60}$/.test(v)))].slice(0, 4)
+      ? [...new Set(d.chosen.map((v) => String(v).trim()).filter((v) => /^[\w-]{1,60}$/.test(v)))].slice(0, readCount(d.count))
       : [],
     lastDay: typeof d.lastDay === 'string' ? d.lastDay : null,
     lastProducts: Array.isArray(d.lastProducts) ? d.lastProducts.map(String) : [],
@@ -104,7 +114,7 @@ function readDraft(body: Record<string, unknown>, base: DailySettings): DailySet
   return {
     enabled: draft.enabled, time: draft.time, customers: draft.customers, channel: draft.channel,
     title: draft.title, accent: draft.accent, text: draft.text, textRu: draft.textRu,
-    button: draft.button, buttonRu: draft.buttonRu, chosen: draft.chosen,
+    button: draft.button, buttonRu: draft.buttonRu, count: draft.count, chosen: draft.chosen,
   }
 }
 
@@ -135,12 +145,12 @@ function shuffle<T>(list: T[]): T[] {
 }
 
 /**
- * 4 ta tasodifiy mahsulot: narxi bor, omborda bor, asosiy rasmi bor.
+ * `count` ta mahsulot (tanlanganlari birinchi, qolgani tasodifiy): narxi bor, omborda bor, asosiy rasmi bor.
  * Kechagilar takrorlanmaydi (yetarli tanlov bo‘lsa). Rasm PNG/JPEG
  * bo‘lishi kerak — WebP ni rasm chizgich o‘qiy olmaydi, bunday mahsulot
  * o‘tkazib yuboriladi.
  */
-async function pickProducts(exclude: string[], chosen: string[] = []): Promise<Picked[]> {
+async function pickProducts(exclude: string[], chosen: string[] = [], count = 4): Promise<Picked[]> {
   const db = await adminDb()
   const [productSnap, promoSnap] = await Promise.all([
     db.collection('products').get(),
@@ -152,7 +162,7 @@ async function pickProducts(exclude: string[], chosen: string[] = []): Promise<P
   const eligible = productSnap.docs.filter((d) => {
     const p = d.data()
     const image = Array.isArray(p.images) ? String(p.images[0] || '') : ''
-    return Number(p.price) > 0 && (typeof p.stock !== 'number' || p.stock >= packOf(p)) && /^https:\/\//.test(image) && String(p.name || '').trim()
+    return p.active !== false && Number(p.price) > 0 && (typeof p.stock !== 'number' || p.stock >= packOf(p)) && /^https:\/\//.test(image) && String(p.name || '').trim()
   })
   const toPicked = async (doc: (typeof eligible)[number]): Promise<Picked | null> => {
     const p = doc.data()
@@ -177,7 +187,7 @@ async function pickProducts(exclude: string[], chosen: string[] = []): Promise<P
 
   // 1) Admin tanlaganlari — tartibi bilan; yaroqsizi aniq xato bilan
   const picked: Picked[] = []
-  for (const id of chosen.slice(0, 4)) {
+  for (const id of chosen.slice(0, count)) {
     const doc = productSnap.docs.find((d) => d.id === id)
     const name = String(doc?.data().name || id)
     if (!doc) throw new Error(`Tanlangan mahsulot topilmadi (${id})`)
@@ -193,12 +203,12 @@ async function pickProducts(exclude: string[], chosen: string[] = []): Promise<P
     ...shuffle(rest.filter((d) => !exclude.includes(d.id))),
     ...shuffle(rest.filter((d) => exclude.includes(d.id))),
   ]
-  for (const doc of pool.slice(0, 16)) {
-    if (picked.length === 4) break
+  for (const doc of pool.slice(0, count * 4)) {
+    if (picked.length >= count) break
     const item = await toPicked(doc)
     if (item) picked.push(item)
   }
-  if (picked.length < 4) throw new Error('Rasmli (PNG/JPG) va omborda bor mahsulot yetarli emas')
+  if (picked.length < count) throw new Error('Rasmli (PNG/JPG) va omborda bor mahsulot yetarli emas')
   return picked
 }
 
@@ -220,7 +230,7 @@ function caption(intro: string, products: Picked[], ru: boolean): string {
 }
 
 async function build(settings: DailySettings, exclude: string[]) {
-  const [products, note] = await Promise.all([pickProducts(exclude, settings.chosen), deliveryNote()])
+  const [products, note] = await Promise.all([pickProducts(exclude, settings.chosen, settings.count), deliveryNote()])
   const bot = String(process.env.BOT_USERNAME || 'musauz_bot').replace(/^@/, '')
   const png = await renderCard({
     products,

@@ -8,7 +8,7 @@ import { ConfirmDialog, Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
 
 /**
- * Kunlik e’lon: har kuni belgilangan soatda 4 ta tasodifiy mahsulot
+ * Kunlik e’lon: har kuni belgilangan soatda 1–6 ta (odatda 4) mahsulot
  * bir xil shablondagi rasmda bot foydalanuvchilariga va/yoki kanalga.
  * Server: api/_lib/actions/daily.ts (rasm — api/_lib/daily/card.ts).
  */
@@ -24,6 +24,7 @@ type Settings = {
   textRu: string
   button: string
   buttonRu: string
+  count: number
   chosen: string[]
 }
 type State = Settings & {
@@ -55,6 +56,7 @@ const JOB_STATUS: Record<string, string> = {
 const pickSettings = (s: State): Settings => ({
   enabled: s.enabled, time: s.time, customers: s.customers, channel: s.channel,
   title: s.title, accent: s.accent, text: s.text, textRu: s.textRu, button: s.button, buttonRu: s.buttonRu,
+  count: s.count ?? 4,
   chosen: s.chosen ?? [],
 })
 
@@ -180,13 +182,34 @@ export function DailyPicksPage() {
               </button>
             )}
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="adm-label m-0">Rasmda nechta mahsulot</span>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className="grid size-9 place-items-center rounded-lg border text-sm font-extrabold"
+                  style={{
+                    borderColor: draft.count === n ? 'var(--brand)' : 'var(--line)',
+                    background: draft.count === n ? 'var(--brand)' : 'var(--surface)',
+                    color: draft.count === n ? 'var(--brand-ink)' : 'var(--ink)',
+                  }}
+                  aria-pressed={draft.count === n}
+                  onClick={() => set({ count: n, chosen: draft.chosen.slice(0, n) })}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
           <p className="-mt-1 text-xs" style={{ color: 'var(--muted)' }}>
             {draft.chosen.length
-              ? `${draft.chosen.length} ta tanlandi${draft.chosen.length < 4 ? ` — qolgan ${4 - draft.chosen.length} tasi tasodifiy` : ''}. Tanlov keyingi bitta yuborishda ishlatiladi, keyin yana tasodifiy.`
-              : 'Har kuni 4 tasi tasodifiy tanlanadi. Xohlasangiz o‘zingiz tanlang — keyingi yuborishda shular chiqadi.'}
+              ? `${draft.chosen.length} ta tanlandi${draft.chosen.length < draft.count ? ` — qolgan ${draft.count - draft.chosen.length} tasi tasodifiy` : ''}. Tanlov keyingi bitta yuborishda ishlatiladi, keyin yana tasodifiy.`
+              : `Har kuni ${draft.count} tasi tasodifiy tanlanadi. Xohlasangiz o‘zingiz tanlang — keyingi yuborishda shular chiqadi.`}
           </p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => {
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
+            {Array.from({ length: draft.count }, (_, i) => i).map((i) => {
               const id = draft.chosen[i]
               const p = id ? byDocId.get(id) : undefined
               if (!id) {
@@ -233,7 +256,7 @@ export function DailyPicksPage() {
           </div>
           <h3 className="mt-2 text-sm font-extrabold">Xabar matni</h3>
           <p className="-mt-2 text-xs" style={{ color: 'var(--muted)' }}>
-            Ostiga 4 ta mahsulot nomi va narxi avtomatik qo‘shiladi. HTML: &lt;b&gt;qalin&lt;/b&gt;, &lt;i&gt;qiya&lt;/i&gt;.
+            Ostiga {draft.count} ta mahsulot nomi va narxi avtomatik qo‘shiladi. HTML: &lt;b&gt;qalin&lt;/b&gt;, &lt;i&gt;qiya&lt;/i&gt;.
           </p>
           <Area label="O‘zbekcha" value={draft.text} onChange={(text) => set({ text })} />
           <Area label="Ruscha (ixtiyoriy — rus tilini tanlaganlarga)" value={draft.textRu} onChange={(textRu) => set({ textRu })} />
@@ -307,10 +330,11 @@ export function DailyPicksPage() {
         <ProductPicker
           products={products}
           chosen={draft.chosen}
+          max={draft.count}
           onPick={(id) => {
-            const chosen = draft.chosen.includes(id) ? draft.chosen.filter((x) => x !== id) : [...draft.chosen, id].slice(0, 4)
+            const chosen = draft.chosen.includes(id) ? draft.chosen.filter((x) => x !== id) : [...draft.chosen, id].slice(0, draft.count)
             set({ chosen })
-            if (chosen.length >= 4) setPicking(false)
+            if (chosen.length >= draft.count) setPicking(false)
           }}
           onClose={() => setPicking(false)}
         />
@@ -340,6 +364,7 @@ export function DailyPicksPage() {
 
 /** Rasm chizgich WebP ni o'qimaydi — asosiy rasmi PNG/JPG bo'lmagan mahsulot yaroqsiz. */
 function unusable(p: ProductRow): string {
+  if (p.active === false) return 'o‘chirilgan (mijozlarga ko‘rinmaydi)'
   if (!(p.price > 0)) return 'narxi yo‘q'
   if (typeof p.stock === 'number' && p.stock < (p.pack && p.pack > 1 ? p.pack : 1)) return 'omborda yo‘q'
   const url = p.images?.[0] || ''
@@ -348,9 +373,10 @@ function unusable(p: ProductRow): string {
   return ''
 }
 
-function ProductPicker({ products, chosen, onPick, onClose }: {
+function ProductPicker({ products, chosen, max, onPick, onClose }: {
   products: ProductRow[]
   chosen: string[]
+  max: number
   onPick: (docId: string) => void
   onClose: () => void
 }) {
@@ -359,10 +385,10 @@ function ProductPicker({ products, chosen, onPick, onClose }: {
     const needle = query.trim().toLowerCase()
     return products.filter((p) => !needle || p.name.toLowerCase().includes(needle) || String(p.id).includes(needle))
   }, [products, query])
-  const full = chosen.length >= 4
+  const full = chosen.length >= max
 
   return (
-    <Modal title={`Mahsulot tanlash · ${chosen.length}/4`} onClose={onClose} wide>
+    <Modal title={`Mahsulot tanlash · ${chosen.length}/${max}`} onClose={onClose} wide>
       <div className="relative mb-3">
         <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--faint)' }} />
         <input autoFocus className="adm-input icon-left" placeholder="Nomi yoki ID bo‘yicha qidirish..." value={query} onChange={(e) => setQuery(e.target.value)} />

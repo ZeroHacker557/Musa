@@ -50,6 +50,8 @@ export type Product = {
    * 1 yoki yo'q — oddiy mahsulot.
    */
   pack?: number
+  /** `false` — admin o'chirgan: mijozlarga ko'rinmaydi, buyurtma qilib bo'lmaydi. Yo'q — faol. */
+  active?: boolean
   /** Mini app: bitta donaning narxi (o'ramli mahsulotda). */
   unitPrice?: number
   images: string[]

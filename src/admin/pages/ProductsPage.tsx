@@ -1,5 +1,5 @@
 import {
-  ArrowUpDown, Boxes, CircleAlert, CircleCheck, ImagePlus, Link2, Loader2, Minus, Package, Pencil, Plus, Search, Star,
+  ArrowUpDown, Boxes, CircleAlert, CircleCheck, Eye, EyeOff, ImagePlus, Link2, Loader2, Minus, Package, Pencil, Plus, Search, Star,
   Trash2, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
@@ -64,6 +64,8 @@ type Draft = {
 
 /** Setlar kategoriyasi — «Set qo'shish» shunga qo'yadi, yo'q bo'lsa yaratadi. */
 const SET_CATEGORY = 'Setlar'
+/** Kategoriya filtri o'rnida: faqat mijozlardan yashirilganlar. */
+const HIDDEN = '__hidden'
 
 const EMPTY: Draft = {
   kind: 'product',
@@ -141,11 +143,28 @@ export function ProductsPage() {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [removing, setRemoving] = useState<ProductRow | null>(null)
   const [busy, setBusy] = useState(false)
+  /** Yoqish/o'chirish so'rovi ketayotgan mahsulot. */
+  const [toggling, setToggling] = useState<string | null>(null)
+
+  const toggleActive = async (product: ProductRow) => {
+    const active = product.active === false
+    setToggling(product.docId)
+    try {
+      await apiPost('action', { action: 'product.active', id: product.docId, active })
+      show(active ? `«${product.name}» yoqildi — mijozlarga ko‘rinadi` : `«${product.name}» o‘chirildi — mijozlarga ko‘rinmaydi`)
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'Bajarilmadi', 'error')
+    } finally {
+      setToggling(null)
+    }
+  }
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return products.filter((p) => {
-      if (category && p.category !== category) return false
+      if (category === HIDDEN) {
+        if (p.active !== false) return false
+      } else if (category && p.category !== category) return false
       return !needle || p.name.toLowerCase().includes(needle)
     })
   }, [products, query, category])
@@ -315,6 +334,21 @@ export function ProductsPage() {
             {name || 'Barchasi'}
           </button>
         ))}
+        {/* Yashirilganlar bo'lsa — alohida tugma, topish oson bo'lsin */}
+        {(category === HIDDEN || products.some((p) => p.active === false)) && [HIDDEN].map((name) => (
+          <button
+            key={name}
+            onClick={() => setCategory(name)}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-bold transition active:scale-95"
+            style={{
+              borderColor: category === name ? 'var(--danger)' : 'var(--line)',
+              background: category === name ? 'var(--danger-soft)' : 'var(--surface)',
+              color: category === name ? 'var(--danger)' : 'var(--muted)',
+            }}
+          >
+            <EyeOff size={14} /> O‘chirilganlar · {products.filter((p) => p.active === false).length}
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -331,7 +365,11 @@ export function ProductsPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((product) => (
-            <article key={product.docId} className="adm-card flex gap-3 p-3">
+            <article
+              key={product.docId}
+              className="adm-card flex gap-3 p-3"
+              style={product.active === false ? { opacity: 0.6, borderStyle: 'dashed' } : undefined}
+            >
               <div
                 className="size-20 shrink-0 overflow-hidden rounded-xl"
                 style={{ background: 'var(--surface-2)' }}
@@ -364,6 +402,11 @@ export function ProductsPage() {
                   {product.category}
                   {sectionName(product.sectionId) ? ` · ${sectionName(product.sectionId)}` : ''}
                 </p>
+                {product.active === false && (
+                  <p className="mt-0.5 flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--danger)' }}>
+                    <EyeOff size={12} /> Mijozlarga ko‘rinmaydi
+                  </p>
+                )}
                 <p className="mt-1 text-sm font-bold">{formatPrice(product.price)}</p>
                 <p
                   className="text-xs font-semibold"
@@ -375,6 +418,18 @@ export function ProductsPage() {
               </div>
 
               <div className="flex shrink-0 flex-col gap-1.5">
+                <button
+                  className="grid size-8 place-items-center rounded-lg transition active:scale-90"
+                  style={product.active === false
+                    ? { background: 'var(--surface-2)', color: 'var(--muted)' }
+                    : { background: 'var(--brand-soft)', color: 'var(--brand-strong)' }}
+                  onClick={() => void toggleActive(product)}
+                  disabled={toggling === product.docId}
+                  aria-label={product.active === false ? 'Yoqish — mijozlarga ko‘rsatish' : 'O‘chirish — mijozlardan yashirish'}
+                  title={product.active === false ? 'Yoqish — mijozlarga ko‘rsatish' : 'O‘chirish — mijozlardan yashirish'}
+                >
+                  {toggling === product.docId ? <Loader2 size={15} className="animate-spin" /> : product.active === false ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
                 <button
                   className="grid size-8 place-items-center rounded-lg transition active:scale-90"
                   style={{ background: 'var(--surface-2)' }}

@@ -1,7 +1,7 @@
 import { FONTS } from './fonts.js'
 
 /**
- * Kunlik e’lon rasmi: 4 ta mahsulot, narxlari bilan, bir xil shablonda.
+ * Kunlik e’lon rasmi: 1–6 ta mahsulot, narxlari bilan, bir xil shablonda.
  *
  * satori — tartib (flexbox) va matnni SVG ga aylantiradi, resvg — PNG ga.
  * Ikkalasi ham og‘ir, shuning uchun faqat rasm kerak bo‘lganda yuklanadi.
@@ -94,65 +94,109 @@ function logo(): Node {
   )
 }
 
-function productCard(p: CardProduct): Node {
+/** Kartochka o'lchami va yo'nalishi — mahsulotlar soniga qarab (`gridFor`). */
+type Slot = {
+  w: number
+  h: number
+  /** v — rasm tepada, h — rasm chapda (keng, past kartochka). */
+  dir: 'v' | 'h'
+  name: number
+  price: number
+}
+
+/** Kartochkalar maydoni balandligi (sarlavha va pastki qator oralig'i). */
+const GRID_H = 856
+const GAP = 24
+const FULL_W = CARD_WIDTH - 96
+
+/**
+ * 1 — bitta katta; 2–3 — keng gorizontal qatorlar; 4 — 2×2;
+ * 5–6 — 3 ustun (5 da pastki qator o'rtada).
+ */
+export function gridFor(count: number): Slot {
+  const two = (GRID_H - GAP) / 2
+  if (count <= 1) return { w: FULL_W, h: GRID_H, dir: 'v', name: 46, price: 84 }
+  if (count === 2) return { w: FULL_W, h: two, dir: 'h', name: 42, price: 68 }
+  if (count === 3) return { w: FULL_W, h: (GRID_H - 2 * GAP) / 3, dir: 'h', name: 34, price: 54 }
+  if (count === 4) return { w: (FULL_W - GAP) / 2, h: two, dir: 'v', name: 30, price: 50 }
+  return { w: (FULL_W - 2 * GAP) / 3, h: two, dir: 'v', name: 24, price: 40 }
+}
+
+function productCard(p: CardProduct, slot: Slot): Node {
   const discount = p.oldPrice && p.oldPrice > p.price ? Math.round((1 - p.price / p.oldPrice) * 100) : 0
+  const pad = slot.w < 400 ? 16 : 20
+  const nameH = Math.ceil(slot.name * 1.22 * 2)
+  const small = slot.price * 0.5
+
+  // Rasm maydoni: tepada (v) yoki chapda (h)
+  const imgW = slot.dir === 'v' ? slot.w - 2 * pad : Math.min(slot.h - 2 * pad, Math.round(slot.w * 0.42))
+  const imgH = slot.dir === 'v' ? slot.h - 2 * pad - 14 - nameH - 12 - slot.price : slot.h - 2 * pad
+  const image = h(
+    'div',
+    { width: imgW, height: imgH, flexShrink: 0, borderRadius: 24, background: C.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    p.image
+      ? { type: 'img', props: { src: p.image, width: imgW - 20, height: imgH, style: { objectFit: 'contain', width: imgW - 20, height: imgH } } }
+      : h('div', { width: Math.min(imgW, imgH) * 0.5, height: Math.min(imgW, imgH) * 0.5, borderRadius: 999, background: C.tile }),
+  )
+  const name = h(
+    'div',
+    {
+      marginTop: slot.dir === 'v' ? 14 : 0,
+      height: nameH,
+      fontSize: slot.name,
+      fontWeight: 700,
+      lineHeight: 1.22,
+      color: C.ink,
+      overflow: 'hidden',
+      // ikki qatorga sig‘masa — «…»
+      display: 'block',
+      lineClamp: 2,
+    },
+    p.name,
+  )
+  const price = h(
+    'div',
+    { marginTop: slot.dir === 'v' ? 'auto' : 18, alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 },
+    h('div', { fontSize: slot.price, fontWeight: 800, color: C.green, lineHeight: 1 }, som(p.price)),
+    h('div', { fontSize: small, fontWeight: 700, color: C.green, marginBottom: slot.price * 0.08 }, 'so‘m'),
+    discount > 0
+      ? h('div', { fontSize: small * 0.92, fontWeight: 600, color: C.muted, textDecoration: 'line-through', marginBottom: slot.price * 0.1, marginLeft: 4 }, som(p.oldPrice!))
+      : null,
+  )
+  const badge = discount > 0
+    ? h(
+        'div',
+        { position: 'absolute', top: pad + 12, left: pad + 12, padding: '8px 16px', borderRadius: 999, background: C.red, color: C.white, fontSize: Math.max(22, small), fontWeight: 800 },
+        `−${discount}%`,
+      )
+    : null
+
   return h(
     'div',
     {
-      flexDirection: 'column',
-      width: 480,
-      height: 416,
-      padding: 20,
+      flexDirection: slot.dir === 'v' ? 'column' : 'row',
+      alignItems: slot.dir === 'v' ? 'stretch' : 'center',
+      width: slot.w,
+      height: slot.h,
+      padding: pad,
       borderRadius: 36,
       background: C.white,
       boxShadow: '0 18px 40px rgba(0,30,10,0.28)',
       position: 'relative',
+      flexShrink: 0,
     },
-    h(
-      'div',
-      { width: 440, height: 214, borderRadius: 24, background: C.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-      p.image
-        ? { type: 'img', props: { src: p.image, width: 400, height: 214, style: { objectFit: 'contain', width: 400, height: 214 } } }
-        : h('div', { width: 120, height: 120, borderRadius: 120, background: C.tile }),
-    ),
-    discount > 0
-      ? h(
-          'div',
-          { position: 'absolute', top: 36, left: 36, padding: '8px 16px', borderRadius: 999, background: C.red, color: C.white, fontSize: 26, fontWeight: 800 },
-          `−${discount}%`,
-        )
-      : null,
-    h(
-      'div',
-      {
-        marginTop: 14,
-        height: 74,
-        fontSize: 30,
-        fontWeight: 700,
-        lineHeight: 1.22,
-        color: C.ink,
-        overflow: 'hidden',
-        // ikki qatorga sig‘masa — «…»
-        display: 'block',
-        lineClamp: 2,
-      },
-      p.name,
-    ),
-    h(
-      'div',
-      { marginTop: 'auto', alignItems: 'flex-end', gap: 10 },
-      h('div', { fontSize: 50, fontWeight: 800, color: C.green, lineHeight: 1 }, som(p.price)),
-      h('div', { fontSize: 26, fontWeight: 700, color: C.green, marginBottom: 4 }, 'so‘m'),
-      discount > 0
-        ? h('div', { fontSize: 24, fontWeight: 600, color: C.muted, textDecoration: 'line-through', marginBottom: 5, marginLeft: 6 }, som(p.oldPrice!))
-        : null,
-    ),
+    image,
+    badge,
+    slot.dir === 'v'
+      ? [name, price]
+      : h('div', { flexDirection: 'column', justifyContent: 'center', marginLeft: 28, flexGrow: 1, flexShrink: 1, minWidth: 0 }, name, price),
   )
 }
 
 /** Shablon daraxti — sinovda ham shu ishlatiladi. */
 export function cardTree(input: CardInput): Node {
-  const items = input.products.slice(0, 4)
+  const items = input.products.slice(0, 6)
+  const slot = gridFor(items.length)
   return h(
     'div',
     {
@@ -188,11 +232,11 @@ export function cardTree(input: CardInput): Node {
       h('div', { fontSize: 62, fontWeight: 800, color: C.white, lineHeight: 1.08, letterSpacing: -1 }, input.title.toUpperCase()),
       h('div', { fontSize: 62, fontWeight: 800, color: C.yellow, lineHeight: 1.08, letterSpacing: -1, marginTop: 6 }, input.accent.toUpperCase()),
     ),
-    // 2×2 kartochkalar
+    // Kartochkalar — soniga qarab joylashadi (gridFor)
     h(
       'div',
-      { flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 24, marginTop: 32 },
-      ...items.map(productCard),
+      { flexWrap: 'wrap', justifyContent: 'center', rowGap: GAP, columnGap: GAP, marginTop: 32, height: GRID_H },
+      ...items.map((p) => productCard(p, slot)),
     ),
     // Pastki qator
     h(

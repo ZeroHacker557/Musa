@@ -72,6 +72,7 @@ export function subscribeToProducts(callback: (products: Product[]) => void, onE
         order: typeof data.order === 'number' ? data.order : undefined,
         sectionId: data.sectionId ? String(data.sectionId) : null,
         popular: data.popular === true,
+        active: data.active !== false,
       }
     })
     callback(products)

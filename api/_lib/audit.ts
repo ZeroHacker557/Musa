@@ -43,6 +43,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'support.send': 'Murojaatga xabar',
   'product.save': 'Mahsulot saqlandi',
   'product.delete': 'Mahsulot o‘chirildi',
+  'product.active': 'Mahsulot yoqildi / o‘chirildi',
   'product.bulkUpdate': 'Mahsulotlar ommaviy o‘zgartirildi',
   'promotion.save': 'Aksiya saqlandi',
   'promotion.delete': 'Aksiya o‘chirildi',
@@ -104,6 +105,7 @@ export const AUDIT_GROUPS: Record<string, string[]> = {
 /** Oldingi holatni o'qish uchun: amal → (kolleksiya, id maydoni). */
 const BEFORE: Record<string, { coll: string; key: string }> = {
   'product.save': { coll: 'products', key: 'id' },
+  'product.active': { coll: 'products', key: 'id' },
   'category.save': { coll: 'categories', key: 'id' },
   'promotion.save': { coll: 'promotions', key: 'id' },
   'promo.save': { coll: 'promocodes', key: 'id' },

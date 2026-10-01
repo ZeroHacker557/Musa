@@ -170,8 +170,10 @@ export function useShopStore() {
      * tilda, narxi aksiya bilan) va «alohida olsangiz» summasi. Tarkibdagi
      * mahsulot o'chirilgan bo'lsa — shunchaki ko'rsatilmaydi.
      */
+    // Set tarkibi o'chirilgan (admin yashirgan) mahsulotni ham ko'rsataveradi —
+    // shuning uchun qidiruv hammasidan, ro'yxatdan esa faqat faollari chiqadi
     const byId = new Map(shown.map((p) => [String(p.id), p]))
-    return shown.map((p) => {
+    return shown.filter((p) => p.active !== false).map((p) => {
       if (!p.bundle?.length) return p
       const bundleItems = p.bundle
         .map((line) => ({ product: byId.get(String(line.productId)), quantity: line.quantity }))

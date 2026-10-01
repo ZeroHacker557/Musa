@@ -238,6 +238,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const snap = productSnaps[i]
         if (!snap.exists) throw new Error('PRODUCT_GONE')
         const data = snap.data() as FirebaseFirestore.DocumentData
+        // Admin o'chirgan (yashirgan) mahsulot — savatda qolib ketgan bo'lsa ham sotilmaydi
+        if (data.active === false) throw new Error('PRODUCT_GONE')
 
         // O'ram: narx va qoldiq bazada DONADA, mijoz o'ramni oladi (src/lib/firebase.ts bilan bir xil)
         const pack = packOf(data)

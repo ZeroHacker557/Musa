@@ -4,7 +4,7 @@ import { fail, requirePost } from '../_lib/http.js'
 import { audit, auditBefore, isAudited } from '../_lib/audit.js'
 import { orderAssign, orderStatus } from '../_lib/actions/orders.js'
 import {
-  categoryDelete, categorySave, orderSave, productBulkUpdate, productDelete, productSave,
+  categoryDelete, categorySave, orderSave, productBulkUpdate, productDelete, productSave, productSetActive,
   promoDelete, promoSave, requireCatalogAccess,
 } from '../_lib/actions/catalog.js'
 import { broadcast, staffDelete, staffLinkTelegram, staffSave } from '../_lib/actions/people.js'
@@ -70,6 +70,7 @@ const HANDLERS: Record<string, Handler> = {
   // Katalog — kuryerga yopiq
   'product.save': (staff, body) => (requireCatalogAccess(staff), productSave(body)),
   'product.delete': (staff, body) => (requireCatalogAccess(staff), productDelete(body)),
+  'product.active': (staff, body) => (requireCatalogAccess(staff), productSetActive(body)),
   'product.bulkUpdate': (staff, body) => (requireCatalogAccess(staff), productBulkUpdate(body)),
   'promotion.save': (staff, body) => (requireCatalogAccess(staff), promotionSave(body)),
   'promotion.delete': (staff, body) => (requireCatalogAccess(staff), promotionDelete(body)),
