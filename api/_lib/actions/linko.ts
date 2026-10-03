@@ -156,13 +156,23 @@ async function applyToProduct(
    * sinxronda nomsiz «arvoh» bo'lib qaytib kelardi (faqat narx va qoldiq
    * bilan) va admin paneldagi reklama sahifasini yiqitardi.
    */
-  if (!(await db.collection('products').doc(productId).get()).exists) return null
+  const current = await db.collection('products').doc(productId).get()
+  if (!current.exists) return null
   const stock = Math.max(0, Math.round(rows.reduce((sum, row) => sum + num(row.stock), 0)))
   const priced = rows.filter((row) => num(row.price) > 0)
   const primary = priced.find((row) => row.primary)
   const price = primary
     ? num(primary.price)
     : priced.reduce((max, row) => Math.max(max, num(row.price)), 0)
+
+  /*
+   * Narx ham, qoldiq ham o'zgarmagan — yozilmaydi. Har yozuv ilovani
+   * ochib turgan HAR BIR mijoz va admin uchun qayta o'qish bo'lardi.
+   */
+  const was = current.data() ?? {}
+  const samePrice = !(price > 0) || num(was.price) === price
+  const sameStock = typeof was.stock === 'number' && was.stock === stock
+  if (samePrice && sameStock && (was.lowStockAlerted === true) === (stock <= LOW_STOCK_AT)) return null
 
   return {
     ref: db.collection('products').doc(productId),
@@ -177,13 +187,35 @@ async function applyToProduct(
 }
 
 /** Nusxadagi hamma qatorni mahsulot bo'yicha guruhlaydi. */
-async function linkedRows(): Promise<Map<string, MirrorDoc[]>> {
+async function linkedRows(only?: string[]): Promise<Map<string, MirrorDoc[]>> {
   const db = await adminDb()
-  const snap = await db.collection(MIRROR).get()
+  let docs: FirebaseFirestore.QueryDocumentSnapshot[]
+  if (only) {
+    /*
+     * Tejamkor yo'l (har 30 daqiqalik sinxron): butun nusxani (500+ hujjat)
+     * o'qimay, faqat shu mahsulotlarga bog'langan qatorlar. Firestore
+     * `array-contains-any` / `in` bir so'rovda 30 tagacha qiymat oladi.
+     * Eski yozuvlar (`productId` — bitta) ham hisobga olinadi.
+     */
+    const ids = [...new Set(only.filter(Boolean))]
+    const seen = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>()
+    for (let i = 0; i < ids.length; i += 30) {
+      const chunk = ids.slice(i, i + 30)
+      const [many, single] = await Promise.all([
+        db.collection(MIRROR).where('productIds', 'array-contains-any', chunk).get(),
+        db.collection(MIRROR).where('productId', 'in', chunk).get(),
+      ])
+      for (const doc of [...many.docs, ...single.docs]) seen.set(doc.id, doc)
+    }
+    docs = [...seen.values()]
+  } else {
+    docs = (await db.collection(MIRROR).get()).docs
+  }
   const map = new Map<string, MirrorDoc[]>()
-  for (const doc of snap.docs) {
+  for (const doc of docs) {
     const data = doc.data() as MirrorDoc
     for (const id of rowProducts(data)) {
+      if (only && !only.includes(id)) continue
       map.set(id, [...(map.get(id) ?? []), data])
     }
   }
@@ -385,6 +417,15 @@ export async function linkoPull(
     const price = priceById.has(id) ? (priceById.get(id) as number) : num(old.price)
     const productIds = rowProducts(old)
 
+    // Hech narsa o'zgarmagan — qayta yozilmaydi (mahsulot ham qayta hisoblanmaydi)
+    const name = text(info?.name) || text(old.name)
+    const unchanged = existing.has(id)
+      && num(old.price) === price
+      && num(old.stock) === stock
+      && text(old.name) === name
+      && JSON.stringify(old.balances ?? {}) === JSON.stringify(stockMap)
+    if (unchanged) continue
+
     mirrorWrites.push({
       ref: db.collection(MIRROR).doc(String(id)),
       data: {
@@ -409,7 +450,7 @@ export async function linkoPull(
   // qiymatlar bo'yicha ketishi uchun
   await commitAll(mirrorWrites)
 
-  const grouped = await linkedRows()
+  const grouped = await linkedRows([...affected])
   const productWrites: Write[] = []
   for (const productId of affected) {
     const write = await applyToProduct(productId, grouped.get(productId) ?? [], now)

@@ -1,7 +1,8 @@
 import { initializeApp } from 'firebase/app'
 import { DEFAULT_CONTACT, readContact, type ContactInfo } from '../config/contact'
 import { readVoices, type VoiceItem } from '../config/voices'
-import { getFirestore, collection, onSnapshot, query, where, doc, updateDoc, writeBatch, getDocs, getDoc } from 'firebase/firestore'
+import { collection, onSnapshot, query, where, doc, updateDoc, writeBatch, getDocs, getDoc } from 'firebase/firestore'
+import { createFirestore } from '../config/firestore-cache'
 import { getStorage } from 'firebase/storage'
 import { firebaseConfig } from '../config/firebase'
 import { parseDate } from '../utils/date'
@@ -12,7 +13,8 @@ import type { Product, Category, Section, Order, PaymentSettings, DeliverySettin
 
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig)
-export const db = getFirestore(app)
+// Qurilmadagi kesh bilan — qayta ochilganda katalog qayta o'qilmaydi (pulli o'qishlar)
+export const db = createFirestore(app)
 export const storage = getStorage(app)
 
 // Real-time Firestore Listeners

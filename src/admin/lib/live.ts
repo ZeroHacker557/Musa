@@ -1,6 +1,7 @@
 import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { db } from './auth'
+import { useSharedSnapshot } from './shared-snapshot'
 import { readBanners, type HomeBanner } from '../../config/banners'
 import { DEFAULT_CONTACT, readContact, type ContactInfo } from '../../config/contact'
 import { readVoices, type VoiceItem } from '../../config/voices'
@@ -53,6 +54,14 @@ function windowStart(days: number): string {
   return start.toISOString()
 }
 
+/** Umumiy obunalarning boshlang'ich qiymatlari — barqaror havolalar. */
+const NO_ORDERS: AdminOrder[] = []
+const NO_PRODUCTS: ProductRow[] = []
+const NO_CUSTOMERS: CustomerRow[] = []
+const NO_CATEGORIES: Category[] = []
+const NO_SECTIONS: Section[] = []
+const NO_PROMOTIONS: (Promotion & { createdAt?: string })[] = []
+
 /**
  * Buyurtmalar. Kuryerga faqat o'ziga biriktirilganlari ko'rinadi —
  * bu Firestore Rules bilan ham takrorlanadi, bu yerdagi filtr esa
@@ -64,47 +73,43 @@ function windowStart(days: number): string {
  * (mijozlar, tahlil) `'all'` beradi.
  */
 export function useOrders(courierId?: string, days: number | 'all' = ORDERS_WINDOW_DAYS) {
-  const [orders, setOrders] = useState<AdminOrder[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const ref = collection(db, 'orders')
-    const since = days === 'all' || courierId ? null : windowStart(days)
-    // Kuryer: faqat o'zinikilar (oz) — sana filtri qo'shilmaydi, aks holda
-    // Firestore murakkab indeks talab qilardi
-    const q = courierId
-      ? query(ref, where('courierId', '==', courierId))
-      : since
-        ? query(ref, where('createdAt', '>=', since))
-        : ref
-
-    return onSnapshot(
-      q,
-      (snapshot) => {
-        const rows = snapshot.docs.map((doc) => {
-          const data = doc.data()
-          return {
-            ...data,
-            id: doc.id,
-            orderNumber: data.orderNumber || `#${doc.id.slice(0, 6)}`,
-            createdAt: data.createdAt || '',
-          } as AdminOrder
-        })
-        rows.sort((a, b) => parseTime(b.createdAt) - parseTime(a.createdAt))
-        setOrders(rows)
-        setLoading(false)
-        setError(null)
-      },
-      (err) => {
-        console.error('[admin] buyurtmalarni o‘qib bo‘lmadi:', err)
-        setError('Buyurtmalarni yuklab bo‘lmadi. Firestore Rules tekshiring.')
-        setLoading(false)
-      },
-    )
-  }, [courierId, days])
-
-  return { orders, loading, error }
+  // Umumiy obuna — sahifalar orasida qayta o'qilmaydi (shared-snapshot.ts)
+  const { value: orders, loading, error } = useSharedSnapshot<AdminOrder[]>(
+    `orders:${courierId ?? ''}:${days}`,
+    NO_ORDERS,
+    (emit, fail) => {
+      const ref = collection(db, 'orders')
+      const since = days === 'all' || courierId ? null : windowStart(days)
+      // Kuryer: faqat o'zinikilar (oz) — sana filtri qo'shilmaydi, aks holda
+      // Firestore murakkab indeks talab qilardi
+      const q = courierId
+        ? query(ref, where('courierId', '==', courierId))
+        : since
+          ? query(ref, where('createdAt', '>=', since))
+          : ref
+      return onSnapshot(
+        q,
+        (snapshot) => {
+          const rows = snapshot.docs.map((doc) => {
+            const data = doc.data()
+            return {
+              ...data,
+              id: doc.id,
+              orderNumber: data.orderNumber || `#${doc.id.slice(0, 6)}`,
+              createdAt: data.createdAt || '',
+            } as AdminOrder
+          })
+          rows.sort((a, b) => parseTime(b.createdAt) - parseTime(a.createdAt))
+          emit(rows)
+        },
+        (err) => {
+          console.error('[admin] buyurtmalarni o‘qib bo‘lmadi:', err)
+          fail(err)
+        },
+      )
+    },
+  )
+  return { orders, loading, error: error ? 'Buyurtmalarni yuklab bo‘lmadi. Firestore Rules tekshiring.' : null }
 }
 
 /**
@@ -130,39 +135,32 @@ export function useHeldCashOrders(enabled = true) {
 export type ProductRow = Product & { docId: string }
 
 export function useProducts() {
-  const [products, setProducts] = useState<ProductRow[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(
-    () =>
-      onSnapshot(
-        collection(db, 'products'),
-        (snapshot) => {
-          const rows = snapshot.docs
-            // Nomsiz yozuv — mahsulot emas (eski Linko sinxroni qoldig'i):
-            // ro'yxatlarda bo'sh qator bo'lib, saralashni yiqitardi
-            .filter((doc) => typeof doc.data().name === 'string' && doc.data().name.trim() !== '')
-            .map((doc) => {
-              const data = doc.data()
-              return {
-                ...data,
-                id: typeof data.id === 'number' ? data.id : Number(data.id) || 0,
-                docId: doc.id,
-              } as ProductRow
-            })
-          // Admin belgilagan tartib (src/admin/lib/sort.ts)
-          rows.sort(
-            (a, b) =>
-              (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER),
-          )
-          setProducts(rows)
-          setLoading(false)
-        },
-        () => setLoading(false),
-      ),
-    [],
+  const { value: products, loading } = useSharedSnapshot<ProductRow[]>('products', NO_PRODUCTS, (emit, fail) =>
+    onSnapshot(
+      collection(db, 'products'),
+      (snapshot) => {
+        const rows = snapshot.docs
+          // Nomsiz yozuv — mahsulot emas (eski Linko sinxroni qoldig'i):
+          // ro'yxatlarda bo'sh qator bo'lib, saralashni yiqitardi
+          .filter((doc) => typeof doc.data().name === 'string' && doc.data().name.trim() !== '')
+          .map((doc) => {
+            const data = doc.data()
+            return {
+              ...data,
+              id: typeof data.id === 'number' ? data.id : Number(data.id) || 0,
+              docId: doc.id,
+            } as ProductRow
+          })
+        // Admin belgilagan tartib (src/admin/lib/sort.ts)
+        rows.sort(
+          (a, b) =>
+            (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER),
+        )
+        emit(rows)
+      },
+      fail,
+    ),
   )
-
   return { products, loading }
 }
 
@@ -192,121 +190,94 @@ export type CustomerRow = {
 }
 
 export function useCustomers() {
-  const [customers, setCustomers] = useState<CustomerRow[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(
-    () =>
-      onSnapshot(
-        collection(db, 'users'),
-        (snapshot) => {
-          const rows = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }) as CustomerRow)
-          rows.sort((a, b) => parseTime(b.lastActive) - parseTime(a.lastActive))
-          setCustomers(rows)
-          setLoading(false)
-        },
-        () => setLoading(false),
-      ),
-    [],
+  const { value: customers, loading } = useSharedSnapshot<CustomerRow[]>('users', NO_CUSTOMERS, (emit, fail) =>
+    onSnapshot(
+      collection(db, 'users'),
+      (snapshot) => {
+        const rows = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }) as CustomerRow)
+        rows.sort((a, b) => parseTime(b.lastActive) - parseTime(a.lastActive))
+        emit(rows)
+      },
+      fail,
+    ),
   )
-
   return { customers, loading }
 }
 
 export function useCategories() {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(
-    () =>
-      onSnapshot(
-        collection(db, 'categories'),
-        (snapshot) => {
-          const rows = snapshot.docs.map(
-            (d) => ({ ...d.data(), id: d.id }) as unknown as Category & { id: string },
-          )
-          // Admin belgilagan tartib; belgilanmaganlari nom bo'yicha
-          rows.sort(
-            (a, b) =>
-              (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
-              String(a.name).localeCompare(String(b.name)),
-          )
-          setCategories(rows as unknown as Category[])
-          setLoading(false)
-        },
-        () => setLoading(false),
-      ),
-    [],
+  const { value: categories, loading } = useSharedSnapshot<Category[]>('categories', NO_CATEGORIES, (emit, fail) =>
+    onSnapshot(
+      collection(db, 'categories'),
+      (snapshot) => {
+        const rows = snapshot.docs.map(
+          (d) => ({ ...d.data(), id: d.id }) as unknown as Category & { id: string },
+        )
+        // Admin belgilagan tartib; belgilanmaganlari nom bo'yicha
+        rows.sort(
+          (a, b) =>
+            (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
+            String(a.name).localeCompare(String(b.name)),
+        )
+        emit(rows as unknown as Category[])
+      },
+      fail,
+    ),
   )
-
   return { categories, loading }
 }
 
 /** Bo'limlar — kategoriya ichidagi guruhlar, tartibi bilan. */
 export function useSections() {
-  const [sections, setSections] = useState<Section[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(
-    () =>
-      onSnapshot(
-        collection(db, 'sections'),
-        (snapshot) => {
-          const rows = snapshot.docs.map((d) => {
-            const data = d.data()
-            return {
-              id: d.id,
-              name: String(data.name || ''),
-              nameRu: String(data.nameRu || ''),
-              category: String(data.category || ''),
-              order: typeof data.order === 'number' ? data.order : undefined,
-            }
-          })
-          rows.sort(
-            (a, b) =>
-              (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
-              a.name.localeCompare(b.name),
-          )
-          setSections(rows)
-          setLoading(false)
-        },
-        () => setLoading(false),
-      ),
-    [],
+  const { value: sections, loading } = useSharedSnapshot<Section[]>('sections', NO_SECTIONS, (emit, fail) =>
+    onSnapshot(
+      collection(db, 'sections'),
+      (snapshot) => {
+        const rows = snapshot.docs.map((d) => {
+          const data = d.data()
+          return {
+            id: d.id,
+            name: String(data.name || ''),
+            nameRu: String(data.nameRu || ''),
+            category: String(data.category || ''),
+            order: typeof data.order === 'number' ? data.order : undefined,
+          }
+        })
+        rows.sort(
+          (a, b) =>
+            (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
+            a.name.localeCompare(b.name),
+        )
+        emit(rows)
+      },
+      fail,
+    ),
   )
-
   return { sections, loading }
 }
 
 /** Vaqtli aksiyalar — yangilari tepada. */
 export function usePromotions() {
-  const [promotions, setPromotions] = useState<(Promotion & { createdAt?: string })[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(
-    () =>
+  const { value: promotions, loading, error } = useSharedSnapshot<(Promotion & { createdAt?: string })[]>(
+    'promotions',
+    NO_PROMOTIONS,
+    (emit, fail) =>
       onSnapshot(
         collection(db, 'promotions'),
         (snapshot) => {
           const rows = snapshot.docs.map((d) => ({ ...readPromotion(d.id, d.data()), createdAt: String(d.data().createdAt || '') }))
           rows.sort((a, b) => b.startsAt.localeCompare(a.startsAt))
-          setPromotions(rows)
-          setLoading(false)
-          setError(null)
+          emit(rows)
         },
         (err) => {
           // Ko'pincha sabab — Firestore qoidalarida `promotions` hali yo'q.
           // Jim qolsak admin «aksiya saqlanmadi» deb o'ylaydi.
           console.error('[admin] aksiyalarni o‘qib bo‘lmadi:', err)
-          setError('code' in (err as object) && (err as { code?: string }).code === 'permission-denied' ? 'rules' : 'other')
-          setLoading(false)
+          fail(err)
         },
       ),
-    [],
   )
-
-  return { promotions, loading, error }
+  const code = error && typeof error === 'object' && 'code' in error ? (error as { code?: string }).code : null
+  return { promotions, loading, error: error ? (code === 'permission-denied' ? 'rules' : 'other') : null }
 }
 
 /** Ochilish reklamasi (`ads/splash`). Hujjat hali yo'q bo'lsa — bo'sh, o'chirilgan reklama. */

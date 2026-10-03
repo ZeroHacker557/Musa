@@ -559,10 +559,22 @@ def abandoned_carts(hours: int = 2, limit: int = 30) -> list:
     Buyurtma berilganda ilova savatni tozalaydi — demak bo'sh savat
     eslatmaga tushmaydi.
     """
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(hours=hours)).isoformat()
+    # Faqat so'nggi bir kunda o'zgargan savatlar: ilgari har 15 daqiqada
+    # savati bo'lgan HAMMA mijoz o'qilardi (eslatma olganlari ham) —
+    # mijozlar ko'paygani sari Firestore o'qishlari ham o'sardi.
+    # Bitta maydon bo'yicha oraliq — qo'shimcha indeks kerak emas.
+    since = (now - timedelta(hours=hours + 24)).isoformat()
     found = []
     try:
-        docs = db.collection("users").where("cartUpdatedAt", "<=", cutoff).limit(200).get()
+        docs = (
+            db.collection("users")
+            .where("cartUpdatedAt", ">=", since)
+            .where("cartUpdatedAt", "<=", cutoff)
+            .limit(200)
+            .get()
+        )
     except Exception as e:
         print(f"[ERR] abandoned_carts: {e}")
         return found

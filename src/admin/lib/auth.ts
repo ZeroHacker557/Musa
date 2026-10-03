@@ -10,7 +10,7 @@ import {
   sendPasswordResetEmail,
   type User,
 } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { createFirestore } from '../../config/firestore-cache'
 import { firebaseConfig } from '../../config/firebase'
 
 /**
@@ -43,7 +43,8 @@ function createAuth() {
 }
 
 export const auth = createAuth()
-export const db = getFirestore(app)
+// Qurilmadagi kesh bilan — sahifa yangilanganda to'plamlar qayta o'qilmaydi
+export const db = createFirestore(app)
 
 /** Kirishdan oldin kutiladi — saqlash usuli yuqorida tanlab bo'lingan. */
 export const persistenceReady = Promise.resolve()
