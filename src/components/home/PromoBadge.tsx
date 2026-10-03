@@ -1,5 +1,5 @@
 /**
- * «Aksiyadagi mahsulotlar» — bosh sahifadagi «Setlar» kartasining chap
+ * «Aksiyadagi set mahsulotlar» — bosh sahifadagi «Setlar» kartasining chap
  * bo'shlig'ida qiya, tebranib turadigan narx yorlig'i («Setlar» yozuvi
  * o'rniga). Rasm o'ngga surilib joy ochiladi: `.line-card--promo`.
  */

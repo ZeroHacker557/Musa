@@ -19,7 +19,7 @@ import { openExternalLink } from '../utils/telegram'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
 import { PromoBadge } from '../components/home/PromoBadge'
 
-/** «Aksiyadagi mahsulotlar» yorlig'i shu yo'nalish kartasida («Setlar» yozuvi o'rniga). */
+/** «Aksiyadagi set mahsulotlar» yorlig'i shu yo'nalish kartasida («Setlar» yozuvi o'rniga). */
 const PROMO_LINE = 'Setlar'
 
 type Props = ProductActions & {
@@ -216,7 +216,7 @@ export function HomePage({
                     {/* «Setlar» yozuvi o'rniga — o'quvchi dasturlar uchun nomi qoladi */}
                     <span className="sr-only">{categoryLabel(line, lang)}</span>
                     <PromoBadge
-                      top={lang === 'ru' ? 'Товары' : 'Aksiyadagi'}
+                      top={lang === 'ru' ? 'Наборы' : 'Aksiyadagi set'}
                       bottom={lang === 'ru' ? 'по акции' : 'mahsulotlar'}
                     />
                   </>
