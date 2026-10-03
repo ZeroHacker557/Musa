@@ -17,6 +17,10 @@ import { HeroSlide } from '../components/home/HeroSlide'
 import type { HomeBanner } from '../config/banners'
 import { openExternalLink } from '../utils/telegram'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
+import { PromoBadge } from '../components/home/PromoBadge'
+
+/** «Aksiyadagi mahsulotlar» yorlig'i shu yo'nalish kartasida («Setlar» yozuvi o'rniga). */
+const PROMO_LINE = 'Setlar'
 
 type Props = ProductActions & {
   products: Product[]
@@ -197,7 +201,7 @@ export function HomePage({
               <button
                 key={line.name}
                 onClick={() => onOpenCategory(line.name)}
-                className={'line-card' + (index === 0 || line.wide ? ' line-card--wide' : '')}
+                className={'line-card' + (index === 0 || line.wide ? ' line-card--wide' : '') + (line.name === PROMO_LINE ? ' line-card--promo' : '')}
                 data-reveal
                 style={{
                   ...(line.image ? { backgroundImage: `url(${line.image})` } : { backgroundImage: line.gradient }),
@@ -207,7 +211,18 @@ export function HomePage({
                 {!line.image && (
                   <Icon className="line-card__icon" size={index === 0 || line.wide ? 128 : 104} aria-hidden="true" />
                 )}
-                <span className="line-card__title">{categoryLabel(line, lang)}</span>
+                {line.name === PROMO_LINE ? (
+                  <>
+                    {/* «Setlar» yozuvi o'rniga — o'quvchi dasturlar uchun nomi qoladi */}
+                    <span className="sr-only">{categoryLabel(line, lang)}</span>
+                    <PromoBadge
+                      top={lang === 'ru' ? 'Товары' : 'Aksiyadagi'}
+                      bottom={lang === 'ru' ? 'по акции' : 'mahsulotlar'}
+                    />
+                  </>
+                ) : (
+                  <span className="line-card__title">{categoryLabel(line, lang)}</span>
+                )}
               </button>
             )
           })}
