@@ -446,6 +446,8 @@ export type AllSettings = {
   payment: {
     cardNumber: string
     cardOwner: string
+    /** Karta orqali to'lov (o'tkazma) yoqilganmi. */
+    transfer?: boolean
     /** Onlayn to'lov (WLCM) yoqilganmi va mijozga ko'rinadigan usullar. */
     online?: boolean
     onlineProviders?: string[]

@@ -1,6 +1,6 @@
 import { adminDb } from '../firebase-admin.js'
 import {
-  deleteMessage, editMessage, escapeHtml, replaceButtons, sendMessage, sendRows, setKeyboard, type AnyButton,
+  deleteMessage, editMessage, escapeHtml, replaceButtons, sendMedia, sendMessage, sendRows, setKeyboard, type AnyButton,
 } from '../telegram.js'
 import { userLang, type Lang } from '../i18n.js'
 import { restoreStock } from '../stock.js'
@@ -193,6 +193,8 @@ export type OrderDoc = {
   courierName?: string | null
   total?: number
   paymentMethod?: string
+  /** Karta (o'tkazma) — mijoz yuklagan to'lov cheki. */
+  receipt?: { url?: string } | null
   products?: { product?: { name?: string; price?: number }; quantity?: number; size?: string | null }[]
   dispatchMessages?: DispatchMessage[]
   dispatchText?: string
@@ -712,9 +714,34 @@ ${orderSummary(orderId, order)}`
      */
     const accept = [{ text: '✅ Qabul qilindi', callback_data: `adm:acc:${orderId}` }]
 
+    /*
+     * Karta (o'tkazma) — chek rasmi bilan, «To'lovni tasdiqlash / Rad etish»
+     * tugmalari bilan (bot/bot.py → cb_payment_confirm). Tasdiqlangach bot
+     * xabarni buyurtma holati tugmalariga almashtiradi.
+     */
+    const receiptUrl = order.paymentMethod === 'Karta' ? order.receipt?.url : null
+    const receiptRows = receiptUrl && order.userId
+      ? [
+          [
+            { text: '✅ To‘lovni tasdiqlash', callback_data: `pconf:ok:${orderId}:${order.userId}` },
+            { text: '❌ Rad etish', callback_data: `pconf:no:${orderId}:${order.userId}` },
+          ],
+          ...(buttons ? [buttons] : []),
+        ]
+      : null
+    // Rasm izohi 1024 belgigacha — uzun bo'lsa qator chegarasida qisqartiriladi
+    const caption = (() => {
+      const note = '\n\n💳 <b>Karta orqali to‘lov — chekni tekshiring</b>'
+      if (text.length + note.length <= 1000) return text + note
+      const cut = text.slice(0, 900)
+      return `${cut.slice(0, cut.lastIndexOf('\n'))}\n…${note}`
+    })()
+
     const adminMessages: ChatMessage[] = []
     for (const target of targets) {
-      const result = await sendMessage(target, text, buttons, accept)
+      const result = receiptUrl && receiptRows
+        ? await sendMedia(target, 'photo', receiptUrl, caption, receiptRows)
+        : await sendMessage(target, text, buttons, accept)
       if (result.ok) adminMessages.push({ chatId: String(target), messageId: result.messageId })
       await new Promise((resolve) => setTimeout(resolve, 40))
     }

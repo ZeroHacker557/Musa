@@ -35,6 +35,12 @@ export function SettingsPage() {
           Yozayotganda kalit o'zgarmaydi — settings faqat Firestore
           yangilanganda almashadi.
         */}
+        <TransferCard
+          key={`transfer:${settings.payment.cardNumber}|${settings.payment.cardOwner}|${settings.payment.transfer}`}
+          settings={settings.payment}
+          busy={busy === 'payment'}
+          onSave={save}
+        />
         <OnlinePaymentCard
           key={`online:${settings.payment.online}|${settings.payment.onlineTestOnly}|${(settings.payment.onlineProviders || []).join(',')}`}
           settings={settings.payment}
@@ -103,6 +109,85 @@ function Section({
       </div>
       <div className="mt-4">{children}</div>
     </section>
+  )
+}
+
+/**
+ * Karta orqali to'lov (o'tkazma): mijoz shu kartaga pul o'tkazadi va
+ * buyurtma berishda chek yuklaydi. Karta raqami va egasining ismi
+ * buyurtma sahifasida va chek oynasida ko'rinadi.
+ */
+function TransferCard({
+  settings, busy, onSave,
+}: {
+  settings: { cardNumber: string; cardOwner: string; transfer?: boolean }
+  busy: boolean
+  onSave: SaveFn
+}) {
+  const [number, setNumber] = useState(settings.cardNumber || '')
+  const [owner, setOwner] = useState(settings.cardOwner || '')
+  const [on, setOn] = useState(settings.transfer !== false)
+  const digits = number.replace(/\D/g, '')
+  const valid = digits.length === 16 && owner.trim().length > 0
+
+  return (
+    <Section
+      title="Karta orqali to‘lov"
+      icon={CreditCard}
+      hint="Mijoz shu kartaga o‘tkazib, buyurtma berishda chek yuklaydi"
+    >
+      <label className="adm-ch-toggle">
+        <span className="adm-ch-toggle__icon"><CreditCard size={18} /></span>
+        <span className="min-w-0 flex-1">
+          <b>{on ? 'Yoqilgan — mijozlarga «Karta» usuli ko‘rinadi' : 'O‘chirilgan — faqat naqd (va onlayn)'}</b>
+          <span>O‘chirilsa karta ma’lumoti saqlanib qoladi, faqat mijozlarga ko‘rinmaydi</span>
+        </span>
+        <input type="checkbox" className="adm-ch-switch" checked={on} onChange={(e) => setOn(e.target.checked)} />
+      </label>
+
+      <label className="adm-label mt-3" htmlFor="tr-number">Karta raqami</label>
+      <input
+        id="tr-number"
+        className="adm-input font-mono tracking-wider"
+        inputMode="numeric"
+        value={number}
+        onChange={(e) => {
+          const d = e.target.value.replace(/\D/g, '').slice(0, 16)
+          setNumber(d.replace(/(\d{4})(?=\d)/g, '$1 '))
+        }}
+        placeholder="8600 0000 0000 0000"
+      />
+      {digits.length > 0 && digits.length !== 16 && (
+        <p className="mt-1 text-xs font-bold" style={{ color: 'var(--danger)' }}>16 ta raqam bo‘lishi kerak ({digits.length}/16)</p>
+      )}
+
+      <label className="adm-label mt-3" htmlFor="tr-owner">Karta egasining ismi</label>
+      <input
+        id="tr-owner"
+        className="adm-input"
+        value={owner}
+        maxLength={60}
+        onChange={(e) => setOwner(e.target.value)}
+        placeholder="ABDULLAYEV ALI"
+      />
+
+      {/* Mijoz buyurtma sahifasida aynan shuni ko'radi */}
+      {digits.length === 16 && owner.trim() && (
+        <div className="mt-3 rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>Mijoz ko‘radi:</p>
+          <p className="mt-1 font-mono text-sm font-extrabold">{number}</p>
+          <p className="text-xs font-bold" style={{ color: 'var(--muted)' }}>{owner.trim()}</p>
+        </div>
+      )}
+
+      <button
+        className="adm-btn adm-btn--primary mt-4 w-full"
+        onClick={() => onSave('payment', { cardNumber: number, cardOwner: owner.trim(), transfer: on })}
+        disabled={busy || !valid}
+      >
+        {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash
+      </button>
+    </Section>
   )
 }
 

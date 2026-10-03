@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { withMainLines } from '../config/categories'
 import { subscribeToVoices, subscribeToCategories, subscribeToHomeBanners, subscribeToProducts, subscribeToPromotions, subscribeToSections, subscribeToUserOrders, subscribeToUserProfile, subscribeToUserNotifications, markNotificationsAsRead, markOrderNotificationsAsRead, updateUserProfile } from '../lib/firebase'
+import type { ReceiptUpload } from '../components/checkout/ReceiptSheet'
 import { setWelcomeVoices } from '../utils/welcome-voice'
 import { ensureSignedIn, onAuthChanged, auth } from '../lib/auth'
 import { apiPost } from '../lib/api'
@@ -930,7 +931,7 @@ export function useShopStore() {
    * yuboriladi — narx, chegirma va jami serverda qayta hisoblanadi,
    * shuning uchun finalTotal parametri endi kerak emas.
    */
-  const submitOrder = useCallback(async (card?: CardDraft) => {
+  const submitOrder = useCallback(async (card?: CardDraft, receipt?: ReceiptUpload) => {
     if (isSubmitting) return false
 
     if (!orderForm.name.trim() || !orderForm.phone.trim() || !orderForm.address.trim()) {
@@ -980,6 +981,8 @@ export function useShopStore() {
           recipientPhone: orderForm.recipientPhone?.trim() || '',
         },
         promoCode: orderForm.promoCode,
+        // Karta (o'tkazma) — to'lov cheki rasmi (buyurtma u bilan birga yaratiladi)
+        ...(orderForm.paymentMethod === 'Karta' && receipt ? { receipt } : {}),
         // Karta (Uzcard/Humo) — faqat shu so'rovda, hech qayerda saqlanmaydi
         ...(online && orderForm.paymentProvider === 'card' && card ? { card } : {}),
       })
@@ -998,7 +1001,8 @@ export function useShopStore() {
     // Onlayn to'lovni tanlagan mijozga keyingi safar ham shu usul turadi
     setOrderForm({
       name: '', phone: '', address: '', location: null, comment: '',
-      paymentMethod: online ? 'Onlayn' : 'Naqd',
+      // Keyingi safar ham shu usul tursin (naqd / karta / onlayn)
+      paymentMethod: online ? 'Onlayn' : orderForm.paymentMethod === 'Karta' ? 'Karta' : 'Naqd',
       paymentProvider: online ? orderForm.paymentProvider : undefined,
       paymentTile: online ? orderForm.paymentTile : undefined,
     })

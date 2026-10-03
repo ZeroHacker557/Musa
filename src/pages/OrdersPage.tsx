@@ -83,7 +83,8 @@ export function OrdersPage({
     const s = order.paymentStatus
     if (s === 'Tolangan') return { color: 'var(--success)', bg: 'var(--success-soft)', needsAction: false }
     if (s === 'Rad etildi') return { color: 'var(--danger)', bg: 'var(--danger-soft)', needsAction: true, rejected: true }
-    return { color: 'var(--warning)', bg: 'var(--warning-soft)', needsAction: true, rejected: false }
+    // Chek buyurtma bilan birga yuklangan — admin tekshiryapti, mijozdan hech narsa kerak emas
+    return { color: 'var(--warning)', bg: 'var(--warning-soft)', needsAction: !order.receipt?.url, rejected: false }
   }
 
   const translateStatus = (status: OrderStatus) => t(`status.${status}` as TranslationKey)

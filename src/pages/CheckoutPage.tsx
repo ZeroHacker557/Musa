@@ -3,7 +3,7 @@ import { FreeDeliveryBar } from '../components/cart/FreeDeliveryBar'
 import { useFreeDelivery } from '../hooks/use-free-delivery'
 import { productThumb } from '../utils/product-image'
 import {
-  ArrowLeft, Banknote, Check, CreditCard, Loader2, Lock, MapPin, Pencil,
+  ArrowLeft, Banknote, Check, Copy, CreditCard, Loader2, Lock, MapPin, Pencil,
   MessageSquare, Phone, Send, ShoppingBag, Tag, User, UserRound,
 } from 'lucide-react'
 import { formatPrice } from '../data'
@@ -16,6 +16,7 @@ import { useT } from '../i18n'
 import type { Address, AppPage, DeliverySettings, OrderForm, PaymentSettings, Product, UserProfile } from '../types/domain'
 import { PageTitle } from '../components/layout/PageTitle'
 import { AddressConfirmSheet } from '../components/checkout/AddressConfirmSheet'
+import { ReceiptSheet, type ReceiptUpload } from '../components/checkout/ReceiptSheet'
 import { PAY_TILES, cardTileOf, providerLabel, type CardDraft } from '../utils/payment'
 import { PayLogo } from '../components/payment/PayLogo'
 
@@ -61,7 +62,7 @@ type Props = {
   orderForm: OrderForm
   onUpdateForm: (field: keyof OrderForm, value: unknown) => void
   /** Karta bilan to'lovda — karta ma'lumoti (faqat shu so'rov uchun). */
-  onSubmit: (card?: CardDraft) => Promise<boolean>
+  onSubmit: (card?: CardDraft, receipt?: ReceiptUpload) => Promise<boolean>
   isSubmitting: boolean
   onBack: () => void
   onNavigate: (page: AppPage) => void
@@ -242,10 +243,25 @@ export function CheckoutPage({
     onUpdateForm('paymentTile', tile.id)
   }
 
-  // Qo'lda o'tkazma olib tashlangan — eski tanlov naqdga o'tadi
+  /*
+   * Karta (o'tkazma): kartaga pul o'tkaziladi, «Buyurtma berish» da chek
+   * yuklash oynasi ochiladi — buyurtma chek bilan birga yaratiladi.
+   * Karta raqami sozlanmagan bo'lsa bu usul ko'rinmaydi.
+   */
+  const transferOn = Boolean(payment?.cardNumber) && payment?.transfer !== false
+  const [receiptOpen, setReceiptOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const copyCard = () => {
+    if (!payment?.cardNumber) return
+    void navigator.clipboard?.writeText(payment.cardNumber.replace(/\s/g, '')).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  // Karta sozlanmagan (yoki o'chirilgan) bo'lsa — naqdga qaytadi
   useEffect(() => {
-    if (orderForm.paymentMethod === 'Karta') onUpdateForm('paymentMethod', 'Naqd')
-  }, [orderForm.paymentMethod, onUpdateForm])
+    if (payment !== null && !transferOn && orderForm.paymentMethod === 'Karta') onUpdateForm('paymentMethod', 'Naqd')
+  }, [payment, transferOn, orderForm.paymentMethod, onUpdateForm])
 
   // Onlayn tanlangan-u o'chirilgan (yoki tugma yo'q) bo'lsa — naqdga qaytamiz
   useEffect(() => {
@@ -686,6 +702,22 @@ export function CheckoutPage({
                 </button>
               )
             })}
+            {transferOn && (
+              <button
+                type="button"
+                className={'pay-tile pay-tile--cash ' + (orderForm.paymentMethod === 'Karta' ? 'is-on' : '')}
+                onClick={() => { hapticFeedback('light'); onUpdateForm('paymentMethod', 'Karta') }}
+                aria-pressed={orderForm.paymentMethod === 'Karta'}
+              >
+                <span className="pay-tile__logo">
+                  <span className="plogo plogo--cash"><CreditCard size={22} strokeWidth={2.2} /> {t('checkout.card')}</span>
+                </span>
+                <span className="pay-tile__name">{t('checkout.cardSub')}</span>
+                {orderForm.paymentMethod === 'Karta' && (
+                  <span className="pay-tile__check"><Check size={12} strokeWidth={3.2} /></span>
+                )}
+              </button>
+            )}
             <button
               type="button"
               className={'pay-tile pay-tile--cash ' + (orderForm.paymentMethod === 'Naqd' ? 'is-on' : '')}
@@ -747,6 +779,28 @@ export function CheckoutPage({
             </div>
           )}
 
+          {orderForm.paymentMethod === 'Karta' && payment?.cardNumber && (
+            <div className="transfer-card" style={{ animation: 'fadeInUp 0.25s ease' }}>
+              <p className="transfer-card__title">{t('checkout.cardDetails')}</p>
+              <div className="transfer-card__row">
+                <div className="min-w-0">
+                  <p className="transfer-card__label">{t('checkout.cardNumber')}</p>
+                  <p className="transfer-card__number">{payment.cardNumber}</p>
+                  <p className="transfer-card__owner">{payment.cardOwner}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={copyCard}
+                  className={'transfer-card__copy ' + (copied ? 'is-done' : '')}
+                  aria-label={t('receiptSheet.copy')}
+                >
+                  {copied ? <Check size={18} /> : <Copy size={18} />}
+                </button>
+              </div>
+              <p className="transfer-card__note">{t('checkout.transferNote', { amount: formatPrice(finalTotal) })}</p>
+            </div>
+          )}
+
           {activeTile && (
             <p className="pay-providers__note" style={{ animation: 'fadeInUp 0.25s ease' }}>
               <Lock size={12} />
@@ -761,6 +815,12 @@ export function CheckoutPage({
             if (isSubmitting) return
             if (!canSubmit && !checkForm()) return
             if (!canSubmit) return
+            // Karta (o'tkazma) — avval chek yuklanadi, buyurtma shundan keyin
+            if (orderForm.paymentMethod === 'Karta') {
+              hapticFeedback('light')
+              setReceiptOpen(true)
+              return
+            }
             const ok = await onSubmit(activeTile?.card ? { number: cardDigits, expiry: expiryDigits } : undefined)
             // Karta ma'lumoti ekranda qolmasin
             if (ok) { setCardNumber(''); setCardExpiry('') }
@@ -777,6 +837,8 @@ export function CheckoutPage({
                 ? t('checkout.payCard', { card: activeTile.label })
                 : t('checkout.payNow', { provider: providerLabel(activeTile.provider) })}
             </>
+          ) : orderForm.paymentMethod === 'Karta' ? (
+            <><Send size={20} />{t('checkout.submitTransfer')}</>
           ) : (
             <><Send size={20} />{t('checkout.submit')}</>
           )}
@@ -790,6 +852,17 @@ export function CheckoutPage({
 
         <p className="mt-3 text-center text-xs" style={{ color: 'var(--faint)' }}>{t('checkout.disclaimer')}</p>
       </div>
+
+      {receiptOpen && payment?.cardNumber && (
+        <ReceiptSheet
+          amount={finalTotal}
+          cardNumber={payment.cardNumber}
+          cardOwner={payment.cardOwner}
+          busy={isSubmitting}
+          onSubmit={(receipt) => onSubmit(undefined, receipt)}
+          onClose={() => setReceiptOpen(false)}
+        />
+      )}
 
       {/* Profil yuklangach — aks holda «manzil yo'q» deb noto'g'ri chiqardi */}
       {confirming && profile && (

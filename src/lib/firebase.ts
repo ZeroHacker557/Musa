@@ -168,6 +168,7 @@ export async function getPaymentSettings(): Promise<PaymentSettings> {
     return {
       cardNumber: String(data.cardNumber || PAYMENT_FALLBACK.cardNumber),
       cardOwner: String(data.cardOwner || PAYMENT_FALLBACK.cardOwner),
+      transfer: data.transfer !== false,
       online: data.online === true,
       onlineProviders: Array.isArray(data.onlineProviders) ? data.onlineProviders.map(String) : [],
       onlineTestOnly: data.onlineTestOnly === true,

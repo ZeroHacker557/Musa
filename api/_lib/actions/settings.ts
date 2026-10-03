@@ -59,11 +59,19 @@ export async function settingsSave(actor: Staff, body: Record<string, unknown>) 
   const db = await adminDb()
   const section = text(body.section)
 
+  // Karta orqali to'lov (o'tkazma): mijoz shu kartaga o'tkazib, chek yuklaydi
   if (section === 'payment') {
-    const cardNumber = text(body.cardNumber)
-    const cardOwner = text(body.cardOwner)
-    if (!cardNumber || !cardOwner) throw new Error('Karta raqami va egasi kerak')
-    await db.collection('settings').doc('payment').set({ cardNumber, cardOwner }, { merge: true })
+    const digits = text(body.cardNumber).replace(/\D/g, '')
+    const cardOwner = text(body.cardOwner).replace(/\s+/g, ' ').slice(0, 60)
+    const transfer = body.transfer !== false
+    if (digits.length !== 16) throw new Error('Karta raqami 16 ta raqamdan iborat bo‘lsin')
+    if (!cardOwner) throw new Error('Karta egasining ismini kiriting')
+    await db.collection('settings').doc('payment').set({
+      cardNumber: digits.replace(/(\d{4})(?=\d)/g, '$1 '),
+      cardOwner,
+      transfer,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true })
     return { ok: true }
   }
 

@@ -7,6 +7,7 @@ import { WlcmError } from './_lib/wlcm.js'
 import { restoreStock } from './_lib/stock.js'
 import type { WlcmProvider } from './_lib/wlcm.js'
 import { pushOrderSafe } from './_lib/actions/linko-orders.js'
+import { readReceipt, uploadReceipt } from './_lib/receipts.js'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
 import { isSource } from './_lib/campaigns.js'
@@ -150,6 +151,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const card = online && order.customer.paymentProvider === 'card' ? readCard(req.body?.card) : null
   if (online && order.customer.paymentProvider === 'card' && !card) {
     return fail(res, 400, 'Karta raqami yoki muddati noto‘g‘ri', 'CARD_INVALID')
+  }
+  /*
+   * Karta (o'tkazma): to'lov cheki buyurtma bilan BIRGA keladi — mijoz
+   * «Buyurtma berish» ni bosganda chekni yuklaydi, shundan keyingina
+   * buyurtma yaratiladi va adminga chek rasmi bilan boradi.
+   */
+  let receiptUrl: string | null = null
+  if (order.customer.paymentMethod === 'Karta') {
+    // Admin karta orqali to'lovni o'chirgan (yoki karta kiritilmagan) bo'lsa
+    const pay = (await (await adminDb()).collection('settings').doc('payment').get()).data() ?? {}
+    if (pay.transfer === false || !String(pay.cardNumber || '').trim()) {
+      return fail(res, 400, 'Karta orqali to‘lov hozircha mavjud emas', 'TRANSFER_DISABLED')
+    }
+    const receipt = readReceipt(req.body?.receipt)
+    if (!receipt) return fail(res, 400, 'To‘lov chekini yuklang', 'RECEIPT_REQUIRED')
+    try {
+      receiptUrl = await uploadReceipt(userId, receipt)
+    } catch (error) {
+      console.error('[orders] chek saqlanmadi:', error)
+      return fail(res, 502, 'Chekni saqlab bo‘lmadi, qayta urinib ko‘ring', 'RECEIPT_UPLOAD')
+    }
   }
   if (online) {
     const settings = await onlineSettings(userId)
@@ -389,6 +411,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         status: online ? AWAITING_PAYMENT : 'Yangi',
         paymentMethod: order.customer.paymentMethod,
         paymentStatus: order.customer.paymentMethod === 'Naqd' ? null : 'Kutilmoqda',
+        // Karta (o'tkazma) — mijoz yuklagan to'lov cheki
+        receipt: receiptUrl ? { url: receiptUrl, uploadedAt: new Date().toISOString() } : null,
         paymentProvider: order.customer.paymentProvider ?? null,
         customer: { ...order.customer, promoCode: appliedPromo },
         clientOrderId: order.clientOrderId ?? null,

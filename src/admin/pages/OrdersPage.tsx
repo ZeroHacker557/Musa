@@ -641,6 +641,12 @@ function OrderDrawer({
               {order.paymentProvider ? ` (${providerLabel(order.paymentProvider)}${order.payment?.cardMask ? ` ${order.payment.cardMask}` : ''})` : ''}
               {order.paymentStatus ? ` • ${order.paymentStatus}` : ''}
             </p>
+            {order.receipt?.url && (
+              <a href={order.receipt.url} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-3 rounded-xl p-2" style={{ background: 'var(--surface-2)' }}>
+                <img src={order.receipt.url} alt="To‘lov cheki" className="h-16 w-12 shrink-0 rounded-lg object-cover" />
+                <span className="text-xs font-bold" style={{ color: 'var(--brand)' }}>To‘lov cheki — kattalashtirish uchun bosing</span>
+              </a>
+            )}
           </section>
 
           <OrderTimeline order={order} />

@@ -123,6 +123,8 @@ export type Order = {
   orderNumber: string
   /** Toshkent bo'yicha kun «2026-09-23» — raqam har kuni #0001 dan boshlanadi. */
   orderDay?: string | null
+  /** Karta (o'tkazma) — mijoz yuklagan to'lov cheki. */
+  receipt?: { url: string; uploadedAt?: string } | null
   /** ISO 8601. Saralash va sana ko'rsatish shu maydondan. */
   createdAt: string
   products: { product: Product; quantity: number; size?: string; color?: string; cartKey?: string }[]
@@ -174,6 +176,8 @@ export type NewOrder = Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'notifie
 export type PaymentSettings = {
   cardNumber: string
   cardOwner: string
+  /** Karta orqali to'lov (o'tkazma) yoqilganmi — admin → Sozlamalar. Yo'q — yoqilgan. */
+  transfer?: boolean
   /** Onlayn to'lov (WLCM) yoqilganmi va qaysi usullar ko'rinadi. */
   online?: boolean
   onlineProviders?: string[]
