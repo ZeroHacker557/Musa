@@ -425,6 +425,25 @@ export async function orderStatus(staff: Staff, body: Record<string, unknown>) {
 }
 
 /**
+ * Ritm (Linko)'da o'zgargan holat — admin panelda o'zgartirilgandek:
+ * tarix, mijozga xabar, kuryer xabarlari, kassa (linko-orders.ts →
+ * pullOrders). Linko'ga qayta yuborilmaydi: `order.linko.status` allaqachon
+ * Ritm'dagi holat, pushOrder buni ko'rib tegmaydi.
+ */
+export async function statusFromRitm(orderId: string, order: Record<string, unknown>, status: string): Promise<void> {
+  if (!STATUSES.includes(status as Status)) return
+  const doc = order as OrderDoc
+  const db = await adminDb()
+  const now = new Date().toISOString()
+  const by = { uid: 'ritm', name: 'Ritm', role: 'ritm' }
+  await db.collection('orders').doc(orderId).set(
+    { status, statusUpdatedAt: now, statusUpdatedBy: by, ...cashFields(doc, status as Status, now) },
+    { merge: true },
+  )
+  await applyStatusEffects(orderId, doc, status as Status, by, now)
+}
+
+/**
  * Kassa belgisi admin yo'lida ham (panel yoki botdagi «🎉 Bajarildi»).
  *
  * Kuryer ilovadan yetkazsa `courierDeliver` o'zi belgilaydi. Admin

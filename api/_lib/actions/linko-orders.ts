@@ -2,6 +2,7 @@ import { adminDb } from '../firebase-admin.js'
 import { linkoGet, linkoPost, linkoToken, readLinkoSettings, tmOf, type LinkoSettings } from '../linko.js'
 import { isCashPayment } from '../pay-method.js'
 import { orderLabel } from '../order-number.js'
+import { AWAITING_PAYMENT, statusFromRitm } from './orders.js'
 
 /**
  * Buyurtmalarni Linko'ga yuborish.
@@ -23,8 +24,27 @@ import { orderLabel } from '../order-number.js'
 type Result = Record<string, unknown>
 
 type OrderProduct = {
-  product?: { id?: number | string; name?: string; price?: number; originalPrice?: number; pack?: number }
+  product?: { id?: number | string; name?: string; price?: number; originalPrice?: number; pack?: number; [key: string]: unknown }
   quantity?: number
+  [key: string]: unknown
+}
+
+/** Buyurtmadagi Linko belgisi (server yozadi). */
+type LinkoMark = {
+  orderId?: number
+  marketId?: number
+  status?: string
+  error?: string | null
+  skipped?: string[]
+  /** Ritm'dan oxirgi olingan holatning `tm` i. */
+  tm?: number | null
+  deliveryDate?: string | null
+  deliveryManId?: number | null
+  agentId?: number | null
+  /** Ritm'dagi izoh (operator yozgan). */
+  note?: string
+  editedAt?: string
+  edits?: { at: string; text: string }[]
 }
 
 type OrderDoc = {
@@ -44,7 +64,11 @@ type OrderDoc = {
     comment?: string
     location?: { lat: number; lng: number } | null
   }
-  linko?: { orderId?: number; marketId?: number }
+  linko?: LinkoMark
+  subtotal?: number
+  discount?: number
+  discountPercent?: number
+  deliveryFee?: number
 }
 
 /**
@@ -218,7 +242,7 @@ export async function pushCustomerToLinko(
 }
 
 /** Bir sinxronda mijozlarni varaqlashga ajratilgan vaqt (mahsulot sinxroni ham ulgurishi kerak). */
-const MARKETS_BUDGET_MS = 20_000
+const MARKETS_BUDGET_MS = 15_000
 const MARKETS_PAGE = 1000
 
 /**
@@ -281,6 +305,358 @@ export async function pullMarkets(settings: LinkoSettings): Promise<{ checked: n
   return { checked: rows.length, updated, lastMarketTm: maxTm }
 }
 
+/** Bizdagi mahsulotlar → Linko qatorlari (bog'lanmaganlari `skipped`). */
+async function buildLines(items: OrderProduct[]): Promise<{ lines: Record<string, unknown>[]; skipped: string[] }> {
+  const lines: Record<string, unknown>[] = []
+  const skipped: string[] = []
+
+  for (const item of items) {
+    const productId = String(item.product?.id ?? '')
+    const amount = num(item.quantity, 1)
+    if (!productId || amount <= 0) continue
+
+    const linkoId = await linkoProductId(productId)
+    if (!linkoId) {
+      skipped.push(text(item.product?.name) || productId)
+      continue
+    }
+
+    // O'ram: Linko'da hammasi DONADA — miqdor ×pack, narx ÷pack
+    const pack = Math.max(1, Math.floor(num(item.product?.pack, 1)))
+    const price = Math.round(num(item.product?.price) / pack)
+    lines.push({
+      product: { linko_id: linkoId },
+      price,
+      /*
+       * `origin_price` hujjatda ixtiyoriy deb yozilgan, lekin API uni
+       * TALAB qiladi (sinovda: «origin_price: This field is required»).
+       * Aksiya bo'lmasa — sotuv narxining o'zi.
+       */
+      origin_price: Math.round(num(item.product?.originalPrice, num(item.product?.price)) / pack),
+      amount: amount * pack,
+    })
+  }
+  return { lines, skipped }
+}
+
+type LinkoLine = {
+  product?: { id?: number } | null
+  price?: number | string
+  origin_price?: number | string
+  amount?: number | string
+  return_amount?: number | string
+  discount_percent?: number | string
+}
+
+/** Ritm'dagi buyurtma — `orders/` ro'yxatidagi qator. */
+type LinkoOrderRow = {
+  id?: number
+  status?: string
+  tm?: string | number
+  payment_type?: string
+  custom_payment_type?: string | null
+  market?: { id?: number; service_id?: string | null } | null
+  stock?: { id?: number } | null
+  agent?: { id?: number } | null
+  delivery_man?: { id?: number } | null
+  price_list?: { id?: number } | null
+  currency?: { id?: number } | null
+  comment?: string | null
+  date_delivery?: string | null
+  service_order_number?: string | null
+  products?: LinkoLine[]
+}
+
+const refId = (ref?: { id?: number } | null) => num(ref?.id)
+
+/** Holatlar tartibi: Ritm oldinga ketgan bo'lsa, bizdagi eski holat uni orqaga qaytarmaydi. */
+const RANK: Record<string, number> = { not_delivered: 0, given: 1, delivered: 2 }
+
+async function fetchLinkoOrder(id: number, settings: LinkoSettings): Promise<LinkoOrderRow | null> {
+  const body = await linkoGet<{ results?: LinkoOrderRow[] }>('orders/', { ids: id, limit: 1 }, settings)
+  return (body?.results ?? []).find((row) => num(row.id) === id) ?? null
+}
+
+/** Ritm'dagi qator — o'zgartirmasdan qaytarib yuborish uchun. */
+function echoLine(line: LinkoLine): Record<string, unknown> {
+  return {
+    product: { linko_id: refId(line.product) },
+    price: num(line.price),
+    origin_price: num(line.origin_price, num(line.price)),
+    amount: num(line.amount),
+    ...(num(line.discount_percent) ? { discount_percent: num(line.discount_percent) } : {}),
+  }
+}
+
+/**
+ * Ritm'da bor buyurtma: faqat HOLAT yangilanadi.
+ *
+ * Ilgari har holat o'zgarishida butun buyurtma (mahsulot, miqdor, narx,
+ * agent, yetkazuvchi, sana) qayta yuborilardi va Ritm adminlari
+ * tuzatgani eskisiga qaytardi. Endi Ritm'dagi joriy buyurtma o'qiladi va
+ * xuddi o'zi qaytariladi — faqat `status` bizniki. Ilgari bog'lanmagan,
+ * endi bog'langan mahsulot bo'lsa — qo'shiladi.
+ */
+async function updateInLinko(
+  orderId: string,
+  order: OrderDoc,
+  settings: LinkoSettings,
+  save: (data: Record<string, unknown>) => Promise<unknown>,
+): Promise<Result> {
+  const linkoOrderId = num(order.linko?.orderId)
+  const target = STATUS[text(order.status)] ?? 'not_delivered'
+  const pending = order.linko?.skipped ?? []
+  const now = new Date().toISOString()
+
+  // Holat bir xil va yetishmagan mahsulot yo'q — Ritm'ga umuman tegilmaydi
+  if (order.linko?.status === target && !pending.length && !order.linko?.error) {
+    return { ok: true, linkoOrderId, unchanged: true }
+  }
+
+  const row = await fetchLinkoOrder(linkoOrderId, settings)
+  if (!row) {
+    const error = `Ritm’da №${linkoOrderId} buyurtma topilmadi (o‘chirilgan bo‘lishi mumkin)`
+    await save({ error, at: now })
+    return { ok: false, error }
+  }
+
+  const products = (row.products ?? []).filter((line) => refId(line.product)).map(echoLine)
+  const before = products.length
+  let skipped: string[] = []
+  if (pending.length) {
+    const missing = (order.products ?? []).filter(
+      (item) => pending.includes(text(item.product?.name)) || pending.includes(String(item.product?.id ?? '')),
+    )
+    const extra = await buildLines(missing)
+    const have = new Set(products.map((line) => num((line.product as { linko_id?: number }).linko_id)))
+    for (const line of extra.lines) {
+      if (!have.has(num((line.product as { linko_id?: number }).linko_id))) products.push(line)
+    }
+    skipped = extra.skipped
+  }
+  const added = products.length > before
+
+  // Ritm oldinga ketgan (masalan, u yerda «yo'lda») — bizdagi eski holat uni qaytarmaydi
+  const behind = target in RANK && (row.status ?? '') in RANK && RANK[target] < RANK[row.status ?? '']
+  if ((row.status === target || behind) && !added) {
+    await save({ orderId: linkoOrderId, status: row.status ?? null, syncedAt: now, error: null, skipped })
+    return { ok: true, linkoOrderId, unchanged: true }
+  }
+
+  const status = behind ? row.status : target
+  const payload = [{
+    linko_id: linkoOrderId,
+    service_id: `musa-${orderId}`,
+    payment_type: row.payment_type || (isCashPayment(text(order.paymentMethod)) ? 'cash' : 'bank'),
+    ...(row.custom_payment_type ? { custom_payment_type: row.custom_payment_type } : {}),
+    status,
+    comment: row.comment ?? '',
+    date_delivery: row.date_delivery || dateOnly(order.createdAt),
+    market: { linko_id: refId(row.market) || num(order.linko?.marketId) },
+    stock: { linko_id: refId(row.stock) || settings.orderStockId },
+    agent: { linko_id: refId(row.agent) || settings.agentId },
+    ...(refId(row.delivery_man) ? { delivery_man: { linko_id: refId(row.delivery_man) } } : {}),
+    ...(refId(row.price_list) ? { price_list: { linko_id: refId(row.price_list) } } : {}),
+    ...(refId(row.currency) || settings.currencyId ? { linko_currency_id: refId(row.currency) || settings.currencyId } : {}),
+    service_order_number: row.service_order_number || text(order.orderNumber) || orderId,
+    products,
+  }]
+
+  const body = await linkoPost<{ results?: { id?: number }[]; errors?: unknown[] }>('sync_order/', payload, settings)
+  if (body.errors?.length) {
+    const error = `Linko qabul qilmadi: ${JSON.stringify(body.errors).slice(0, 300)}`
+    await save({ error, at: now })
+    return { ok: false, error }
+  }
+  const marketId = refId(row.market) || num(order.linko?.marketId) || null
+  await save({ orderId: linkoOrderId, marketId, status, syncedAt: now, error: null, skipped })
+  return { ok: true, linkoOrderId, marketId, skipped }
+}
+
+/* ─── Ritm → biz: buyurtmadagi o'zgarishlar ─────────────────── */
+
+/** Ritm holati → bizniki. `not_delivered` olinmaydi: bizda u «Yangi» ham, «Qabul qilindi» ham. */
+const FROM_RITM: Record<string, string> = {
+  given: 'Yetkazilmoqda',
+  delivered: 'Yetkazildi',
+  cancelled: 'Bekor qilingan',
+}
+
+const ORDERS_BUDGET_MS = 12_000
+const ORDERS_PAGE = 1000
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+const som = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+
+/** Ritm'da qo'shilgan mahsulot — bizdagi mahsulot kartochkasidan (bo'lsa). */
+async function itemFromLinko(linkoId: number, line: { amount: number; price: number }): Promise<OrderProduct> {
+  const db = await adminDb()
+  const mirror = (await db.collection('linko_products').doc(String(linkoId)).get()).data() ?? {}
+  const ids = Array.isArray(mirror.productIds) ? mirror.productIds : mirror.productId ? [mirror.productId] : []
+  const productId = ids.map(String).find(Boolean)
+  const data = productId ? (await db.collection('products').doc(productId).get()).data() : undefined
+  if (data) {
+    const pack = Array.isArray(data.bundle) && data.bundle.length ? 1 : Math.max(1, Math.floor(num(data.pack, 1)))
+    return {
+      product: {
+        id: num(data.id, num(productId)),
+        name: pack > 1 ? `${text(data.name)} (${pack} dona)` : text(data.name),
+        price: line.price * pack,
+        ...(pack > 1 ? { pack } : {}),
+        images: Array.isArray(data.images) ? data.images : [],
+        thumbs: Array.isArray(data.thumbs) ? data.thumbs : [],
+        category: String(data.category || ''),
+      },
+      quantity: round2(line.amount / pack),
+      fromRitm: true,
+    }
+  }
+  return {
+    product: { id: 0, name: text(mirror.name) || `Ritm mahsuloti №${linkoId}`, price: line.price, images: [] },
+    quantity: line.amount,
+    fromRitm: true,
+  }
+}
+
+/**
+ * Ritm'dagi buyurtmani bizdagisiga qo'llaydi: mahsulot/miqdor/narx (jami
+ * qayta hisoblanadi — yetkazish va promokod saqlanadi), holat, yetkazish
+ * sanasi va izoh. Hech narsa o'zgarmagan bo'lsa — yozilmaydi.
+ */
+async function applyRitmOrder(orderId: string, order: OrderDoc, row: LinkoOrderRow): Promise<boolean> {
+  const rowTm = tmOf(row.tm)
+  if (rowTm && num(order.linko?.tm) >= rowTm) return false
+
+  // ── Mahsulotlar: Ritm qatorlari linko ID bo'yicha navbatda ──
+  const queue = new Map<number, { amount: number; price: number }[]>()
+  for (const line of row.products ?? []) {
+    const id = refId(line.product)
+    if (!id) continue
+    const list = queue.get(id) ?? []
+    list.push({ amount: num(line.amount) - num(line.return_amount), price: num(line.price) })
+    queue.set(id, list)
+  }
+
+  const skipped = order.linko?.skipped ?? []
+  const cache = new Map<string, number | null>()
+  const edits: string[] = []
+  const next: OrderProduct[] = []
+  for (const item of order.products ?? []) {
+    const productId = String(item.product?.id ?? '')
+    const name = text(item.product?.name) || productId
+    if (productId && !cache.has(productId)) cache.set(productId, await linkoProductId(productId))
+    const linkoId = productId ? cache.get(productId) : null
+    // Ritm'ga hech qachon ketmagan (bog'lanmagan) — tegilmaydi
+    if (!linkoId || skipped.includes(name) || skipped.includes(productId)) {
+      next.push(item)
+      continue
+    }
+    const line = queue.get(linkoId)?.shift()
+    if (!line || line.amount <= 0) {
+      edits.push(`− ${name}`)
+      continue
+    }
+    const pack = Math.max(1, Math.floor(num(item.product?.pack, 1)))
+    const quantity = round2(line.amount / pack)
+    const ourPrice = num(item.product?.price)
+    // Linko'ga dona narxi yaxlitlab ketgan — o'shaning o'zi qaytsa, bizdagi narx qoladi
+    const price = line.price === Math.round(ourPrice / pack) ? ourPrice : line.price * pack
+    if (quantity !== num(item.quantity)) edits.push(`${name}: ${num(item.quantity)} → ${quantity}`)
+    if (price !== ourPrice) edits.push(`${name}: narx ${som(ourPrice)} → ${som(price)}`)
+    next.push(quantity === item.quantity && price === ourPrice ? item : { ...item, quantity, product: { ...item.product, price } })
+  }
+  for (const [linkoId, lines] of queue) {
+    for (const line of lines) {
+      if (line.amount <= 0) continue
+      const item = await itemFromLinko(linkoId, line)
+      next.push(item)
+      edits.push(`+ ${text(item.product?.name)} ×${item.quantity}`)
+    }
+  }
+
+  const update: Record<string, unknown> = {}
+  if (edits.length) {
+    const subtotal = next.reduce((sum, item) => sum + num(item.product?.price) * num(item.quantity), 0)
+    const discount = num(order.discountPercent) > 0
+      ? Math.round((subtotal * num(order.discountPercent)) / 100)
+      : Math.min(num(order.discount), subtotal)
+    Object.assign(update, {
+      products: next,
+      subtotal,
+      discount,
+      total: Math.max(subtotal - discount, 0) + num(order.deliveryFee),
+    })
+  }
+
+  // ── Holat ──
+  const current = text(order.status)
+  const adopt = FROM_RITM[row.status ?? '']
+  const newStatus = adopt && STATUS[current] !== row.status && current !== AWAITING_PAYMENT ? adopt : null
+
+  // ── Qo'shimcha: yetkazish sanasi, yetkazuvchi, agent, izoh ──
+  const now = new Date().toISOString()
+  const info = {
+    deliveryDate: row.date_delivery ?? null,
+    deliveryManId: refId(row.delivery_man) || null,
+    agentId: refId(row.agent) || null,
+    note: text(row.comment),
+  }
+  const old = order.linko ?? {}
+  const blank = (v: unknown) => (v === undefined || v === '' ? null : v)
+  const infoChanged = (Object.keys(info) as (keyof typeof info)[]).some((key) => blank(old[key]) !== blank(info[key]))
+
+  if (!edits.length && !newStatus && !infoChanged && old.status === row.status) return false
+
+  const linko: Record<string, unknown> = { ...info, tm: rowTm || null, status: row.status ?? null, pulledAt: now }
+  if (edits.length) {
+    linko.editedAt = now
+    linko.edits = [...edits.map((t) => ({ at: now, text: t })), ...(old.edits ?? [])].slice(0, 20)
+  }
+  const db = await adminDb()
+  await db.collection('orders').doc(orderId).set({ ...update, linko }, { merge: true })
+
+  if (newStatus) {
+    await statusFromRitm(orderId, { ...order, ...update, linko: { ...old, ...linko } }, newStatus)
+  }
+  return true
+}
+
+/**
+ * Ritm'da o'zgargan BIZNING buyurtmalarni tortadi (Linko sinxroni, har
+ * 30 daqiqa). Ritm'da kuniga ~1 500 buyurtma o'zgaradi (2026-10), bizniki
+ * mijozining `service_id: musa-…` dan ajratiladi — faqat ular uchun
+ * Firestore o'qiladi.
+ */
+export async function pullOrders(settings: LinkoSettings): Promise<{ checked: number; updated: number; lastOrderTm: number }> {
+  // Birinchi marta — oxirgi 3 kun
+  const since = settings.lastOrderTm || Math.floor(Date.now() / 1000) - 3 * 86400
+  const deadline = Date.now() + ORDERS_BUDGET_MS
+  const rows: LinkoOrderRow[] = []
+  for (let offset = 0; Date.now() < deadline; offset += ORDERS_PAGE) {
+    const body = await linkoGet<{ results?: LinkoOrderRow[] }>('orders/', { last_tm: since, limit: ORDERS_PAGE, offset }, settings)
+    const page = Array.isArray(body?.results) ? body.results : []
+    rows.push(...page)
+    if (page.length < ORDERS_PAGE) break
+  }
+
+  const db = await adminDb()
+  let updated = 0
+  let maxTm = since
+  for (const row of rows) {
+    maxTm = Math.max(maxTm, tmOf(row.tm))
+    if (!/^musa-/.test(String(row.market?.service_id ?? '')) || !num(row.id)) continue
+    const snap = await db.collection('orders').where('linko.orderId', '==', num(row.id)).limit(1).get()
+    if (snap.empty) continue
+    const doc = snap.docs[0]
+    try {
+      if (await applyRitmOrder(doc.id, doc.data() as OrderDoc, row)) updated++
+    } catch (error) {
+      console.error('[linko] Ritm buyurtmasi qo‘llanmadi:', doc.id, error instanceof Error ? error.message : error)
+    }
+  }
+  return { checked: rows.length, updated, lastOrderTm: maxTm }
+}
+
 /**
  * Buyurtmani Linko'ga yuboradi (yangi bo'lsa yaratadi, bor bo'lsa
  * holatini yangilaydi) va natijani buyurtma hujjatiga yozadi.
@@ -309,36 +685,11 @@ export async function pushOrder(orderId: string, order: OrderDoc): Promise<Resul
   }
 
   try {
+    // Ritm'da allaqachon bor — faqat holat; Ritm'dagi tahrirlar saqlanadi
+    if (order.linko?.orderId) return await updateInLinko(orderId, order, settings, save)
+
     // ── Mahsulotlar ──
-    const lines: Record<string, unknown>[] = []
-    const skipped: string[] = []
-
-    for (const item of order.products ?? []) {
-      const productId = String(item.product?.id ?? '')
-      const amount = num(item.quantity, 1)
-      if (!productId || amount <= 0) continue
-
-      const linkoId = await linkoProductId(productId)
-      if (!linkoId) {
-        skipped.push(text(item.product?.name) || productId)
-        continue
-      }
-
-      // O'ram: Linko'da hammasi DONADA — miqdor ×pack, narx ÷pack
-      const pack = Math.max(1, Math.floor(num(item.product?.pack, 1)))
-      const price = Math.round(num(item.product?.price) / pack)
-      lines.push({
-        product: { linko_id: linkoId },
-        price,
-        /*
-         * `origin_price` hujjatda ixtiyoriy deb yozilgan, lekin API uni
-         * TALAB qiladi (sinovda: «origin_price: This field is required»).
-         * Aksiya bo'lmasa — sotuv narxining o'zi.
-         */
-        origin_price: Math.round(num(item.product?.originalPrice, num(item.product?.price)) / pack),
-        amount: amount * pack,
-      })
-    }
+    const { lines, skipped } = await buildLines(order.products ?? [])
 
     if (!lines.length) {
       const error = 'Buyurtmadagi mahsulotlar Linko bilan bog‘lanmagan'

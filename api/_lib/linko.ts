@@ -50,6 +50,8 @@ export type LinkoSettings = {
   lastBalanceTm: number
   /** Ritm'da o'zgargan mijozlar (markets) kursori. */
   lastMarketTm: number
+  /** Ritm'da o'zgargan buyurtmalar kursori. */
+  lastOrderTm: number
   lastSyncAt: string | null
   lastReport: string | null
 }
@@ -68,6 +70,7 @@ export const LINKO_DEFAULTS: LinkoSettings = {
   lastPriceTm: 0,
   lastBalanceTm: 0,
   lastMarketTm: 0,
+  lastOrderTm: 0,
   lastSyncAt: null,
   lastReport: null,
 }

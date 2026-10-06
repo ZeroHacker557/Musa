@@ -586,6 +586,7 @@ function OrderDrawer({
                 “{order.customer.comment}”
               </p>
             )}
+            <RitmNote order={order} />
           </section>
 
           {/* Mahsulotlar */}
@@ -717,6 +718,32 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
       <span className="font-bold" style={{ color: tone }}>
         {value}
       </span>
+    </div>
+  )
+}
+
+/** Ritm (Linko)'da buyurtmaga kiritilgan o'zgarishlar — linko sinxroni olib keladi. */
+function RitmNote({ order }: { order: AdminOrder }) {
+  const l = order.linko
+  if (!l || (!l.editedAt && !l.deliveryDate && !l.note)) return null
+  const day = l.deliveryDate ? l.deliveryDate.split('-').reverse().join('.') : ''
+  return (
+    <div className="mt-3 rounded-xl p-3 text-xs" style={{ background: 'var(--surface-2)' }}>
+      <p className="font-extrabold">
+        Ritm{day ? ` · yetkazish: ${day}` : ''}
+        {l.editedAt && <span style={{ color: 'var(--warning)' }}> · Ritm’da o‘zgartirilgan</span>}
+      </p>
+      {l.note && <p className="mt-1 italic" style={{ color: 'var(--muted)' }}>“{l.note}”</p>}
+      {l.edits?.length ? (
+        <ul className="mt-1.5 flex flex-col gap-0.5" style={{ color: 'var(--muted)' }}>
+          {l.edits.slice(0, 6).map((e, i) => (
+            <li key={i}>
+              {e.text}
+              <span style={{ color: 'var(--faint)' }}> · {new Date(e.at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }

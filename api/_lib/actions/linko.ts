@@ -1,5 +1,5 @@
 import { adminDb } from '../firebase-admin.js'
-import { pullMarkets } from './linko-orders.js'
+import { pullMarkets, pullOrders } from './linko-orders.js'
 import { LOW_STOCK_AT } from './orders.js'
 import {
   linkoCount, linkoGet, linkoList, linkoToken, readLinkoSettings, tmOf,
@@ -345,6 +345,16 @@ export async function linkoPull(
     if (pulled.updated) marketsNote = `; ${pulled.updated} ta mijoz Ritm'dan yangilandi`
   } catch (error) {
     console.error('[linko] mijozlar olinmadi:', error instanceof Error ? error.message : error)
+  }
+  // Ritm'da tuzatilgan buyurtmalar (tarkib, miqdor, narx, holat) — bizga ham
+  try {
+    const pulled = await pullOrders(settings)
+    if (pulled.lastOrderTm !== settings.lastOrderTm) {
+      await db.collection('settings').doc('linko').set({ lastOrderTm: pulled.lastOrderTm }, { merge: true })
+    }
+    if (pulled.updated) marketsNote += `; ${pulled.updated} ta buyurtma Ritm'dan yangilandi`
+  } catch (error) {
+    console.error('[linko] buyurtmalar olinmadi:', error instanceof Error ? error.message : error)
   }
 
   const productParams: Record<string, string | number> = {}

@@ -36,6 +36,15 @@ export type AdminOrder = Order & {
   cashStatus?: 'held' | 'pending' | 'settled'
   /** Kuryer bosgan muammo tugmalari. */
   problems?: { code: string; at: string }[]
+  /** Linko (Ritm) — server yozadi; Ritm'dagi tahrirlar shu yerda. */
+  linko?: {
+    orderId?: number | null
+    status?: string
+    deliveryDate?: string | null
+    note?: string
+    editedAt?: string
+    edits?: { at: string; text: string }[]
+  }
 }
 
 /** Sukut bo'yicha nechta kunlik buyurtma jonli kuzatiladi. */
