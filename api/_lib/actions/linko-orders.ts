@@ -1,5 +1,5 @@
 import { adminDb } from '../firebase-admin.js'
-import { linkoGet, linkoPost, linkoToken, readLinkoSettings, type LinkoSettings } from '../linko.js'
+import { linkoGet, linkoPost, linkoToken, readLinkoSettings, tmOf, type LinkoSettings } from '../linko.js'
 import { isCashPayment } from '../pay-method.js'
 import { orderLabel } from '../order-number.js'
 
@@ -109,20 +109,25 @@ async function linkoProductId(productId: string): Promise<number | null> {
   return num((primary ?? rows[0]).linkoId) || null
 }
 
-/** Mijozni Linko'da «market» sifatida yaratadi yoki yangilaydi. */
+/**
+ * Mijozni Linko'da «market» sifatida YARATADI (faqat birinchi marta —
+ * `marketFor`). Admin panelda yoki Ritm'da tuzatilgan ma'lumot bo'lsa
+ * (`profile.contact*`) — o'sha, aks holda buyurtmadagisi.
+ */
 async function syncMarket(
   order: OrderDoc,
   settings: LinkoSettings,
+  profile: Record<string, unknown> = {},
 ): Promise<{ id: number | null; serviceId: string }> {
   const customer = order.customer ?? {}
   const serviceId = `musa-${order.userId ?? 'mehmon'}`
 
   const payload = [{
     service_id: serviceId,
-    name: text(customer.name) || `Telegram mijoz ${order.userId ?? ''}`.trim(),
+    name: text(profile.contactName) || text(customer.name) || `Telegram mijoz ${order.userId ?? ''}`.trim(),
     is_confirmed: true,
-    phone: text(customer.phone),
-    address: text(customer.address),
+    phone: text(profile.contactPhone) || text(customer.phone),
+    address: text(profile.contactAddress) || text(customer.address),
     ...(customer.location
       ? { location: { lat: customer.location.lat, lon: customer.location.lng } }
       : {}),
@@ -139,6 +144,141 @@ async function syncMarket(
     throw new Error(`Mijoz yozilmadi: ${JSON.stringify(body.errors).slice(0, 200)}`)
   }
   return { id: num(body.results?.[0]?.id) || null, serviceId }
+}
+
+/**
+ * Buyurtmaning Linko mijozi. MUHIM: mijoz Linko'da allaqachon bo'lsa uning
+ * ism, telefon, manzili QAYTA YOZILMAYDI — ilgari har buyurtma (va har holat
+ * o'zgarishi) Ritm adminlari tuzatgan ma'lumotni eskisiga qaytarardi.
+ * O'zgartirish faqat admin panel orqali (customers.ts) yoki Ritm'ning o'zida.
+ */
+async function marketFor(order: OrderDoc, settings: LinkoSettings): Promise<{ id: number | null; serviceId: string }> {
+  const uid = order.userId ? String(order.userId) : ''
+  const serviceId = `musa-${uid || 'mehmon'}`
+  const known = num(order.linko?.marketId)
+  if (known) return { id: known, serviceId }
+  if (!uid) return syncMarket(order, settings)
+
+  const db = await adminDb()
+  const userRef = db.collection('users').doc(uid)
+  const user = (await userRef.get()).data() ?? {}
+  if (num(user.linkoMarketId)) return { id: num(user.linkoMarketId), serviceId }
+
+  // Ilgari yuborilgan buyurtmalaridan (bog'lanish saqlanmagan eski mijozlar)
+  const prev = await db.collection('orders').where('userId', '==', Number(uid)).get()
+  const old = prev.docs.map((d) => num((d.data() as OrderDoc).linko?.marketId)).find((n) => n > 0)
+  if (old) {
+    await userRef.set({ linkoMarketId: old }, { merge: true })
+    return { id: old, serviceId }
+  }
+
+  // Birinchi marta — yaratiladi
+  const created = await syncMarket(order, settings, user)
+  if (created.id) await userRef.set({ linkoMarketId: created.id }, { merge: true })
+  return created
+}
+
+type MarketRow = {
+  id?: number
+  name?: string
+  service_id?: string | null
+  market_type?: { id?: number } | null
+  market_phones?: { phone?: string }[]
+  address?: string | null
+  location?: { lat?: number; lon?: number } | null
+  responsible_agent?: { id?: number } | null
+  tm?: string | number
+}
+
+/**
+ * Admin panelda tuzatilgan mijozni Ritm'ga yuboradi. Ritm'dagi agent va
+ * mijoz turi (oxirgi sinxronda olingan) saqlanadi — ustidan yozilmaydi.
+ */
+export async function pushCustomerToLinko(
+  uid: string,
+  contact: { name: string; phone: string; address: string; location?: { lat?: number; lng?: number } | null },
+  settings: LinkoSettings,
+  profile: Record<string, unknown> = {},
+): Promise<void> {
+  const agent = num(profile.linkoAgentId) || settings.agentId
+  const type = num(profile.linkoMarketTypeId) || settings.marketTypeId
+  const loc = contact.location
+  const body = await linkoPost<{ results?: unknown[]; errors?: unknown[] }>('sync_market/', [{
+    service_id: `musa-${uid}`,
+    name: contact.name,
+    is_confirmed: true,
+    ...(contact.phone ? { phone: contact.phone } : {}),
+    ...(contact.address ? { address: contact.address } : {}),
+    ...(loc?.lat != null && loc?.lng != null ? { location: { lat: loc.lat, lon: loc.lng } } : {}),
+    ...(agent ? { responsible_agent: { linko_id: agent } } : {}),
+    ...(settings.priceListId ? { price_list: { linko_id: settings.priceListId } } : {}),
+    ...(type ? { market_type: { linko_id: type } } : {}),
+  }], settings)
+  if (body.errors?.length) throw new Error(`Ritm qabul qilmadi: ${JSON.stringify(body.errors).slice(0, 200)}`)
+}
+
+/** Bir sinxronda mijozlarni varaqlashga ajratilgan vaqt (mahsulot sinxroni ham ulgurishi kerak). */
+const MARKETS_BUDGET_MS = 20_000
+const MARKETS_PAGE = 1000
+
+/**
+ * Ritm'da o'zgargan mijozlarni bizga tortadi (Linko sinxroni, har 30 daqiqa).
+ * Faqat bizning mijozlar (`service_id: musa-<telegram id>`); qiymat
+ * o'zgarmagan bo'lsa yozilmaydi.
+ *
+ * Ritm tunda barcha mijozlarning `tm` ini birdaniga yangilaydi (~12 ming
+ * yozuv, 2026-10 da tekshirildi). Javob `tm` bo'yicha o'sib boradi, shuning
+ * uchun vaqt tugasa — ko'rilgan eng katta `tm` kursor bo'ladi va keyingi
+ * sinxron o'sha joydan davom etadi.
+ */
+export async function pullMarkets(settings: LinkoSettings): Promise<{ checked: number; updated: number; lastMarketTm: number }> {
+  // Birinchi marta — oxirgi 30 kun (butun bazani varaqlamaslik uchun)
+  const since = settings.lastMarketTm || Math.floor(Date.now() / 1000) - 30 * 86400
+  const deadline = Date.now() + MARKETS_BUDGET_MS
+  const rows: MarketRow[] = []
+  for (let offset = 0; Date.now() < deadline; offset += MARKETS_PAGE) {
+    const body = await linkoGet<{ results?: MarketRow[] }>('markets/', { last_tm: since, limit: MARKETS_PAGE, offset }, settings)
+    const page = Array.isArray(body?.results) ? body.results : []
+    rows.push(...page)
+    if (page.length < MARKETS_PAGE) break
+  }
+  const db = await adminDb()
+  let updated = 0
+  let maxTm = since
+  for (const row of rows) {
+    maxTm = Math.max(maxTm, tmOf(row.tm))
+    const match = /^musa-(\d+)$/.exec(String(row.service_id ?? ''))
+    if (!match || !row.id) continue
+    const ref = db.collection('users').doc(match[1])
+    const snap = await ref.get()
+    if (!snap.exists) continue
+    const user = snap.data() ?? {}
+    const phone = text(row.market_phones?.find((p) => p?.phone)?.phone)
+    const location = row.location?.lat != null && row.location?.lon != null
+      ? { lat: Number(row.location.lat), lng: Number(row.location.lon) }
+      : null
+    const next = {
+      contactName: text(row.name),
+      contactPhone: phone,
+      contactAddress: text(row.address),
+      contactLocation: location,
+      linkoMarketId: row.id,
+      linkoAgentId: num(row.responsible_agent?.id) || null,
+      linkoMarketTypeId: num(row.market_type?.id) || null,
+    }
+    const same = (Object.keys(next) as (keyof typeof next)[])
+      .every((k) => JSON.stringify(user[k] ?? null) === JSON.stringify(next[k] ?? null))
+    if (same) continue
+    const contactChanged = user.contactName !== next.contactName || (user.contactPhone ?? '') !== next.contactPhone
+      || (user.contactAddress ?? '') !== next.contactAddress
+    await ref.set({
+      ...next,
+      ...(phone ? { phone } : {}),
+      ...(contactChanged ? { contactSource: 'ritm', contactUpdatedAt: new Date().toISOString() } : {}),
+    }, { merge: true })
+    updated++
+  }
+  return { checked: rows.length, updated, lastMarketTm: maxTm }
 }
 
 /**
@@ -206,8 +346,8 @@ export async function pushOrder(orderId: string, order: OrderDoc): Promise<Resul
       return { ok: false, error }
     }
 
-    // ── Mijoz ──
-    const market = await syncMarket(order, settings)
+    // ── Mijoz — mavjud bo'lsa ma'lumoti qayta yozilmaydi ──
+    const market = await marketFor(order, settings)
 
     // ── Buyurtma ──
     const cash = isCashPayment(text(order.paymentMethod))

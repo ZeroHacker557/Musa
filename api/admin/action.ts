@@ -13,6 +13,7 @@ import { promotionDelete, promotionSave } from '../_lib/actions/promotions.js'
 import { adSave } from '../_lib/actions/ads.js'
 import { homeBannersSave } from '../_lib/actions/home.js'
 import { voicesSave, voicesUpload } from '../_lib/actions/voices.js'
+import { customerUpdate } from '../_lib/actions/customers.js'
 import { sourcesStats } from '../_lib/actions/sources.js'
 import { dailyGet, dailyPreview, dailySave, dailySendNow, dailyTest } from '../_lib/actions/daily.js'
 import { paymentCheck, paymentWebhook, settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
@@ -79,6 +80,7 @@ const HANDLERS: Record<string, Handler> = {
   'home.banners': (staff, body) => (requireCatalogAccess(staff), homeBannersSave(staff, body)),
   'voices.upload': (staff, body) => (requireCatalogAccess(staff), voicesUpload(staff, body)),
   'voices.save': (staff, body) => (requireCatalogAccess(staff), voicesSave(staff, body)),
+  'customer.update': (staff, body) => (requireSupportAccess(staff), customerUpdate(staff, body)),
   'sources.stats': (staff, body) => (requireChannelAccess(staff), sourcesStats(body)),
   'category.save': (staff, body) => (requireCatalogAccess(staff), categorySave(body)),
   'category.delete': (staff, body) => (requireCatalogAccess(staff), categoryDelete(body)),

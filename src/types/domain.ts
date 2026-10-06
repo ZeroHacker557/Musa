@@ -247,6 +247,8 @@ export type UserProfile = {
   username?: string
   photo_url?: string
   phone?: string
+  /** Admin yoki Ritm'da tuzatilgan ism — buyurtma formasiga shu tushadi. */
+  contactName?: string
   addresses: Address[]
   /** Tanlangan til — qurilmalar orasida sinxron bo'lishi uchun. */
   language?: 'uz' | 'ru'

@@ -1,4 +1,5 @@
 import { adminDb } from '../firebase-admin.js'
+import { pullMarkets } from './linko-orders.js'
 import { LOW_STOCK_AT } from './orders.js'
 import {
   linkoCount, linkoGet, linkoList, linkoToken, readLinkoSettings, tmOf,
@@ -331,6 +332,21 @@ export async function linkoPull(
   const full = body.full === true
   const db = await adminDb()
 
+  /*
+   * Ritm'da tuzatilgan mijozlar (ism, telefon, manzil) — bizga ham.
+   * Xatosi katalog sinxronini to'xtatmaydi.
+   */
+  let marketsNote = ''
+  try {
+    const pulled = await pullMarkets(settings)
+    if (pulled.lastMarketTm !== settings.lastMarketTm) {
+      await db.collection('settings').doc('linko').set({ lastMarketTm: pulled.lastMarketTm }, { merge: true })
+    }
+    if (pulled.updated) marketsNote = `; ${pulled.updated} ta mijoz Ritm'dan yangilandi`
+  } catch (error) {
+    console.error('[linko] mijozlar olinmadi:', error instanceof Error ? error.message : error)
+  }
+
   const productParams: Record<string, string | number> = {}
   if (!full && settings.lastProductTm) productParams.last_tm = settings.lastProductTm
   const products = await linkoList<LinkoProduct>('products/', productParams, settings)
@@ -377,7 +393,7 @@ export async function linkoPull(
   const now = new Date().toISOString()
 
   if (!touched.size) {
-    const report = 'O‘zgarish yo‘q'
+    const report = marketsNote ? `Mahsulotlarda o‘zgarish yo‘q${marketsNote}` : 'O‘zgarish yo‘q'
     await db.collection('settings').doc('linko').set(
       { lastSyncAt: now, lastReport: report },
       { merge: true },
@@ -464,7 +480,7 @@ export async function linkoPull(
 
   const report =
     `${products.length} mahsulot, ${prices.length} narx, ${balances.length} qoldiq o‘qildi; ` +
-    `${productWrites.length} ta do‘kon mahsuloti yangilandi`
+    `${productWrites.length} ta do‘kon mahsuloti yangilandi${marketsNote}`
 
   await db.collection('settings').doc('linko').set(
     {

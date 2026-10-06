@@ -187,6 +187,19 @@ export type CustomerRow = {
   firstSourceAt?: string
   lastSource?: string
   lastSourceAt?: string
+  /**
+   * Aloqa ma'lumoti — admin panelda yoki Ritm (Linko)'da tuzatilgani.
+   * Ikkalasi sinxron: api/_lib/actions/customers.ts va linko-orders.ts.
+   */
+  contactName?: string
+  contactPhone?: string
+  contactAddress?: string
+  contactSource?: 'admin' | 'ritm'
+  contactUpdatedAt?: string
+  contactUpdatedBy?: string
+  contactLinkoAt?: string
+  /** Ritm'dagi mijoz (market) ID si. */
+  linkoMarketId?: number
 }
 
 export function useCustomers() {

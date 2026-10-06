@@ -51,6 +51,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'home.banners': 'Bosh sahifa bannerlari',
   'voices.upload': 'Kirish ovozi yuklandi',
   'voices.save': 'Kirish ovozlari saqlandi',
+  'customer.update': 'Mijoz ma’lumoti o‘zgartirildi',
   'category.save': 'Kategoriya saqlandi',
   'category.delete': 'Kategoriya o‘chirildi',
   'promo.save': 'Promokod saqlandi',
@@ -108,6 +109,7 @@ export const AUDIT_GROUPS: Record<string, string[]> = {
 const BEFORE: Record<string, { coll: string; key: string }> = {
   'product.save': { coll: 'products', key: 'id' },
   'product.active': { coll: 'products', key: 'id' },
+  'customer.update': { coll: 'users', key: 'id' },
   'category.save': { coll: 'categories', key: 'id' },
   'promotion.save': { coll: 'promotions', key: 'id' },
   'promo.save': { coll: 'promocodes', key: 'id' },

@@ -1,4 +1,4 @@
-import { Clock, ExternalLink, LogIn, Megaphone, Phone, Search, ShoppingBag, ShoppingCart, Users } from 'lucide-react'
+import { Clock, ExternalLink, Loader2, LogIn, Megaphone, Pencil, Phone, Search, ShoppingBag, ShoppingCart, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { formatPrice } from '../../data'
 import { useCustomers, useOrders, useProducts, type AdminOrder, type CustomerRow, type ProductRow } from '../lib/live'
@@ -6,6 +6,8 @@ import { Modal } from '../components/Modal'
 import { StatusBadge } from '../components/StatusBadge'
 import { ago, dateTime } from '../lib/dates'
 import { datedNumber } from '../../utils/order-label'
+import { apiPost } from '../lib/api'
+import { useToast } from '../components/Toast'
 
 /** Tushumga kirmaydigan holatlar chiqarib tashlanadi. */
 const COUNTED = new Set(['Yangi', 'Qabul qilindi', 'Yetkazilmoqda', 'Yetkazildi'])
@@ -13,7 +15,9 @@ const COUNTED = new Set(['Yangi', 'Qabul qilindi', 'Yetkazilmoqda', 'Yetkazildi'
 type Stats = { count: number; spent: number; last: string; first: string }
 const EMPTY_STATS: Stats = { count: 0, spent: 0, last: '', first: '' }
 
-const fullName = (c: CustomerRow) => [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Nomsiz'
+/** Tuzatilgan ism (admin / Ritm) ustun, bo'lmasa Telegram'dagi ism. */
+const fullName = (c: CustomerRow) => c.contactName || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Nomsiz'
+const phoneOf = (c: CustomerRow) => c.contactPhone || c.phone || ''
 /** @username — bo'lmasa Telegram ID. */
 const handle = (c: CustomerRow) => (c.username ? `@${c.username}` : `ID ${c.id}`)
 const cartCount = (c: CustomerRow) => (c.cart ?? []).reduce((s, r) => s + (Number(r.quantity) || 0), 0)
@@ -52,14 +56,14 @@ export function CustomersPage() {
       (c) =>
         c.fullName.toLowerCase().includes(needle) ||
         (c.username || '').toLowerCase().includes(needle) ||
-        (c.phone || '').includes(needle) ||
+        phoneOf(c).includes(needle) ||
         c.id.includes(needle),
     )
   }, [customers, stats, query])
 
   const totals = useMemo(
     () => ({
-      withPhone: customers.filter((c) => c.phone).length,
+      withPhone: customers.filter((c) => phoneOf(c)).length,
       buyers: [...stats.values()].filter((s) => s.count > 0).length,
       withCart: customers.filter((c) => cartCount(c) > 0).length,
     }),
@@ -225,9 +229,9 @@ function CustomerDetail({
             {customer.username ? <>@{customer.username} · </> : null}ID {customer.id}
             {customer.language ? ` · ${customer.language === 'ru' ? 'Ruscha' : 'O‘zbekcha'}` : ''}
           </p>
-          {customer.phone && (
-            <a className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold" style={{ color: 'var(--brand)' }} href={`tel:${customer.phone.replace(/\s/g, '')}`}>
-              <Phone size={14} /> {customer.phone}
+          {phoneOf(customer) && (
+            <a className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold" style={{ color: 'var(--brand)' }} href={`tel:${phoneOf(customer).replace(/\s/g, '')}`}>
+              <Phone size={14} /> {phoneOf(customer)}
             </a>
           )}
         </div>
@@ -235,6 +239,8 @@ function CustomerDetail({
           <ExternalLink size={15} /> Telegram’da yozish
         </a>
       </div>
+
+      <ContactEditor key={customer.id} customer={customer} lastAddress={sortedOrders.find((o) => o.customer?.address)?.customer?.address ?? ''} />
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Info icon={<LogIn size={15} />} label="Birinchi kirgan" value={dateTime(firstSeen)} hint={firstSeen ? `${ago(firstSeen, now)}${firstSeenNote}` : 'ma’lumot yo‘q'} />
@@ -354,5 +360,100 @@ function Avatar({ customer, small, large }: { customer: CustomerRow; small?: boo
     <span className={'grid shrink-0 place-items-center rounded-full font-extrabold ' + size} style={{ background: 'var(--brand-soft)', color: 'var(--brand-strong)' }}>
       {fullName(customer).charAt(0).toUpperCase()}
     </span>
+  )
+}
+
+// ─── Aloqa ma'lumoti: admin panel ⇄ Ritm (Linko) ─────────────────
+
+const LINKO_NOTE: Record<string, string> = {
+  updated: 'Saqlandi — Ritm’da ham yangilandi',
+  'not-yet': 'Saqlandi. Ritm’da mijoz birinchi buyurtmasida aynan shu ma’lumot bilan yaratiladi',
+  off: 'Saqlandi (Ritm ulanmagan)',
+}
+
+function ContactEditor({ customer, lastAddress }: { customer: CustomerRow; lastAddress: string }) {
+  const { show, node: toast } = useToast()
+  const [editing, setEditing] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [form, setForm] = useState(() => ({
+    name: fullName(customer) === 'Nomsiz' ? '' : fullName(customer),
+    phone: phoneOf(customer),
+    address: customer.contactAddress || lastAddress,
+  }))
+  const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [key]: e.target.value }))
+
+  const save = async () => {
+    setBusy(true)
+    try {
+      const res = await apiPost<{ linko?: string; error?: string }>('action', { action: 'customer.update', id: customer.id, ...form })
+      if (res.linko === 'error') show(`Bizda saqlandi, lekin Ritm’ga yetmadi: ${res.error ?? ''}`, 'error')
+      else show(LINKO_NOTE[res.linko ?? 'off'] ?? 'Saqlandi')
+      setEditing(false)
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'Saqlanmadi', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const source = customer.contactSource === 'ritm'
+    ? 'Ritm’da o‘zgartirilgan'
+    : customer.contactSource === 'admin'
+      ? `Admin panelda o‘zgartirilgan${customer.contactUpdatedBy ? ` (${customer.contactUpdatedBy})` : ''}`
+      : ''
+
+  return (
+    <section className="mt-5 rounded-2xl p-4" style={{ background: 'var(--surface-2)' }}>
+      {toast}
+      <h3 className="flex flex-wrap items-center gap-2 text-sm font-extrabold">
+        <Pencil size={15} /> Aloqa ma’lumoti
+        <span className="text-xs font-bold" style={{ color: customer.linkoMarketId ? 'var(--success, #16a34a)' : 'var(--muted)' }}>
+          {customer.linkoMarketId ? `· Ritm bilan bog‘langan (ID ${customer.linkoMarketId})` : '· Ritm’da hali yo‘q'}
+        </span>
+        {!editing && (
+          <button type="button" className="adm-btn adm-btn--ghost ml-auto" onClick={() => setEditing(true)}>
+            <Pencil size={14} /> O‘zgartirish
+          </button>
+        )}
+      </h3>
+
+      {editing ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="adm-label" htmlFor="ct-name">Ism</label>
+            <input id="ct-name" className="adm-input" value={form.name} maxLength={80} onChange={set('name')} />
+          </div>
+          <div>
+            <label className="adm-label" htmlFor="ct-phone">Telefon</label>
+            <input id="ct-phone" className="adm-input" inputMode="tel" placeholder="+998 90 123 45 67" value={form.phone} maxLength={40} onChange={set('phone')} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="adm-label" htmlFor="ct-address">Manzil</label>
+            <input id="ct-address" className="adm-input" value={form.address} maxLength={300} onChange={set('address')} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+            <button type="button" className="adm-btn adm-btn--primary" disabled={busy || !form.name.trim()} onClick={save}>
+              {busy && <Loader2 size={15} className="animate-spin" />} Saqlash
+            </button>
+            <button type="button" className="adm-btn adm-btn--ghost" disabled={busy} onClick={() => setEditing(false)}>Bekor qilish</button>
+            <span className="text-xs" style={{ color: 'var(--muted)' }}>Bizda va Ritm’da birdaniga yangilanadi</span>
+          </div>
+        </div>
+      ) : (
+        <dl className="mt-2 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
+          <dt style={{ color: 'var(--muted)' }}>Ism</dt>
+          <dd className="font-bold">{fullName(customer)}</dd>
+          <dt style={{ color: 'var(--muted)' }}>Telefon</dt>
+          <dd className="font-bold">{phoneOf(customer) || '—'}</dd>
+          <dt style={{ color: 'var(--muted)' }}>Manzil</dt>
+          <dd className="font-bold">{customer.contactAddress || lastAddress || '—'}</dd>
+        </dl>
+      )}
+      {source && (
+        <p className="mt-2 text-xs" style={{ color: 'var(--faint)' }}>
+          {source} · {dateTime(customer.contactUpdatedAt)}
+        </p>
+      )}
+    </section>
   )
 }

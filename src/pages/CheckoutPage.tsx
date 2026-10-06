@@ -113,8 +113,8 @@ export function CheckoutPage({
   // Render paytida emas, effekt ichida — aks holda React ogohlantiradi (F-11).
   useEffect(() => {
     if (!profile) return
-    if (!orderForm.name && profile.first_name) {
-      onUpdateForm('name', `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}`)
+    if (!orderForm.name && (profile.contactName || profile.first_name)) {
+      onUpdateForm('name', profile.contactName || `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}`)
     }
     if (!orderForm.phone && profile.phone) {
       onUpdateForm('phone', profile.phone)
