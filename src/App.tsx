@@ -6,6 +6,9 @@ import { CartDrawer } from './components/cart/CartDrawer'
 import { CartPrompt } from './components/cart/CartPrompt'
 import { AddressPrompt } from './components/address/AddressPrompt'
 import { SplashAd } from './components/promo/SplashAd'
+import { FreeDeliverySheet } from './components/promo/FreeDeliveryTimer'
+import { enableTimerDemo, loadTimerConfig, startTimerIfDue } from './lib/delivery-timer'
+import { useTimerEnabled } from './hooks/use-delivery-timer'
 import { playWelcomeVoice, watchWelcomeReturns } from './utils/welcome-voice'
 import { Toast } from './components/ui/Toast'
 import { CheckoutSuccess } from './components/ui/CheckoutSuccess'
@@ -168,6 +171,37 @@ function App() {
     await apiPost('/api/reviews', { kind: 'courier', orderId, ...payload })
   }
 
+  /*
+   * «Yetkazib berish bepul» taymeri (admin → Sozlamalar → Marketing).
+   * Bosh sahifada, boshqa oynalar (reklama, manzil taklifi, savat…)
+   * yopiq bo'lganda boshlanadi — intro hech qachon to'silmaydi.
+   */
+  const timerOn = useTimerEnabled()
+  const [timerSheet, setTimerSheet] = useState(false)
+  // Sozlama faqat Telegram orqali kirgandan keyin o'qiladi (Rules: settings — signedIn)
+  useEffect(() => {
+    if (import.meta.env.DEV && new URLSearchParams(location.search).has('timerDemo')) enableTimerDemo()
+    else if (shop.isAuthenticated) void loadTimerConfig()
+  }, [shop.isAuthenticated])
+  const timerBlocked = adVisible || shop.loading || shop.askAddress || shop.checkoutDone || shop.isCartOpen
+    || shop.cartPrompt !== null || shop.payingOrderId !== null || shop.otpOrder !== null || shop.isSearchOpen
+  useEffect(() => {
+    if (!timerOn || timerBlocked || shop.page !== 'home') return
+    const id = setTimeout(() => {
+      try {
+        if (startTimerIfDue()) setTimerSheet(true)
+      } catch (error) {
+        console.error('[Taymer] boshlanmadi:', error)
+      }
+    }, 1800)
+    return () => clearTimeout(id)
+  }, [timerOn, timerBlocked, shop.page])
+  const timerShop = () => {
+    setTimerSheet(false)
+    if (shop.cartCount > 0) shop.openCart()
+    else shop.navigate('catalog')
+  }
+
   const goToCatalog = () => shop.navigate('catalog')
   // Savat yopilganda ham silliq tushib ketsin — styles.css `.cart-drawer.leaving`
   const cartPresence = usePresence(shop.isCartOpen, 280)
@@ -294,7 +328,7 @@ function App() {
         {/* Kuryerni baholash — reklama va manzil taklifi yopilgach */}
         <CourierRatingSheet
           orders={trackedOrders}
-          blocked={adVisible || shop.askAddress || shop.checkoutDone || shop.isCartOpen || shop.payingOrderId !== null || shop.otpOrder !== null}
+          blocked={adVisible || shop.askAddress || shop.checkoutDone || shop.isCartOpen || shop.payingOrderId !== null || shop.otpOrder !== null || timerSheet}
           submit={rateCourier}
         />
 
@@ -306,6 +340,14 @@ function App() {
             onDismiss={shop.dismissAddressPrompt}
           />
         )}
+
+        {/* «Yetkazib berish BEPUL» — taymer boshlangan zahoti */}
+        <FreeDeliverySheet
+          open={timerSheet && !adVisible}
+          hasCart={shop.cartCount > 0}
+          onShop={timerShop}
+          onClose={() => setTimerSheet(false)}
+        />
 
         {/* Ochilish reklamasi — admin panel → «Reklama banneri» */}
         <SplashAd
@@ -333,6 +375,7 @@ function App() {
                 banners={shop.homeBanners}
                 onOpenSection={shop.openSectionById}
                 onOpenProduct={shop.openProductById}
+                onTimerShop={timerShop}
               />
             </div>
           )}

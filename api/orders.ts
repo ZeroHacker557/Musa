@@ -41,6 +41,8 @@ type IncomingOrder = {
   clientOrderId?: string
   /** Mijoz qaysi kanal e'loni / ommaviy xabardan kelgan (campaigns.ts). */
   source?: string
+  /** «Yetkazib berish bepul» taymeri qachon boshlangan (mijoz qurilmasida). */
+  deliveryTimerAt?: string
 }
 
 /** Mijoz yuborgan ma'lumotni tozalaymiz — narx, jami va status bu yerdan kelmaydi. */
@@ -94,6 +96,19 @@ function readOrder(body: unknown): IncomingOrder {
     promoCode: b?.promoCode ? String(b.promoCode).trim().toUpperCase().slice(0, 40) : undefined,
     clientOrderId: b?.clientOrderId ? String(b.clientOrderId).slice(0, 64) : undefined,
     source: isSource(b?.source) ? b.source : undefined,
+    deliveryTimerAt: typeof b?.deliveryTimerAt === 'string' && !Number.isNaN(Date.parse(b.deliveryTimerAt))
+      ? new Date(b.deliveryTimerAt).toISOString()
+      : undefined,
+  }
+}
+
+/** Taymer sozlamasi — src/lib/delivery-timer.ts bilan bir xil (hujjat yo'q bo'lsa: yoqilgan, 20 daqiqa). */
+function timerConfig(data: FirebaseFirestore.DocumentData | undefined): { enabled: boolean; minutes: number } {
+  const raw = (data?.deliveryTimer ?? {}) as { enabled?: unknown; minutes?: unknown }
+  const minutes = Math.round(Number(raw.minutes))
+  return {
+    enabled: raw.enabled !== false,
+    minutes: Number.isFinite(minutes) && minutes >= 1 && minutes <= 180 ? minutes : 20,
   }
 }
 
@@ -205,6 +220,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const deliveryRef = db.collection('settings').doc('delivery')
       const deliverySnap = await tx.get(deliveryRef)
+      // Taymer bilan kelgan buyurtmadagina o'qiladi
+      const marketingSnap = order.deliveryTimerAt ? await tx.get(db.collection('settings').doc('marketing')) : null
 
       // Vaqtli aksiyalar — narx faqat shu yerda, Firestore'dagi holatdan
       const promoSnap = await tx.get(db.collection('promotions').where('active', '==', true))
@@ -373,7 +390,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const deliveryFee = Math.max(Number(delivery?.fee) || 0, 0)
       const freeFrom = Math.max(Number(delivery?.freeFrom) || 0, 0)
-      const appliedDelivery = freeFrom > 0 && discountedSubtotal >= freeFrom ? 0 : deliveryFee
+      /*
+       * «Yetkazib berish bepul» taymeri: mijoz sanoq tugaguncha buyurtma
+       * bersa — yetkazish bepul (2 daqiqa zaxira: sekin internet, «Buyurtma
+       * berish» oxirgi soniyada bosilgan bo'lishi mumkin).
+       */
+      const timer = timerConfig(marketingSnap?.exists ? marketingSnap.data() : undefined)
+      const timerStart = order.deliveryTimerAt ? Date.parse(order.deliveryTimerAt) : NaN
+      const timerValid = timer.enabled && Number.isFinite(timerStart)
+        && timerStart <= now + 60_000 && now - timerStart <= (timer.minutes + 2) * 60_000
+      const appliedDelivery = timerValid || (freeFrom > 0 && discountedSubtotal >= freeFrom) ? 0 : deliveryFee
 
       const total = discountedSubtotal + appliedDelivery
 
@@ -417,6 +443,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         customer: { ...order.customer, promoCode: appliedPromo },
         clientOrderId: order.clientOrderId ?? null,
         source: order.source ?? null,
+        // Marketing natijasi: taymer ichida berilgan buyurtma (admin → Sozlamalar → Marketing)
+        marketing: timerValid ? { deliveryTimer: true, timerStartedAt: order.deliveryTimerAt } : null,
         // Botga qayerdan kelgan (reklama havolasi /start meta_ig…) — bot/source_tracking.py
         startSource: typeof userData.lastSource === 'string' ? userData.lastSource : null,
         firstSource: typeof userData.firstSource === 'string' ? userData.firstSource : null,

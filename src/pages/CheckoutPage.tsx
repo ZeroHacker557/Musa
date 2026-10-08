@@ -18,6 +18,8 @@ import { PageTitle } from '../components/layout/PageTitle'
 import { AddressConfirmSheet } from '../components/checkout/AddressConfirmSheet'
 import { ReceiptSheet, type ReceiptUpload } from '../components/checkout/ReceiptSheet'
 import { PAY_TILES, cardTileOf, providerLabel, type CardDraft } from '../utils/payment'
+import { FreeDeliveryChip } from '../components/promo/FreeDeliveryTimer'
+import { useDeliveryTimer } from '../hooks/use-delivery-timer'
 import { PayLogo } from '../components/payment/PayLogo'
 
 /*
@@ -124,8 +126,10 @@ export function CheckoutPage({
 
   const discount = appliedPromo?.discount ?? 0
   const discountedSubtotal = Math.max(cartTotal - discount, 0)
+  // «Yetkazib berish bepul» taymeri ishlayotgan bo'lsa — server ham bepul qiladi
+  const freeTimer = useDeliveryTimer().active
   const deliveryFee =
-    delivery === null || (delivery.freeFrom > 0 && discountedSubtotal >= delivery.freeFrom)
+    delivery === null || freeTimer || (delivery.freeFrom > 0 && discountedSubtotal >= delivery.freeFrom)
       ? 0
       : delivery.fee
   const finalTotal = discountedSubtotal + deliveryFee
@@ -441,7 +445,10 @@ export function CheckoutPage({
                 {delivery === null ? (
                   <span className="skeleton h-4 w-16" />
                 ) : deliveryFee === 0 ? (
-                  <span className="font-bold" style={{ color: 'var(--success)' }}>{t('checkout.deliveryFree')}</span>
+                  <span className="font-bold" style={{ color: 'var(--success)' }}>
+                    {t('checkout.deliveryFree')}
+                    <FreeDeliveryChip />
+                  </span>
                 ) : (
                   <span className="font-bold" style={{ color: 'var(--ink)' }}>{formatPrice(deliveryFee)}</span>
                 )}

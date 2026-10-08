@@ -2,6 +2,7 @@ import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
 import { formatPrice } from '../../data'
 import { productThumb } from '../../utils/product-image'
 import { useT } from '../../i18n'
+import { FreeDeliveryChip } from '../promo/FreeDeliveryTimer'
 import { useFreeDelivery } from '../../hooks/use-free-delivery'
 import { FreeDeliveryBar } from './FreeDeliveryBar'
 import type { Product } from '../../types/domain'
@@ -143,6 +144,7 @@ export function CartDrawer({
             </div>
 
             <footer className="border-t p-5" style={{ borderColor: 'var(--line)' }}>
+              <FreeDeliveryChip line />
               {delivery.settings && (
                 <FreeDeliveryBar
                   subtotal={cartTotal}

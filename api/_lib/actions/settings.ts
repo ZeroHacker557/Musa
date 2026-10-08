@@ -161,6 +161,21 @@ export async function settingsSave(actor: Staff, body: Record<string, unknown>) 
     return { ok: true }
   }
 
+  // «Yetkazib berish bepul» taymeri (mini app bosh sahifasi)
+  if (section === 'marketing') {
+    const minutes = Math.round(Number(body.minutes))
+    if (!Number.isFinite(minutes) || minutes < 1 || minutes > 180) throw new Error('Taymer 1–180 daqiqa bo‘lishi kerak')
+    await db.collection('settings').doc('marketing').set({
+      deliveryTimer: {
+        enabled: body.enabled !== false,
+        minutes,
+        repeat: text(body.repeat) === 'visit' ? 'visit' : 'daily',
+      },
+      updatedAt: new Date().toISOString(),
+    }, { merge: true })
+    return { ok: true }
+  }
+
   if (section === 'delivery') {
     const fee = num(body.fee)
     const freeFrom = num(body.freeFrom)

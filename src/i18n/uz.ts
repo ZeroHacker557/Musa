@@ -685,6 +685,21 @@ export const uz = {
   'rating.thanks': 'Rahmat!',
   'rating.thanksText': 'Bahoyingiz kuryer ishini yaxshilashga yordam beradi',
   'rating.products': 'Mahsulotlar sifati',
+
+  // ── «Yetkazib berish bepul» taymeri ──
+  'timer.badge': 'Faqat siz uchun',
+  'timer.title': 'Yetkazib berish',
+  'timer.free': 'BEPUL',
+  'timer.subtitle': 'Keyingi {minutes} daqiqa ichida buyurtma bering — yetkazib berish biz tomondan',
+  'timer.left': 'qoldi',
+  'timer.perkFree': '0 so‘m yetkazish',
+  'timer.perkCold': 'Muzdek holda yetkazamiz',
+  'timer.cta': 'Xaridni boshlash',
+  'timer.ctaCart': 'Savatga o‘tish',
+  'timer.later': 'Keyinroq',
+  'timer.bannerTitle': 'Yetkazib berish bepul',
+  'timer.bannerText': 'Vaqt tugaguncha buyurtma bering',
+  'timer.cartLine': 'Yetkazish bepul — ulguring',
 } as const
 
 export type TranslationKey = keyof typeof uz

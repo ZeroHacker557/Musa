@@ -20,6 +20,7 @@ import { hapticError, hapticFeedback, hapticSuccess, initTelegram } from '../uti
 import { applyTheme, getStoredTheme, storeTheme, type ThemeMode } from '../utils/theme'
 import { heroTransition } from '../utils/view-transition'
 import { openPayment, type CardDraft } from '../utils/payment'
+import { markTimerUsed, timerStartedAt } from '../lib/delivery-timer'
 import { useT } from '../i18n'
 
 /** Pastki menyudagi asosiy sahifalar — ularga o'tganda tarix tozalanadi. */
@@ -961,6 +962,8 @@ export function useShopStore() {
         clientOrderId: orderKeyRef.current,
         // Kanal e'loni / ommaviy xabardan kelgan bo'lsa — natija o'sha e'longa yoziladi
         source: currentCampaign(),
+        // «Yetkazib berish bepul» taymeri ishlayotgan bo'lsa — server tekshirib, bepul qiladi
+        deliveryTimerAt: timerStartedAt() ?? undefined,
         items: cartProducts.map(({ product, quantity, size, color }) => ({
           productId: product.id,
           quantity,
@@ -998,6 +1001,8 @@ export function useShopStore() {
 
     orderKeyRef.current = null
     setCartItems({})
+    // Bu sanoq ishlatildi — banner yo'qoladi
+    markTimerUsed()
     // Onlayn to'lovni tanlagan mijozga keyingi safar ham shu usul turadi
     setOrderForm({
       name: '', phone: '', address: '', location: null, comment: '',

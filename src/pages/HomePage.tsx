@@ -18,6 +18,7 @@ import type { HomeBanner } from '../config/banners'
 import { openExternalLink } from '../utils/telegram'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
 import { PromoBadge } from '../components/home/PromoBadge'
+import { FreeDeliveryBanner } from '../components/promo/FreeDeliveryTimer'
 
 /** «Aksiyadagi set mahsulotlar» yorlig'i shu yo'nalish kartasida («Setlar» yozuvi o'rniga). */
 const PROMO_LINE = 'Setlar'
@@ -36,11 +37,13 @@ type Props = ProductActions & {
   banners: HomeBanner[]
   onOpenSection: (id: string) => void
   onOpenProduct: (id: string) => void
+  /** «Yetkazib berish bepul» bannerini bosganda (savat yoki katalog). */
+  onTimerShop: () => void
 }
 
 export function HomePage({
   products, categories, loading, promotions, onSearch, onNavigate,
-  onOpenCategory, unreadNotificationsCount, banners, onOpenSection, onOpenProduct, ...productActions
+  onOpenCategory, unreadNotificationsCount, banners, onOpenSection, onOpenProduct, onTimerShop, ...productActions
 }: Props) {
   const t = useT()
   const { lang } = useI18n()
@@ -159,6 +162,9 @@ export function HomePage({
           <span className="truncate text-sm">{t('home.searchPlaceholder')}</span>
         </button>
       </section>
+
+      {/* «Yetkazib berish bepul» — sanoq tugaguncha */}
+      <FreeDeliveryBanner onShop={onTimerShop} />
 
       {/* Ishlayotgan aksiya — eng katta chegirmasi bilan */}
       {promotions[0] && (

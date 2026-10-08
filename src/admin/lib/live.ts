@@ -36,6 +36,8 @@ export type AdminOrder = Order & {
   cashStatus?: 'held' | 'pending' | 'settled'
   /** Kuryer bosgan muammo tugmalari. */
   problems?: { code: string; at: string }[]
+  /** Marketing: taymer ichida berilgan buyurtma. */
+  marketing?: { deliveryTimer?: boolean } | null
   /** Linko (Ritm) — server yozadi; Ritm'dagi tahrirlar shu yerda. */
   linko?: {
     orderId?: number | null
@@ -453,6 +455,8 @@ export type AllSettings = {
   company: CompanySettings
   /** «Biz bilan aloqa» — mini app «Yordam» sahifasi va bot. */
   contact: ContactInfo
+  /** Marketing: «Yetkazib berish bepul» taymeri (hujjat yo'q — yoqilgan, 20 daqiqa). */
+  marketing: { deliveryTimer?: { enabled?: boolean; minutes?: number; repeat?: 'daily' | 'visit' } }
 }
 
 export type CompanySettings = {
@@ -477,6 +481,7 @@ const SETTINGS_FALLBACK: AllSettings = {
   },
   company: { legalName: '', inn: '', address: '', phone: '', bank: '', account: '', mfo: '', director: '' },
   contact: DEFAULT_CONTACT,
+  marketing: {},
 }
 
 /** Linko katalogining nusxasi — `linko_products` (server yozadi). */
@@ -554,7 +559,7 @@ export function useSettings() {
   const [settings, setSettings] = useState<AllSettings>(SETTINGS_FALLBACK)
 
   useEffect(() => {
-    const sections = ['payment', 'delivery', 'courier', 'linko', 'company', 'contact'] as const
+    const sections = ['payment', 'delivery', 'courier', 'linko', 'company', 'contact', 'marketing'] as const
     const unsubs = sections.map((section) =>
       onSnapshot(
         doc(db, 'settings', section),

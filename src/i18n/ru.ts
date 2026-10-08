@@ -673,4 +673,19 @@ export const ru: Record<TranslationKey, string> = {
   'rating.thanks': 'Спасибо!',
   'rating.thanksText': 'Ваша оценка помогает курьерам работать лучше',
   'rating.products': 'Качество товаров',
+
+  // ── Таймер «Бесплатная доставка» ──
+  'timer.badge': 'Только для вас',
+  'timer.title': 'Доставка',
+  'timer.free': 'БЕСПЛАТНО',
+  'timer.subtitle': 'Оформите заказ в течение {minutes} минут — доставка за наш счёт',
+  'timer.left': 'осталось',
+  'timer.perkFree': 'Доставка 0 сум',
+  'timer.perkCold': 'Привезём замороженным',
+  'timer.cta': 'Начать покупки',
+  'timer.ctaCart': 'Перейти в корзину',
+  'timer.later': 'Позже',
+  'timer.bannerTitle': 'Бесплатная доставка',
+  'timer.bannerText': 'Успейте оформить заказ',
+  'timer.cartLine': 'Доставка бесплатно — успейте',
 }

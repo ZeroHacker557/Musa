@@ -1,8 +1,8 @@
-import { Building2, CreditCard, Headphones, Loader2, PlugZap, Send, Smartphone, Truck, Users2, Webhook } from 'lucide-react'
+import { Building2, Clock, CreditCard, Headphones, Loader2, PlugZap, Send, Smartphone, Truck, Users2, Webhook } from 'lucide-react'
 import { PAY_PROVIDERS } from '../../utils/payment'
 import { useState } from 'react'
 import { apiPost } from '../lib/api'
-import { useSettings, type CompanySettings } from '../lib/live'
+import { useOrders, useSettings, type AllSettings, type CompanySettings } from '../lib/live'
 import type { ContactInfo } from '../../config/contact'
 import { useToast } from '../components/Toast'
 import { FreeDeliveryBar } from '../../components/cart/FreeDeliveryBar'
@@ -48,6 +48,12 @@ export function SettingsPage() {
           onSave={save}
           onError={(m) => show(m, 'error')}
           onOk={(m) => show(m)}
+        />
+        <TimerCard
+          key={`tmr:${JSON.stringify(settings.marketing.deliveryTimer ?? {})}`}
+          settings={settings.marketing}
+          busy={busy === 'marketing'}
+          onSave={save}
         />
         <DeliveryCard
           key={`del:${settings.delivery.fee}|${settings.delivery.freeFrom}|${settings.delivery.minOrder}`}
@@ -673,6 +679,117 @@ function CompanyCard({ settings, busy, onSave }: { settings: CompanySettings; bu
         </div>
       </div>
       <button className="adm-btn adm-btn--primary mt-4 w-full" onClick={() => onSave('company', form)} disabled={busy}>
+        {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash
+      </button>
+    </Section>
+  )
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+const TIMER_MINUTES = [10, 15, 20, 30, 45, 60]
+
+/**
+ * Marketing: «Yetkazib berish bepul» taymeri. Mijoz mini app'ning bosh
+ * sahifasiga kirganda sanoq boshlanadi; shu vaqtda berilgan buyurtmada
+ * yetkazish bepul (server tekshiradi). Natija — buyurtmalardagi belgi.
+ */
+function TimerCard({ settings, busy, onSave }: { settings: AllSettings['marketing']; busy: boolean; onSave: SaveFn }) {
+  const cfg = settings.deliveryTimer ?? {}
+  const [on, setOn] = useState(cfg.enabled !== false)
+  const [minutes, setMinutes] = useState(cfg.minutes ?? 20)
+  const [repeat, setRepeat] = useState<'daily' | 'visit'>(cfg.repeat === 'visit' ? 'visit' : 'daily')
+  const { orders } = useOrders(undefined, 30)
+  const [now] = useState(() => Date.now())
+
+  // Natija: oxirgi 7 kun va undan oldingi 7 kun
+  const stats = (() => {
+    const counted = orders.filter((o) => o.status !== 'Bekor qilingan' && o.status !== 'Rad etildi')
+    const at = (o: (typeof orders)[number]) => Date.parse(String(o.createdAt))
+    const week = counted.filter((o) => now - at(o) < 7 * DAY_MS)
+    const prev = counted.filter((o) => now - at(o) >= 7 * DAY_MS && now - at(o) < 14 * DAY_MS)
+    const timed = week.filter((o) => o.marketing?.deliveryTimer)
+    return { week: week.length, prev: prev.length, timed: timed.length }
+  })()
+  const share = stats.week ? Math.round((stats.timed / stats.week) * 100) : 0
+  const growth = stats.prev ? Math.round(((stats.week - stats.prev) / stats.prev) * 100) : null
+
+  return (
+    <Section
+      title="Marketing: «Yetkazib berish bepul» taymeri"
+      icon={Clock}
+      hint="Bosh sahifada sanoq; shu vaqtda berilgan buyurtmada yetkazish bepul"
+    >
+      <label className="adm-ch-toggle">
+        <span className="adm-ch-toggle__icon"><Clock size={18} /></span>
+        <span className="min-w-0 flex-1">
+          <b>{on ? 'Yoqilgan — mijozlarga taymer ko‘rinadi' : 'O‘chirilgan — taymer ko‘rinmaydi'}</b>
+          <span>Taymer ichidagi buyurtmada yetkazish narxi qo‘yilgan bo‘lsa ham bepul ketadi</span>
+        </span>
+        <input type="checkbox" className="adm-ch-switch" checked={on} onChange={(e) => setOn(e.target.checked)} />
+      </label>
+
+      <p className="adm-label mt-3">Sanoq davomiyligi</p>
+      <div className="flex flex-wrap gap-2">
+        {TIMER_MINUTES.map((m) => (
+          <button
+            key={m}
+            type="button"
+            className={'adm-btn ' + (minutes === m ? 'adm-btn--primary' : 'adm-btn--ghost')}
+            onClick={() => setMinutes(m)}
+          >
+            {m} daqiqa
+          </button>
+        ))}
+      </div>
+
+      <p className="adm-label mt-3">Qachon qayta boshlanadi</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {([
+          ['daily', 'Kuniga bir marta', 'Mijoz bugun ko‘rgan bo‘lsa — ertaga yana'],
+          ['visit', 'Har kirishda', 'Oldingi sanoq tugagan bo‘lsa — har ochilishda yangisi'],
+        ] as const).map(([value, title, hint]) => (
+          <button
+            key={value}
+            type="button"
+            className="rounded-xl border p-3 text-left"
+            style={{
+              borderColor: repeat === value ? 'var(--brand)' : 'var(--line)',
+              background: repeat === value ? 'var(--brand-soft)' : 'transparent',
+            }}
+            onClick={() => setRepeat(value)}
+          >
+            <b className="block text-sm">{title}</b>
+            <span className="block text-xs" style={{ color: 'var(--muted)' }}>{hint}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Natija */}
+      <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl p-3 text-center" style={{ background: 'var(--surface-2)' }}>
+        <div>
+          <p className="text-lg font-extrabold">{stats.timed}</p>
+          <p className="text-[11px]" style={{ color: 'var(--muted)' }}>taymer ichida (7 kun)</p>
+        </div>
+        <div>
+          <p className="text-lg font-extrabold">{share}%</p>
+          <p className="text-[11px]" style={{ color: 'var(--muted)' }}>barcha buyurtmalardan</p>
+        </div>
+        <div>
+          <p className="text-lg font-extrabold" style={{ color: growth === null ? undefined : growth >= 0 ? 'var(--brand)' : 'var(--danger)' }}>
+            {growth === null ? '—' : `${growth > 0 ? '+' : ''}${growth}%`}
+          </p>
+          <p className="text-[11px]" style={{ color: 'var(--muted)' }}>buyurtmalar, o‘tgan haftaga nisbatan</p>
+        </div>
+      </div>
+      <p className="mt-1.5 text-xs" style={{ color: 'var(--faint)' }}>
+        Bu hafta {stats.week} ta, o‘tgan hafta {stats.prev} ta buyurtma (bekor qilinganlarsiz).
+      </p>
+
+      <button
+        className="adm-btn adm-btn--primary mt-4 w-full"
+        onClick={() => onSave('marketing', { enabled: on, minutes, repeat })}
+        disabled={busy}
+      >
         {busy ? <Loader2 size={16} className="animate-spin" /> : null} Saqlash
       </button>
     </Section>

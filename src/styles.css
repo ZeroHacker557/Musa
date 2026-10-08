@@ -5566,3 +5566,328 @@ a { color: inherit; text-decoration: none; }
   transition: width 0.3s ease, background 0.3s ease;
 }
 .hero-dot.is-on { width: 22px; background: var(--brand); }
+
+/* ====== «Yetkazib berish BEPUL» taymeri (marketing) ====== */
+.fdt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 82;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(4 18 11 / 0.55);
+  backdrop-filter: blur(4px);
+  animation: overlayIn 0.25s ease;
+}
+.fdt-overlay.leaving { animation: overlayOut 0.24s ease forwards; }
+.fdt-sheet {
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+  border-radius: 28px 28px 0 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: sheetUp 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fdt-sheet.leaving { animation: sheetDown 0.24s ease forwards; }
+.fdt-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  padding: 0.6rem 1.25rem 0;
+  color: #fff;
+  text-align: left;
+  background:
+    radial-gradient(110% 80% at 88% -10%, rgb(52 199 120 / 0.55) 0%, transparent 60%),
+    radial-gradient(80% 60% at -10% 110%, rgb(255 210 90 / 0.18) 0%, transparent 60%),
+    linear-gradient(165deg, #0b8443 0%, #066233 55%, #03401f 100%);
+}
+/* Nozik nuqtali naqsh */
+.fdt-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(rgb(255 255 255 / 0.11) 1px, transparent 1.4px);
+  background-size: 16px 16px;
+  mask-image: linear-gradient(180deg, #000 0%, transparent 85%);
+}
+.fdt-hero__row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 0.8rem; }
+.fdt-hero__text { min-width: 0; }
+.fdt-grip { display: block; width: 42px; height: 4px; margin: 0 auto 0.8rem; border-radius: 4px; background: rgb(255 255 255 / 0.35); }
+.fdt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.12);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.fdt-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffd76a;
+  animation: fdtPing 1.6s ease-out infinite;
+}
+.fdt-title {
+  margin-top: 0.6rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.fdt-title__free {
+  display: block;
+  margin-top: 0.15rem;
+  font-family: var(--font-display);
+  font-size: 2.7rem;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  background: linear-gradient(180deg, #fff3c4 0%, #ffd76a 45%, #ffb21e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.25));
+  animation: fdtPop 0.7s 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.fdt-ring { position: relative; flex-shrink: 0; width: 132px; height: 132px; border-radius: 50%; box-shadow: 0 0 22px rgb(255 215 106 / 0.28); }
+.fdt-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.fdt-ring circle { fill: none; stroke-width: 8; }
+.fdt-ring__track { stroke: rgb(255 255 255 / 0.16); }
+.fdt-ring__value {
+  stroke: #ffd76a;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear;
+}
+.fdt-ring__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.fdt-ring__center b {
+  font-size: 1.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.fdt-ring__center small {
+  margin-top: 0.25rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+/* Yo'l: uzuq chiziq va bo'ylab yuradigan mashina */
+.fdt-road {
+  position: relative;
+  width: calc(100% + 2.5rem);
+  height: 36px;
+  margin-top: 0.1rem;
+  overflow: hidden;
+}
+.fdt-road::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9px;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.4) 0 18px, transparent 18px 32px);
+  animation: fdtRoad 0.9s linear infinite;
+}
+.fdt-road__truck {
+  position: absolute;
+  bottom: 12px;
+  left: -60px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 24px;
+  border-radius: 10px;
+  background: #ffd76a;
+  color: #3a2a00;
+  box-shadow: 0 6px 14px rgb(0 0 0 / 0.25);
+  animation: fdtDrive 5.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.fdt-body { padding: 0.85rem 1.25rem calc(0.6rem + var(--safe-bottom, 0px)); text-align: center; }
+.fdt-subtitle { color: var(--ink-2); font-size: 0.93rem; font-weight: 600; line-height: 1.4; }
+.fdt-perks { display: flex; justify-content: center; gap: 0.4rem; margin-top: 0.65rem; }
+.fdt-perks span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.fdt-cta { width: 100%; margin-top: 0.9rem; padding-block: 0.95rem; font-size: 1.02rem; }
+.fdt-later {
+  display: block;
+  width: 100%;
+  margin-top: 0.15rem;
+  padding: 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* Bosh sahifadagi banner */
+.fdt-banner {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.8rem;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 0.8rem 0.85rem 0.95rem;
+  color: #fff;
+  text-align: left;
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgb(52 199 120 / 0.45) 0%, transparent 60%),
+    linear-gradient(135deg, #0b8443 0%, #04542a 100%);
+  box-shadow: 0 12px 26px -14px rgb(10 122 61 / 0.75);
+  animation: fadeInUp 0.45s ease;
+  transition: transform 0.15s ease;
+}
+.fdt-banner:active { transform: scale(0.985); }
+.fdt-banner.leaving { animation: fdtOut 0.3s ease forwards; }
+/* Yaltirash */
+.fdt-banner::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 35%;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.18), transparent);
+  transform: skewX(-18deg);
+  animation: fdtShine 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+.fdt-banner__icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.14);
+  animation: fdtBob 1.8s ease-in-out infinite;
+}
+.fdt-banner__text { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+.fdt-banner__text b { font-size: 0.98rem; font-weight: 800; line-height: 1.2; }
+.fdt-banner__text span { margin-top: 0.15rem; font-size: 0.76rem; font-weight: 600; opacity: 0.85; }
+.fdt-banner__time {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 12px;
+  background: #ffd76a;
+  color: #3a2a00;
+  padding: 0.45rem 0.65rem;
+  font-size: 1.12rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.fdt-banner__bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  width: var(--p);
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(90deg, #ffd76a, #ffb21e);
+  transition: width 1s linear;
+}
+.fdt-banner.is-urgent .fdt-banner__time,
+.fdt-banner.is-urgent .fdt-banner__bar { background: #ff6a55; color: #fff; }
+.fdt-banner.is-urgent .fdt-banner__time { animation: fdtPulse 1s ease-in-out infinite; }
+
+/* Savat va buyurtma sahifasi */
+.fdt-cartline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid var(--brand-line);
+  border-radius: 14px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.fdt-cartline span, .fdt-cartline b { display: inline-flex; align-items: center; gap: 0.4rem; }
+.fdt-cartline b { font-variant-numeric: tabular-nums; font-weight: 800; }
+.fdt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.4rem;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  padding: 0.12rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+.fdt-cartline.is-urgent, .fdt-chip.is-urgent { border-color: transparent; background: var(--danger-soft); color: var(--danger); }
+
+@keyframes fdtPing {
+  0% { box-shadow: 0 0 0 0 rgb(255 215 106 / 0.7); }
+  100% { box-shadow: 0 0 0 9px rgb(255 215 106 / 0); }
+}
+@keyframes fdtPop {
+  0% { opacity: 0; transform: scale(0.6) rotate(-4deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes fdtRoad { to { background-position: -32px 0; } }
+/* Chapdan kirib, o'rtada biroz to'xtab, o'ngdan chiqadi */
+@keyframes fdtDrive {
+  0% { left: -60px; }
+  42%, 58% { left: calc(50% - 21px); }
+  100% { left: calc(100% + 60px); }
+}
+@keyframes fdtShine {
+  0%, 60% { left: -40%; }
+  100% { left: 120%; }
+}
+@keyframes fdtBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes fdtPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.07); }
+}
+@keyframes fdtOut { to { opacity: 0; transform: translateY(-8px) scale(0.98); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fdt-badge::before, .fdt-title__free, .fdt-road::before, .fdt-road__truck,
+  .fdt-banner, .fdt-banner::after, .fdt-banner__icon, .fdt-banner.is-urgent .fdt-banner__time { animation: none; }
+  .fdt-road__truck { left: calc(50% - 21px); }
+}
