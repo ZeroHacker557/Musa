@@ -5,6 +5,8 @@ import { DURATION, FPS, HEIGHT, WIDTH } from './anim'
 import { Video } from './Video'
 import { LOOP, SetsLoop } from './sets/SetsLoop'
 import SETS from './sets-data.json'
+import { Guide } from './guide/Guide'
+import { GUIDE_DURATION, VOICE } from './guide/timeline'
 import './styles.css'
 
 /**
@@ -14,18 +16,20 @@ import './styles.css'
  */
 
 const params = new URLSearchParams(location.search)
-/** Kompozitsiya: `promo` — 40 s reklama, `sets` — 30 s uzluksiz setlar. */
-const COMP = params.get('comp') === 'sets' ? 'sets' : 'promo'
-const TOTAL = COMP === 'sets' ? LOOP : DURATION
-const AUDIO = COMP === 'sets' ? '/audio/sets-mix.wav' : '/audio/mix.wav'
+/** Kompozitsiya: `promo` — 40 s reklama, `sets` — 30 s uzluksiz setlar, `guide` — botdan buyurtma qo'llanmasi. */
+const COMP = params.get('comp') === 'sets' ? 'sets' : params.get('comp') === 'guide' ? 'guide' : 'promo'
+const TOTAL = COMP === 'sets' ? LOOP : COMP === 'guide' ? GUIDE_DURATION : DURATION
+const AUDIO = COMP === 'sets' ? '/audio/sets-mix.wav' : COMP === 'guide' ? `/audio/guide-mix${VOICE === 'zilola' ? '' : `-${VOICE}`}.wav` : '/audio/mix.wav'
 
 function Comp({ frame }: { frame: number }) {
+  if (COMP === 'guide') return <Guide frame={frame} />
   return COMP === 'sets' ? <SetsLoop frame={frame} /> : <Video frame={frame} />
 }
 
 const IMAGES = [
   'hero-products', 'musa-mark', 'kotlet', 'chuchvara', 'somsa', 'dubai', 'gelato', 'bissgo', 'sirok',
   'set-dasturxon', 'set-oquv', 'set-oila', 'set-dasturxon-crop', 'set-oquv-crop', 'set-oila-crop',
+  'cat-yarim-tayyor', 'cat-muzqaymoq', 'cat-sirok', 'cat-setlar',
   ...new Set(SETS.flatMap((s) => s.items.map((id) => `items/${id}`))),
 ].map((n) => `/${n}.webp`)
 
@@ -35,9 +39,16 @@ async function preload() {
     img.src = src
     return img.decode().catch(() => undefined)
   }))
+  // Google Fonts shriftni qismlarga (latin, latin-ext, kirill…) bo'ladi va
+  // `display=block` — yuklanmagan qismdagi matn ko'rinmaydi. Shuning uchun
+  // videoda uchraydigan HAMMA belgilar bilan oldindan yuklanadi.
+  const SAMPLE = 'AaBbOoʻʼ‘’“”«»—–…№✓•·₽ ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 Выберите язык Русский'
   await Promise.all([
-    document.fonts.load('400 100px "Archivo Black"'),
-    ...[600, 700, 800, 900].map((w) => document.fonts.load(`${w} 40px "Montserrat"`)),
+    document.fonts.load('400 100px "Archivo Black"', SAMPLE),
+    ...[400, 600, 700, 800, 900].flatMap((w) => [
+      document.fonts.load(`${w} 40px "Montserrat"`, SAMPLE),
+      document.fonts.load(`italic ${w} 40px "Montserrat"`, SAMPLE),
+    ]),
   ])
   await document.fonts.ready
 }

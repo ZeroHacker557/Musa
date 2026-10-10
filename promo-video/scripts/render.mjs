@@ -24,11 +24,14 @@ const arg = (name, fallback) => {
   return i >= 0 ? args[i + 1] : fallback
 }
 const comp = arg('comp', 'promo')
-const DURATION = comp === 'sets' ? 450 : 1200
+/** Qo'llanma diktori: zilola (sukut) yoki sardor. */
+const voice = arg('voice', 'zilola')
+const vsuf = comp === 'guide' && voice !== 'zilola' ? `-${voice}` : ''
+const DURATION = comp === 'sets' ? 450 : comp === 'guide' ? 2190 : 1200
 const stills = arg('stills', '')
 const from = Number(arg('from', 0))
 const to = Number(arg('to', DURATION))
-const outFile = resolve(ROOT, arg('out', comp === 'sets' ? 'out/musa-setlar-loop.mp4' : 'out/musa-promo.mp4'))
+const outFile = resolve(ROOT, arg('out', comp === 'sets' ? 'out/musa-setlar-loop.mp4' : comp === 'guide' ? `out/musa-qollanma${vsuf}.mp4` : 'out/musa-promo.mp4'))
 
 /** dist/ uchun oddiy statik server. */
 function serveDist() {
@@ -55,7 +58,7 @@ const browser = await puppeteer.launch({
 })
 const page = await browser.newPage()
 page.on('pageerror', (e) => console.error('[sahifa xatosi]', e.message))
-await page.goto(`${base}/?render&comp=${comp}`, { waitUntil: 'networkidle0', timeout: 120000 })
+await page.goto(`${base}/?render&comp=${comp}&voice=${voice}`, { waitUntil: 'networkidle0', timeout: 120000 })
 await page.waitForFunction('typeof window.__setFrame === "function"', { timeout: 60000 })
 
 const draw = (n) => page.evaluate((f) => window.__setFrame(f), n)
@@ -67,13 +70,13 @@ if (stills) {
   for (const n of stills.split(',').map(Number)) {
     await draw(n)
     const buf = await shot()
-    const path = join(dir, `${comp === 'sets' ? 's' : 'f'}${String(n).padStart(4, '0')}.jpg`)
+    const path = join(dir, `${comp === 'sets' ? 's' : comp === 'guide' ? 'g' : 'f'}${String(n).padStart(4, '0')}.jpg`)
     await import('node:fs').then((fs) => fs.writeFileSync(path, buf))
     console.log('kadr', n, '→', path)
   }
 } else {
   mkdirSync(join(ROOT, 'out'), { recursive: true })
-  const audio = join(ROOT, 'public', 'audio', comp === 'sets' ? 'sets-mix.wav' : 'mix.wav')
+  const audio = join(ROOT, 'public', 'audio', comp === 'sets' ? 'sets-mix.wav' : comp === 'guide' ? `guide-mix${vsuf}.wav` : 'mix.wav')
   const withAudio = existsSync(audio) && from === 0 && to === DURATION
   const ff = spawn('ffmpeg', [
     '-y', '-loglevel', 'error',
