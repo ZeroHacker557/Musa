@@ -29,7 +29,9 @@ export async function restoreStock(orderId: string): Promise<boolean> {
       const id = String(item?.product?.id ?? '')
       if (!id) continue
       // O'ramli qatorda bitta «dona» = pack ta dona
-      restore.set(id, (restore.get(id) || 0) + (Number(item?.quantity) || 0) * (Number(item?.product?.pack) || 1))
+      // Set tarkibida — haqiqatda ayirilgani (yetishmagan bo'lsa kamroq)
+      const taken = typeof item?.stockTaken === 'number' ? item.stockTaken : (Number(item?.quantity) || 0) * (Number(item?.product?.pack) || 1)
+      restore.set(id, (restore.get(id) || 0) + taken)
     }
 
     const refs = [...restore.keys()].map((id) => db.collection('products').doc(id))

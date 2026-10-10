@@ -233,6 +233,8 @@ type RawOrder = OrderDoc & {
       bundle?: { name?: string; quantity?: number }[]
     }
     quantity?: number
+    set?: { name?: string } | null
+    missing?: boolean
     size?: string | null
     color?: string | null
   }[]
@@ -282,6 +284,9 @@ function present(id: string, order: RawOrder, uid: string) {
       // Set — kuryer nimani yig'ishini ko'rsin
       bundle: ((line.product as { bundle?: { name?: string; quantity?: number }[] } | undefined)?.bundle ?? [])
         .map((b) => ({ name: String(b?.name || ''), quantity: Number(b?.quantity) || 1 })),
+      // Setdan ajratilgan qator — qaysi set ekani va omborda yetishmagani
+      setName: (line as { set?: { name?: string } | null }).set?.name || null,
+      missing: (line as { missing?: boolean }).missing === true,
     })),
     total: Number(order.total) || 0,
     paymentMethod: order.paymentMethod || 'Naqd',

@@ -135,6 +135,7 @@ export function ReceiptPage({ order, onBack, onHome, onReorder }: Props) {
                       {!!line.product?.bundle?.length && (
                         <p className="set-lines">{t('receipt.setIncludes')} {bundleText(line.product.bundle)}</p>
                       )}
+                      {line.set && <p className="set-lines">🎁 {line.set.name}</p>}
                     </div>
                     <b className="rcpt__item-sum">{formatPrice(price * qty)}</b>
                   </div>

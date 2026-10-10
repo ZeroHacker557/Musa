@@ -353,8 +353,16 @@ export async function notifyLowStock(
 
 /** Kuryerga va guruhga yuboriladigan to'liq tavsilot. */
 export function orderSummary(id: string, order: OrderDoc): string {
+  // Set tarkibi — sarlavha ostida, alohida qatorlar
+  let group = ''
   const lines = (order.products || [])
-    .map((p) => `• ${escapeHtml(p.product?.name)} × ${p.quantity ?? 1}`)
+    .map((p) => {
+      const set = (p as { set?: { name?: string; quantity?: number; group?: string } }).set
+      const missing = (p as { missing?: boolean }).missing ? ' ⚠️ <i>omborda yo‘q</i>' : ''
+      const head = set && set.group !== group ? `🎁 <b>${escapeHtml(set.name)}</b> × ${set.quantity ?? 1}\n` : ''
+      group = set?.group ?? ''
+      return `${head}${set ? '   ' : ''}• ${escapeHtml(p.product?.name)} × ${p.quantity ?? 1}${missing}`
+    })
     .join('\n')
 
   return (

@@ -135,6 +135,7 @@ export function Receipt({ order }: { order: AdminOrder }) {
                 <span className="rcp__name">
                   {line.product?.name || '—'}
                   {!!line.product?.bundle?.length && <small className="rcp__variant"> ({bundleText(line.product.bundle)})</small>}
+                  {line.set && <small className="rcp__variant"> 🎁 {line.set.name}</small>}
                 </span>
                 <span className="rcp__meta">
                   {formatPrice(price)} × <b>{qty}</b>

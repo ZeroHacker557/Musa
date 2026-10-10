@@ -64,6 +64,7 @@ export function CourierReceipt({ order }: { order: CourierOrder }) {
                   {t('orders.itemCount', { count: item.quantity })} × {formatPrice(item.price)}
                 </p>
                 {!!item.bundle?.length && <p className="set-lines">{t('receipt.setIncludes')} {bundleText(item.bundle)}</p>}
+                {item.setName && <p className="set-lines">🎁 {item.setName}</p>}
               </div>
               <b className="rcpt__item-sum">{formatPrice(item.price * item.quantity)}</b>
             </div>

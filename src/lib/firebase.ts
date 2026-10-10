@@ -67,7 +67,8 @@ export function subscribeToProducts(callback: (products: Product[]) => void, onE
         descriptionRu: data.descriptionRu || '',
         descriptionEn: data.descriptionEn || '',
         discount: data.discount || '',
-        stock: typeof data.stock === 'number' ? Math.floor(data.stock / pack) : undefined,
+        // Set o'z qoldig'i bilan to'xtatilmaydi — tarkibi alohida ayiriladi (api/orders.ts)
+        stock: !isSet && typeof data.stock === 'number' ? Math.floor(data.stock / pack) : undefined,
         thumbs: Array.isArray(data.thumbs) ? data.thumbs : undefined,
         optimized: Array.isArray(data.optimized) ? data.optimized : undefined,
         variantSources: Array.isArray(data.variantSources) ? data.variantSources : undefined,

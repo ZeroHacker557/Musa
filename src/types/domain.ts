@@ -127,7 +127,17 @@ export type Order = {
   receipt?: { url: string; uploadedAt?: string } | null
   /** ISO 8601. Saralash va sana ko'rsatish shu maydondan. */
   createdAt: string
-  products: { product: Product; quantity: number; size?: string; color?: string; cartKey?: string }[]
+  products: {
+    product: Product
+    quantity: number
+    size?: string
+    color?: string
+    cartKey?: string
+    /** Set tarkibidagi mahsulot — qaysi set (api/orders.ts ajratadi). */
+    set?: { id: string; name: string; quantity: number; price: number; value?: number; group?: string }
+    /** Set tarkibidagi mahsulot omborda yetishmadi. */
+    missing?: boolean
+  }[]
   /** Mahsulotlar jami (chegirmasiz, yetkazishsiz). */
   subtotal?: number
   discount?: number

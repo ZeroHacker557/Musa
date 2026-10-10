@@ -181,6 +181,8 @@ export function OrderDetail({ order, busy, onClose, onTake, onDeliver, onSupport
                     {!!item.bundle?.length && (
                       <span className="set-lines">📦 {bundleText(item.bundle)}</span>
                     )}
+                    {item.setName && <span className="set-lines">🎁 {item.setName}</span>}
+                    {item.missing && <span className="set-lines" style={{ color: 'var(--danger)' }}>⚠️ Omborda yetishmadi</span>}
                   </span>
                   <span className="shrink-0 text-right">
                     <span className="crr-qty">× {item.quantity}</span>

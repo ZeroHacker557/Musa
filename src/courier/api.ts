@@ -28,6 +28,10 @@ export type CourierOrder = {
     image: string | null
     /** Set bo'lsa — tarkibi (nimani yig'ish kerak). */
     bundle?: { name: string; quantity: number }[]
+    /** Setdan ajratilgan qator — set nomi. */
+    setName?: string | null
+    /** Set tarkibidagi mahsulot omborda yetishmadi. */
+    missing?: boolean
   }[]
   total: number
   paymentMethod: string

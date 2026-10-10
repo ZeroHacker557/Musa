@@ -202,6 +202,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         db.collection('products').doc(String(item.productId)),
       )
       const productSnaps = await tx.getAll(...productRefs)
+      // Setlar tarkibidagi mahsulotlar — set chekda, kuryerda va Ritm'da tarkibga ajratiladi
+      const componentIds = [...new Set(productSnaps.flatMap((snap) => {
+        const bundle = snap.exists ? snap.data()?.bundle : null
+        return Array.isArray(bundle)
+          ? bundle.map((b: { productId?: unknown }) => String(b?.productId ?? '')).filter(Boolean)
+          : []
+      }))]
+      const componentSnaps = componentIds.length
+        ? await tx.getAll(...componentIds.map((id) => db.collection('products').doc(id)))
+        : []
+      const componentById = new Map(componentSnaps.map((snap) => [snap.id, snap]))
 
       const createdAt = new Date()
       const orderDay = tashkentDay(createdAt)
@@ -275,12 +286,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         requestedByProduct.set(key, (requestedByProduct.get(key) || 0) + item.quantity)
       })
 
-      const stockUpdates: { ref: FirebaseFirestore.DocumentReference; stock: number }[] = []
+      // Qoldiq: mahsulot → hozirgi qolgan miqdor (donada). Oxirida bir marta yoziladi.
+      const stockLeft = new Map<string, { ref: FirebaseFirestore.DocumentReference; name: string; stock: number }>()
       // Qoldig'i tugab qolganlar — tranzaksiyadan keyin adminlarga aytiladi
       const lowStock: { id: string; name: string; stock: number }[] = []
       const seenProducts = new Set<string>()
 
-      const products = order.items.map((item, i) => {
+      const products: OrderLine[] = order.items.flatMap((item, i) => {
         const snap = productSnaps[i]
         if (!snap.exists) throw new Error('PRODUCT_GONE')
         const data = snap.data() as FirebaseFirestore.DocumentData
@@ -299,6 +311,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         )
         const price = promo ? promoPrice(basePrice, promo.percent) : basePrice
 
+        // Set — tarkibidagi mahsulotlarga ajratiladi (o'z qoldig'i tekshirilmaydi)
+        if (Array.isArray(data.bundle) && data.bundle.length) {
+          return expandSet({ id: snap.id, data, price, quantity: item.quantity }, componentById)
+        }
+
         const key = String(item.productId)
         if (!seenProducts.has(key) && typeof data.stock === 'number') {
           seenProducts.add(key)
@@ -306,14 +323,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (data.stock < requested) {
             throw new Error(data.stock <= 0 ? 'OUT_OF_STOCK' : 'NOT_ENOUGH_STOCK')
           }
-          const left = data.stock - requested
-          stockUpdates.push({ ref: snap.ref, stock: left })
-          if (left <= LOW_STOCK_AT) {
-            lowStock.push({ id: snap.id, name: String(data.name || ''), stock: left })
-          }
+          stockLeft.set(key, { ref: snap.ref, name: String(data.name || ''), stock: data.stock - requested })
         }
 
-        return {
+        return [{
           product: {
             id: Number(data.id ?? snap.id),
             // O'ramli mahsulot nomida dona soni — chek, xabar, kuryer, nakladnoyda shu ko'rinadi
@@ -327,20 +340,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             thumbs: Array.isArray(data.thumbs) ? data.thumbs : [],
             variantSources: Array.isArray(data.variantSources) ? data.variantSources : [],
             category: String(data.category || ''),
-            // Set — tarkibi nomlari bilan (chek, kuryer va admin nimani yig'ishni ko'rsin)
-            ...(Array.isArray(data.bundle) && data.bundle.length
-              ? {
-                  bundle: (data.bundle as { name?: unknown; quantity?: unknown }[]).map((b) => ({
-                    name: String(b?.name || ''),
-                    quantity: Number(b?.quantity) || 1,
-                  })),
-                }
-              : {}),
           },
           quantity: item.quantity,
           size: item.size ?? null,
           color: item.color ?? null,
+        }]
+      })
+
+      /*
+       * Set tarkibi: qoldiq ayiriladi, lekin set SOTUVDAN TO'XTAMAYDI
+       * (Abubakr: set ko'rinib tursin, yetishmasa ombor almashtiradi).
+       * Yetishmagan mahsulot qatorida `missing` — admin va kuryer ko'radi.
+       * `stockTaken` — haqiqatda ayirilgan miqdor (bekor qilinsa shuncha qaytadi).
+       */
+      for (const line of products) {
+        if (!line.set) continue
+        const id = String(line.product.id)
+        const pieces = line.quantity * (line.product.pack || 1)
+        let entry = stockLeft.get(id)
+        if (!entry) {
+          const snap = componentById.get(id)
+          const data = snap?.exists ? snap.data() : undefined
+          if (!snap || typeof data?.stock !== 'number') continue
+          entry = { ref: snap.ref, name: String(data.name || ''), stock: Math.max(0, data.stock) }
+          stockLeft.set(id, entry)
         }
+        const taken = Math.min(entry.stock, pieces)
+        entry.stock -= taken
+        line.stockTaken = taken
+        if (taken < pieces) line.missing = true
+      }
+      const stockUpdates = [...stockLeft.entries()].map(([id, e]) => {
+        if (e.stock <= LOW_STOCK_AT) lowStock.push({ id, name: e.name, stock: e.stock })
+        return { ref: e.ref, stock: e.stock }
       })
 
       const subtotal = products.reduce((sum, p) => sum + p.product.price * p.quantity, 0)
@@ -575,4 +607,99 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('[orders] xato:', error)
     return fail(res, 500, "Buyurtma yaratilmadi, qayta urinib ko'ring")
   }
+}
+
+type OrderLine = {
+  product: {
+    id: number
+    name: string
+    price: number
+    pack?: number
+    originalPrice?: number
+    promotion?: { id: string; title: string; percent: number }
+    images: string[]
+    thumbs: string[]
+    variantSources: string[]
+    category: string
+  }
+  quantity: number
+  size: string | null
+  color: string | null
+  /** Set tarkibidagi mahsulot: qaysi setdan (chek va Ritm'da alohida qator). */
+  set?: { id: string; name: string; quantity: number; price: number; value: number; group: string }
+  /** Setdagi mahsulot omborda yetishmadi (set baribir sotildi). */
+  missing?: boolean
+  /** Ombordan haqiqatda ayirilgan miqdor, donada. */
+  stockTaken?: number
+}
+
+/**
+ * Set narxini tarkibiga taqsimlaydi: har qator o'z asl qiymatiga
+ * mutanosib arzonlashadi, jami AYNAN set narxiga teng. Yaxlitlash
+ * qoldig'i 1 donali qatorga (bo'lmasa — eng qimmatiga) qo'shiladi.
+ */
+export function splitSetPrice(setPrice: number, parts: { base: number; units: number }[]): number[] {
+  const total = parts.reduce((sum, p) => sum + p.base * p.units, 0)
+  if (!parts.length) return []
+  if (total <= 0) return parts.map((p, i) => (i === 0 ? Math.round(setPrice / p.units) : 0))
+  const k = setPrice / total
+  const unit = parts.map((p) => Math.round(p.base * k))
+  const diff = setPrice - parts.reduce((sum, p, i) => sum + unit[i] * p.units, 0)
+  if (diff) {
+    const one = parts.findIndex((p) => p.units === 1)
+    if (one >= 0) unit[one] += diff
+    else {
+      const big = parts.reduce((m, p, i) => (p.base * p.units > parts[m].base * parts[m].units ? i : m), 0)
+      unit[big] += Math.round(diff / parts[big].units)
+    }
+  }
+  return unit
+}
+
+let setGroupSeq = 0
+
+/**
+ * Set → tarkibidagi mahsulotlar (har biri alohida qator). Set ichidagi
+ * miqdor DONADA (src/hooks/use-shop-store.ts → bundleValue): o'ramli
+ * mahsulot to'liq o'ram bo'lsa o'ram bilan, aks holda dona bilan yoziladi.
+ */
+function expandSet(
+  set: { id: string; data: FirebaseFirestore.DocumentData; price: number; quantity: number },
+  components: Map<string, FirebaseFirestore.DocumentSnapshot>,
+): OrderLine[] {
+  const rows = (set.data.bundle as { productId?: unknown; quantity?: unknown; name?: unknown }[])
+    .map((b) => {
+      const id = String(b?.productId ?? '')
+      const pieces = Math.max(1, Math.floor(Number(b?.quantity) || 1))
+      const snap = components.get(id)
+      const data = snap?.exists ? (snap.data() as FirebaseFirestore.DocumentData) : null
+      const piece = Math.max(0, Number(data?.price) || 0)
+      const pk = data ? packOf(data) : 1
+      const whole = pk > 1 && pieces % pk === 0
+      const units = whole ? pieces / pk : pieces
+      const name = String(data?.name || b?.name || '')
+      return { id, data, units, pack: whole ? pk : 1, base: whole ? piece * pk : piece, name: whole ? `${name} (${pk} dona)` : name }
+    })
+    .filter((r) => r.id)
+  const prices = splitSetPrice(set.price, rows)
+  const value = rows.reduce((sum, r) => sum + r.base * r.units, 0)
+  const group = `${set.id}-${++setGroupSeq}`
+  return rows.map((r, i) => ({
+    product: {
+      id: Number(r.data?.id ?? r.id),
+      name: r.name,
+      price: prices[i],
+      ...(r.pack > 1 ? { pack: r.pack } : {}),
+      // Asl narx — chekda tejash, Ritm'da origin_price
+      originalPrice: r.base,
+      images: Array.isArray(r.data?.images) ? r.data.images : [],
+      thumbs: Array.isArray(r.data?.thumbs) ? r.data.thumbs : [],
+      variantSources: Array.isArray(r.data?.variantSources) ? r.data.variantSources : [],
+      category: String(r.data?.category || ''),
+    },
+    quantity: r.units * set.quantity,
+    size: null,
+    color: null,
+    set: { id: set.id, name: String(set.data.name || ''), quantity: set.quantity, price: set.price, value, group },
+  }))
 }

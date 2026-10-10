@@ -609,6 +609,16 @@ function OrderDrawer({
                         📦 Set tarkibi: {bundleText(line.product.bundle)}
                       </span>
                     )}
+                    {line.set && (
+                      <span className="mt-0.5 block text-xs font-bold" style={{ color: 'var(--brand)' }}>
+                        🎁 {line.set.name}{line.set.quantity > 1 ? ` × ${line.set.quantity}` : ''}
+                      </span>
+                    )}
+                    {line.missing && (
+                      <span className="mt-0.5 block text-xs font-bold" style={{ color: 'var(--danger)' }}>
+                        ⚠️ Omborda yetishmadi — almashtirish kerak
+                      </span>
+                    )}
                   </span>
                   <span className="shrink-0 text-sm" style={{ color: 'var(--muted)' }}>
                     ×{line.quantity}

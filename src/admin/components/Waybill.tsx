@@ -121,6 +121,7 @@ function WaybillPage({ order, company }: { order: AdminOrder; company: CompanySe
                   {line.product?.name || '—'}
                   {variant && <small className="v"> ({variant})</small>}
                   {!!line.product?.bundle?.length && <small className="v"><br />{bundleText(line.product.bundle)}</small>}
+                  {line.set && <small className="v"><br />🎁 {line.set.name}</small>}
                 </td>
                 <td className="c">dona</td>
                 <td className="num">{qty}</td>
