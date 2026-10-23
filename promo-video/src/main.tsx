@@ -6,6 +6,7 @@ import { Video } from './Video'
 import { LOOP, SetsLoop } from './sets/SetsLoop'
 import SETS from './sets-data.json'
 import { Guide } from './guide/Guide'
+import { PANO_IMAGES, Panorama } from './insta/Panorama'
 import { GUIDE_DURATION, VOICE } from './guide/timeline'
 import './styles.css'
 
@@ -55,7 +56,20 @@ async function preload() {
 
 const root = createRoot(document.getElementById('root')!)
 
-if (params.has('render')) {
+/*
+ * Instagram panoramasi (`?comp=insta`): bitta statik kadr. Render skripti
+ * `window.__ready` ni kutadi (scripts/insta.mjs).
+ */
+if (params.get('comp') === 'insta') {
+  document.body.classList.add('render', 'insta')
+  const ready = Promise.all([preload(), ...PANO_IMAGES.map((src) => { const img = new Image(); img.src = src; return img.decode().catch(() => undefined) })])
+  root.render(<Panorama />)
+  ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => { (window as unknown as { __ready: boolean }).__ready = true })))
+}
+
+if (params.get('comp') === 'insta') {
+  // yuqorida chizildi
+} else if (params.has('render')) {
   document.body.classList.add('render')
   let setFrame: (n: number) => void = () => {}
   function RenderHost() {
