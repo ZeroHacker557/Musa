@@ -700,6 +700,13 @@ export const uz = {
   'timer.bannerTitle': 'Yetkazib berish bepul',
   'timer.bannerText': 'Vaqt tugaguncha buyurtma bering',
   'timer.cartLine': 'Yetkazish bepul — ulguring',
+
+  // ── Konkurs ──
+  'giveaway.prize': '{count} kishiga «{prize}» sovg‘a!',
+  'giveaway.until': 'G‘oliblar {date} kuni aniqlanadi',
+  'giveaway.referralHint': 'Do‘stlaringizni taklif qiling — har bir yangi do‘st g‘alaba imkoniyatingizni oshiradi 🍀',
+  'giveaway.invite': 'Do‘stlarni taklif qilish',
+  'giveaway.shareText': 'MUSA botida konkurs: «{prize}» yutib olish mumkin! 🎁 Kirib START bosing 👇',
 } as const
 
 export type TranslationKey = keyof typeof uz

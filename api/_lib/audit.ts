@@ -22,7 +22,7 @@ export type AuditSource = 'panel' | 'bot' | 'courier' | 'system'
 /** O'qish amallari — jurnalga tushmaydi. */
 const READ_ONLY = new Set([
   'overview', 'location', 'support.read', 'linko.status', 'linko.ping', 'channel.status',
-  'audit.list', 'backup.list', 'sources.stats', 'template.list', 'campaign.stats', 'schedule.list', 'broadcast.history', 'daily.get', 'daily.preview',
+  'audit.list', 'backup.list', 'sources.stats', 'giveaway.get', 'template.list', 'campaign.stats', 'schedule.list', 'broadcast.history', 'daily.get', 'daily.preview',
   'payment.check', 'settings.testGroup',
 ])
 
@@ -94,6 +94,12 @@ export const AUDIT_LABELS: Record<string, string> = {
   'backup.restore': 'Zaxira nusxadan tiklandi',
   'backup.delete': 'Zaxira nusxa o‘chirildi',
   'session.login': 'Panelga kirdi',
+  'giveaway.save': 'Konkurs sozlandi',
+  'giveaway.exclude': 'Konkurs ishtirokchisi chiqarildi/qaytarildi',
+  'giveaway.draw': 'Konkurs: g‘olib aniqlandi',
+  'giveaway.undo': 'Konkurs: g‘olib bekor qilindi',
+  'giveaway.confirm': 'Konkurs: g‘oliblarga xabar yuborildi',
+  'giveaway.reset': 'Yangi konkurs',
 }
 
 /** Panel filtri: guruh → amal nomlari yoki prefikslari. */

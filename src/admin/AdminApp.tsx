@@ -26,6 +26,7 @@ import { BroadcastPage } from './pages/BroadcastPage'
 import { ChannelPage } from './pages/ChannelPage'
 import { HomeBannersPage } from './pages/HomeBannersPage'
 import { SourcesPage } from './pages/SourcesPage'
+import { GiveawayPage } from './pages/GiveawayPage'
 import { DailyPicksPage } from './pages/DailyPicksPage'
 import { VoicesPage } from './pages/VoicesPage'
 import { AuditPage } from './pages/AuditPage'
@@ -253,6 +254,7 @@ function AdminPanel({
       {route === 'banners' && (can(staff.role, 'admin') ? <HomeBannersPage /> : <NoAccess />)}
       {route === 'voices' && (can(staff.role, 'admin') ? <VoicesPage /> : <NoAccess />)}
       {route === 'sources' && (can(staff.role, 'admin') ? <SourcesPage /> : <NoAccess />)}
+      {route === 'giveaway' && (can(staff.role, 'admin') ? <GiveawayPage owner={staff.role === 'owner'} /> : <NoAccess />)}
       {route === 'audit' && (staff.role === 'owner' ? <AuditPage /> : <NoAccess />)}
       {route === 'backups' && (staff.role === 'owner' ? <BackupPage /> : <NoAccess />)}
       {route === 'support' && (can(staff.role, 'admin') ? <SupportPage focusId={param} navigate={navigate} /> : <NoAccess />)}

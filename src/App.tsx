@@ -376,6 +376,7 @@ function App() {
                 onOpenSection={shop.openSectionById}
                 onOpenProduct={shop.openProductById}
                 onTimerShop={timerShop}
+                userId={shop.isAuthenticated ? shop.userProfile?.id ?? null : null}
               />
             </div>
           )}

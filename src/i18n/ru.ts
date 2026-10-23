@@ -688,4 +688,11 @@ export const ru: Record<TranslationKey, string> = {
   'timer.bannerTitle': 'Бесплатная доставка',
   'timer.bannerText': 'Успейте оформить заказ',
   'timer.cartLine': 'Доставка бесплатно — успейте',
+
+  // ── Конкурс ──
+  'giveaway.prize': '{count} победителям — «{prize}» в подарок!',
+  'giveaway.until': 'Победители будут определены {date}',
+  'giveaway.referralHint': 'Приглашайте друзей — каждый новый друг повышает ваши шансы на победу 🍀',
+  'giveaway.invite': 'Пригласить друзей',
+  'giveaway.shareText': 'Конкурс в боте MUSA: можно выиграть «{prize}»! 🎁 Заходите и нажмите START 👇',
 }

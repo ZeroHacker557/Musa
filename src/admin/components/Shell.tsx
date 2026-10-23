@@ -1,5 +1,5 @@
 import {
-  BarChart3, BrainCircuit, CalendarClock, Volume2, Boxes, Clapperboard, ExternalLink, FileBarChart, Flame, Headset, Layers, LayoutGrid, LogOut, Map as MapIcon, Maximize2, Wallet,
+  BarChart3, BrainCircuit, CalendarClock, Gift, Volume2, Boxes, Clapperboard, ExternalLink, FileBarChart, Flame, Headset, Layers, LayoutGrid, LogOut, Map as MapIcon, Maximize2, Wallet,
   DatabaseBackup, History, Images, Link2, Megaphone, Menu, Radio, Minimize2, Moon, PlugZap, Send, Settings, ShoppingBag, Sun, Tag, Users, UserCog, X,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -28,6 +28,7 @@ const NAV: NavEntry[] = [
   { route: 'map', label: 'Kuryerlar xaritasi', icon: MapIcon, min: 'admin' },
   { route: 'reports', label: 'Hisobotlar', icon: FileBarChart, min: 'admin' },
   { route: 'sources', label: 'Trafik manbalari', icon: Link2, min: 'admin' },
+  { route: 'giveaway', label: 'Konkurs', icon: Gift, min: 'admin' },
 
   { route: 'products', label: 'Mahsulotlar', icon: Boxes, min: 'admin', section: 'Katalog' },
   { route: 'categories', label: 'Kategoriyalar', icon: LayoutGrid, min: 'admin' },
@@ -69,6 +70,7 @@ const TITLES: Record<Route, string> = {
   voices: 'Kirish ovozlari',
   reports: 'Hisobotlar',
   sources: 'Trafik manbalari',
+  giveaway: 'Konkurs',
   customers: 'Mijozlar',
   broadcast: 'Ommaviy xabar',
   channel: 'Telegram kanal',

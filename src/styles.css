@@ -5891,3 +5891,29 @@ a { color: inherit; text-decoration: none; }
   .fdt-banner, .fdt-banner::after, .fdt-banner__icon, .fdt-banner.is-urgent .fdt-banner__time { animation: none; }
   .fdt-road__truck { left: calc(50% - 21px); }
 }
+
+/* ====== Konkurs kartasi ====== */
+.gw-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: 16px 16px 14px;
+  color: #3a2a00;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255,255,255,0.55), transparent 55%),
+    linear-gradient(135deg, #ffe27a 0%, #ffd43b 45%, #f5b800 100%);
+  box-shadow: 0 14px 28px -16px rgba(150,100,0,0.8);
+  animation: fadeInUp 0.45s ease;
+}
+.gw-card__head { display: flex; align-items: center; gap: 12px; }
+.gw-card__head b { display: block; font-size: 1rem; font-weight: 900; line-height: 1.2; }
+.gw-card__head span { display: block; margin-top: 2px; font-size: 0.82rem; font-weight: 700; }
+.gw-card__icon { display: grid; flex-shrink: 0; place-items: center; width: 46px; height: 46px; border-radius: 15px; background: #0a7a3d; color: #fff; }
+.gw-card__when { margin-top: 10px; font-size: 0.78rem; font-weight: 800; opacity: 0.8; }
+.gw-card__hint { margin-top: 8px; font-size: 0.82rem; font-weight: 700; line-height: 1.35; }
+.gw-card__btn {
+  display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 12px; border-radius: 14px; padding: 12px; background: #0a7a3d; color: #fff;
+  font-size: 0.95rem; font-weight: 800; box-shadow: 0 8px 18px -10px rgba(5,84,42,0.9);
+}
+.gw-card__btn:active { transform: scale(0.98); }

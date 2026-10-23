@@ -15,6 +15,7 @@ import { homeBannersSave } from '../_lib/actions/home.js'
 import { voicesSave, voicesUpload } from '../_lib/actions/voices.js'
 import { customerUpdate } from '../_lib/actions/customers.js'
 import { sourcesStats } from '../_lib/actions/sources.js'
+import { giveawayConfirm, giveawayDraw, giveawayExclude, giveawayGet, giveawayReset, giveawaySave, giveawayUndo } from '../_lib/actions/giveaway.js'
 import { dailyGet, dailyPreview, dailySave, dailySendNow, dailyTest } from '../_lib/actions/daily.js'
 import { paymentCheck, paymentWebhook, settingsSave, settingsTestGroup } from '../_lib/actions/settings.js'
 import {
@@ -82,6 +83,14 @@ const HANDLERS: Record<string, Handler> = {
   'voices.save': (staff, body) => (requireCatalogAccess(staff), voicesSave(staff, body)),
   'customer.update': (staff, body) => (requireSupportAccess(staff), customerUpdate(staff, body)),
   'sources.stats': (staff, body) => (requireChannelAccess(staff), sourcesStats(body)),
+  // Konkurs: ko'rish va baraban — admin; sozlash, xabar yuborish, yangisi — ega
+  'giveaway.get': (staff) => (requireChannelAccess(staff), giveawayGet()),
+  'giveaway.save': (staff, body) => (requireOwner(staff), giveawaySave(staff, body)),
+  'giveaway.exclude': (staff, body) => (requireChannelAccess(staff), giveawayExclude(staff, body)),
+  'giveaway.draw': (staff) => (requireChannelAccess(staff), giveawayDraw(staff)),
+  'giveaway.undo': (staff) => (requireChannelAccess(staff), giveawayUndo()),
+  'giveaway.confirm': (staff) => (requireOwner(staff), giveawayConfirm(staff)),
+  'giveaway.reset': (staff) => (requireOwner(staff), giveawayReset(staff)),
   'category.save': (staff, body) => (requireCatalogAccess(staff), categorySave(body)),
   'category.delete': (staff, body) => (requireCatalogAccess(staff), categoryDelete(body)),
   'promo.save': (staff, body) => (requireCatalogAccess(staff), promoSave(body)),

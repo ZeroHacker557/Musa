@@ -19,6 +19,7 @@ import { openExternalLink } from '../utils/telegram'
 import type { AppPage, Category, Product, ProductActions } from '../types/domain'
 import { PromoBadge } from '../components/home/PromoBadge'
 import { FreeDeliveryBanner } from '../components/promo/FreeDeliveryTimer'
+import { GiveawayCard } from '../components/promo/GiveawayCard'
 
 /** «Aksiyadagi set mahsulotlar» yorlig'i shu yo'nalish kartasida («Setlar» yozuvi o'rniga). */
 const PROMO_LINE = 'Setlar'
@@ -39,11 +40,13 @@ type Props = ProductActions & {
   onOpenProduct: (id: string) => void
   /** «Yetkazib berish bepul» bannerini bosganda (savat yoki katalog). */
   onTimerShop: () => void
+  /** Konkurs kartasi — taklif havolasi uchun (Telegram ID). */
+  userId: number | null
 }
 
 export function HomePage({
   products, categories, loading, promotions, onSearch, onNavigate,
-  onOpenCategory, unreadNotificationsCount, banners, onOpenSection, onOpenProduct, onTimerShop, ...productActions
+  onOpenCategory, unreadNotificationsCount, banners, onOpenSection, onOpenProduct, onTimerShop, userId, ...productActions
 }: Props) {
   const t = useT()
   const { lang } = useI18n()
@@ -165,6 +168,9 @@ export function HomePage({
 
       {/* «Yetkazib berish bepul» — sanoq tugaguncha */}
       <FreeDeliveryBanner onShop={onTimerShop} />
+
+      {/* Konkurs — admin → «Konkurs» */}
+      <GiveawayCard userId={userId} />
 
       {/* Ishlayotgan aksiya — eng katta chegirmasi bilan */}
       {promotions[0] && (
