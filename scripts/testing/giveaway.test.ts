@@ -4,7 +4,7 @@
  */
 export {}
 const g = globalThis as any
-const { giveawayConfirm, giveawayDraw, giveawayExclude, giveawayGet, giveawaySave, giveawayUndo } = await import('../../api/_lib/actions/giveaway.ts')
+const { giveawayBoard, giveawayConfirm, giveawayDraw, giveawayExclude, giveawayGet, giveawaySave, giveawayUndo } = await import('../../api/_lib/actions/giveaway.ts')
 
 const failures: string[] = []
 function check(name: string, cond: boolean, extra: unknown = '') {
@@ -72,6 +72,32 @@ await giveawayExclude(admin, { id: '406' })
 s = await giveawayGet()
 check('chiqarilgan ishtirokchi belgilandi', by('406')?.excluded === true && s.stats.people === 6)
 
+// ── Bot: reyting va «Konkurs» tugmasi ──
+await giveawaySave(admin, { title: 'MUSA konkursi', prize: 'Sog‘lom O‘quv Mavsumi seti', startAt: START, winners: 3, referral: { enabled: true, cap: 10 } })
+const realNow = Date.now
+Date.now = () => Date.parse('2026-10-26T10:00:00Z')
+let b = await giveawayBoard('101')
+check('reyting: Aziza 1-o‘rinda, 3 ochko, 2 do‘st', b.active && b.me?.rank === 1 && b.me.points === 3 && b.me.refs === 2 && b.top[0].name === 'Aziza', b)
+check('reytingda faqat ism (familiyasiz, ID siz)', b.top.every((t: any) => !/ID \d/.test(t.name)))
+b = await giveawayBoard('999')
+check('eski mijoz (START bosmagan) hali ishtirokchi emas... yoki boshqa START bilan', b.me === null || b.me.points >= 1)
+g.__data['users/777'] = { id: 777, first_name: 'Eskimijoz', lastActive: '2026-01-01' }
+b = await giveawayBoard('777')
+check('tugmasiz — 777 ishtirokchi emas', b.me === null)
+b = await giveawayBoard('777', true)
+check('«Konkurs» tugmasi bosildi — ishtirokchi bo‘ldi (kesh yangilandi)', b.me?.points === 1 && g.__data['giveaway_entries/777']?.telegramUserId === 777, b.me)
+const firstAt = g.__data['giveaway_entries/777'].createdAt
+await giveawayBoard('777', true)
+check('qayta bosilsa yozuv o‘zgarmaydi', g.__data['giveaway_entries/777'].createdAt === firstAt)
+Date.now = () => Date.parse('2026-10-20T10:00:00Z')
+b = await giveawayBoard('888', true)
+check('konkurs boshlanmasdan tugma — ishtirok yozilmaydi', !b.active && !g.__data['giveaway_entries/888'])
+Date.now = realNow
+delete g.__data['giveaway_entries/777']
+delete g.__data['users/777']
+g.__data['giveaways/current'].board = null
+await giveawayExclude(admin, { id: '406' })
+
 // Tanlov: takrorlanmaydi, chiqarilgan tanlanmaydi
 const winners = new Set<string>()
 for (let i = 0; i < 3; i++) {
@@ -88,7 +114,7 @@ s = await giveawayGet()
 check('oxirgisini bekor qilish', s.draws.length === 2)
 await giveawayDraw(admin)
 
-// Adolat: 2000 marta — 2 imkoniyatli odam ~2 barobar ko'p tanlanadi
+// Adolat: 2000 marta — 3 imkoniyatli odam ~3 barobar ko'p tanlanadi
 g.__data['giveaways/current'].config.winners = 1
 let aziza = 0, bobur = 0
 for (let i = 0; i < 2000; i++) {
@@ -97,7 +123,7 @@ for (let i = 0; i < 2000; i++) {
   if (r.winner.id === '101') aziza++
   if (r.winner.id === '202') bobur++
 }
-check('ehtimol imkoniyatga mutanosib (Aziza ≈ 2× Bobur)', aziza / bobur > 1.6 && aziza / bobur < 2.5, { aziza, bobur })
+check('ehtimol imkoniyatga mutanosib (Aziza 3 imk. ≈ 3× Bobur)', aziza / bobur > 2.4 && aziza / bobur < 3.8, { aziza, bobur })
 g.__data['giveaways/current'].config.winners = 3
 g.__data['giveaways/current'].draws = [
   { id: '101', name: 'Aziza', username: 'aziza', tickets: 2, at: 'x', by: 'Ega' },

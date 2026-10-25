@@ -6,6 +6,7 @@ import { linkoPushOrders, linkoSyncMarketTypes } from './_lib/actions/linko-orde
 import { expireUnpaidOrders } from './_lib/actions/payments.js'
 import { fail } from './_lib/http.js'
 import { runTasks } from './_lib/actions/scheduler.js'
+import { giveawayBoard } from './_lib/actions/giveaway.js'
 
 /**
  * Linko katalogini jadval bo'yicha tortadi.
@@ -45,6 +46,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // aksiya e'loni, avtomatik zaxira nusxa. Linko sinxroni bu yerda emas.
   if (req.query.tasks === '1') {
     return res.status(200).json(await runTasks())
+  }
+
+  // Bot: «🎁 Konkurs» — ochko, reyting, ishtirok (alohida funksiya ochilmadi — Vercel cheklovi)
+  if (req.query.giveaway === '1') {
+    const user = typeof req.query.user === 'string' ? req.query.user : ''
+    return res.status(200).json(await giveawayBoard(user, req.query.join === '1'))
   }
 
   // Eski bot mijozlarining turini bir martada yangilash (faqat tur, boshqa maydonlar emas)

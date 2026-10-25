@@ -92,6 +92,13 @@ async function participants(state: Awaited<ReturnType<typeof load>>): Promise<Pa
   let q = db.collection('start_events').where('createdAt', '>=', config.startAt)
   if (config.endAt) q = q.where('createdAt', '<', config.endAt)
   const events = (await q.get()).docs.map((d) => d.data())
+  // Botdagi «🎁 Konkurs» tugmasini bosganlar ham ishtirokchi (START bosmagan eski mijozlar)
+  let jq = db.collection('giveaway_entries').where('createdAt', '>=', config.startAt)
+  if (config.endAt) jq = jq.where('createdAt', '<', config.endAt)
+  for (const d of (await jq.get()).docs) {
+    const e = d.data()
+    events.push({ telegramUserId: e.telegramUserId, createdAt: e.createdAt, source: 'konkurs_button', isNewUser: false })
+  }
 
   const byUser = new Map<string, { starts: number; firstAt: string; isNew: boolean }>()
   const refPairs: { from: string; to: string }[] = []
@@ -201,7 +208,7 @@ export async function giveawaySave(actor: Staff, body: Record<string, unknown>) 
   }
   if (!config.startAt) throw new Error('Boshlanish vaqtini kiriting')
   if (config.endAt && config.endAt <= config.startAt) throw new Error('Tugash vaqti boshlanishidan keyin bo‘lishi kerak')
-  await state.ref.set({ config, updatedAt: new Date().toISOString(), updatedBy: actor.name || actor.email }, { merge: true })
+  await state.ref.set({ config, board: null, updatedAt: new Date().toISOString(), updatedBy: actor.name || actor.email }, { merge: true })
   await publish(config, false)
   return { ok: true }
 }
@@ -216,7 +223,7 @@ export async function giveawayExclude(_actor: Staff, body: Record<string, unknow
   const set = new Set(state.excluded)
   if (body.excluded === false) set.delete(id)
   else set.add(id)
-  await state.ref.set({ excluded: [...set] }, { merge: true })
+  await state.ref.set({ excluded: [...set], board: null }, { merge: true })
   return { ok: true }
 }
 
@@ -297,4 +304,72 @@ export async function giveawayReset(actor: Staff) {
   await state.ref.delete()
   await db.collection('settings').doc('giveaway').delete()
   return { ok: true }
+}
+
+// ─── Bot uchun: ochko, reyting, ishtirok (api/linko-cron.ts ?giveaway=1) ───
+
+/** Hozir konkurs davom etyaptimi. */
+const isActive = (c: GiveawayConfig, done: boolean, now = Date.now()) =>
+  !done && !!c.startAt && Date.parse(c.startAt) <= now && (!c.endAt || Date.parse(c.endAt) > now)
+
+/** Reytingda to'liq ism emas: «Aziza», username bo'lsa — qisman yashirin. */
+function publicName(p: Participant): string {
+  const first = p.name.startsWith('@') || p.name.startsWith('ID ') ? '' : p.name.split(/\s+/)[0]
+  if (first) return first.slice(0, 18)
+  if (p.username) return `@${p.username.slice(0, 3)}***`
+  return 'Ishtirokchi'
+}
+
+const BOARD_TTL_MS = 3 * 60 * 1000
+
+/**
+ * Ochko = imkoniyatlar soni (1 + taklif qilgan yangi do'stlar, chegara bilan).
+ * Ro'yxat 3 daqiqa keshlanadi — har tugma bosishda butun jurnal o'qilmasin.
+ */
+export async function giveawayBoard(userId: string, join = false) {
+  const state = await load()
+  const { config } = state
+  const done = !!state.confirmedAt
+  const active = isActive(config, done)
+  const db = await adminDb()
+
+  // Ishtirok: konkurs davomida tugma bosilsa — birinchi marta yoziladi
+  let joinedNow = false
+  if (join && active && /^\d{3,20}$/.test(userId)) {
+    const ref = db.collection('giveaway_entries').doc(userId)
+    const snap = await ref.get()
+    const fresh = !snap.exists || !config.startAt || String(snap.data()?.createdAt ?? '') < config.startAt
+    if (fresh) {
+      await ref.set({ telegramUserId: Number(userId), createdAt: new Date().toISOString() })
+      joinedNow = true
+    }
+  }
+
+  const cached = (await state.ref.get()).data()?.board as { at: string; rows: { id: string; name: string; points: number; refs: number }[] } | undefined
+  let rows = cached?.rows ?? []
+  if (!cached || joinedNow || Date.now() - Date.parse(cached.at) > BOARD_TTL_MS) {
+    const list = (await participants(state)).filter((p) => !p.excluded)
+    rows = list
+      .map((p) => ({ id: p.id, name: publicName(p), points: p.tickets, refs: p.refs }))
+      .sort((a, b) => b.points - a.points || b.refs - a.refs)
+    await state.ref.set({ board: { at: new Date().toISOString(), rows } }, { merge: true })
+  }
+
+  const index = rows.findIndex((r) => r.id === userId)
+  const me = index >= 0 ? rows[index] : null
+  return {
+    exists: !!config.startAt,
+    active,
+    finished: done,
+    title: config.title,
+    prize: config.prize,
+    startAt: config.startAt,
+    endAt: config.endAt,
+    winners: config.winners,
+    referral: config.referral.enabled,
+    participants: rows.length,
+    me: me ? { points: me.points, refs: me.refs, rank: index + 1 } : null,
+    top: rows.slice(0, 10).map((r) => ({ name: r.name, points: r.points, refs: r.refs })),
+    winnersList: done ? state.draws.map((d) => ({ name: publicName({ name: d.name, username: d.username } as Participant) })) : [],
+  }
 }

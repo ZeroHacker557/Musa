@@ -505,6 +505,17 @@ def record_start(user_id: int, source: str, username: str | None = None,
     return is_new
 
 
+def get_last_source(user_id: int) -> tuple[str | None, str | None]:
+    """Foydalanuvchining oxirgi /start manbasi va vaqti (konkurs havolalari uchun)."""
+    try:
+        snap = db.collection("users").document(str(user_id)).get()
+        data = snap.to_dict() if snap.exists else {}
+        return data.get("lastSource"), data.get("lastSourceAt")
+    except Exception as e:
+        print(f"[ERR] get_last_source: {e}")
+        return None, None
+
+
 def save_poll(poll_id: str, options: list, total: int, closed: bool):
     """Kanal so'rovnomasining jonli natijasi — admin panel «Telegram kanal» ko'rsatadi."""
     try:

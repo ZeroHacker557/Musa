@@ -28,6 +28,7 @@ BUTTONS = {
     "contact": {"uz": "📞 Biz bilan aloqa", "ru": "📞 Связаться с нами"},
     "help": {"uz": "ℹ️ Yordam", "ru": "ℹ️ Помощь"},
     "phone": {"uz": "📱 Raqamni yuborish", "ru": "📱 Отправить номер"},
+    "giveaway": {"uz": "🎁 Konkurs", "ru": "🎁 Конкурс"},
 }
 
 
@@ -53,6 +54,78 @@ TEXTS = {
     "lang_saved": {
         "uz": "✅ Til o'zbekchaga o'zgartirildi. Ilova ham shu tilda ochiladi.",
         "ru": "✅ Язык изменён на русский. Приложение откроется на нём же.",
+    },
+
+    # ── Konkurs (🎁 Konkurs tugmasi) ──
+    "gw_info": {
+        "uz": (
+            "🎁 <b>MUSA KONKURSI!</b>\n\n"
+            "{winners} kishiga «{prize}» sovg'a! 🥟\n\n"
+            "✅ <b>Siz konkurs ishtirokchisiz!</b>\n"
+            "{referral}"
+            "🗓 G'oliblar: <b>{until}</b>, baraban orqali."
+        ),
+        "ru": (
+            "🎁 <b>КОНКУРС MUSA!</b>\n\n"
+            "{winners} победителям — «{prize}» в подарок! 🥟\n\n"
+            "✅ <b>Вы участник конкурса!</b>\n"
+            "{referral}"
+            "🗓 Победители: <b>{until}</b>, на барабане."
+        ),
+    },
+    "gw_referral": {
+        "uz": "👥 Do'stlaringizni taklif qiling — har bir yangi do'st <b>+1 ochko</b>. Ochko qancha ko'p — yutish imkoni shuncha katta! 🍀\n<i>(Do'stingiz havolangiz orqali botga kirib, ilovani ochishi kerak)</i>\n\n",
+        "ru": "👥 Приглашайте друзей — каждый новый друг даёт <b>+1 очко</b>. Чем больше очков — тем выше шанс на победу! 🍀\n<i>(Друг должен зайти в бота по вашей ссылке и открыть приложение)</i>\n\n",
+    },
+    "gw_me": {
+        "uz": (
+            "\n\n━━━━━━━━━━━━━━\n"
+            "⭐ Ochkolaringiz: <b>{points}</b>\n"
+            "👥 Taklif qilgan do'stlar: <b>{refs}</b>\n"
+            "🏆 Reytingda: <b>{rank}-o'rin</b> ({total} ishtirokchi)"
+        ),
+        "ru": (
+            "\n\n━━━━━━━━━━━━━━\n"
+            "⭐ Ваши очки: <b>{points}</b>\n"
+            "👥 Приглашено друзей: <b>{refs}</b>\n"
+            "🏆 В рейтинге: <b>{rank}-е место</b> (участников: {total})"
+        ),
+    },
+    "gw_link": {
+        "uz": "\n\n🔗 Shaxsiy havolangiz:\n{link}",
+        "ru": "\n\n🔗 Ваша личная ссылка:\n{link}",
+    },
+    "gw_share_btn": {"uz": "📤 Do'stlarga yuborish", "ru": "📤 Отправить друзьям"},
+    "gw_top_btn": {"uz": "🏆 Reyting", "ru": "🏆 Рейтинг"},
+    "gw_share_text": {
+        "uz": "MUSA botida konkurs: «{prize}» yutib olish mumkin! 🎁 Kirib START bosing 👇",
+        "ru": "Конкурс в боте MUSA: можно выиграть «{prize}»! 🎁 Заходите и нажмите START 👇",
+    },
+    "gw_top": {
+        "uz": "🏆 <b>Reyting — TOP {count}</b>\n\n{rows}{me}\n\n👥 Ko'proq do'st taklif qiling va yuqoriga chiqing!",
+        "ru": "🏆 <b>Рейтинг — TOP {count}</b>\n\n{rows}{me}\n\n👥 Приглашайте больше друзей и поднимайтесь выше!",
+    },
+    "gw_top_me": {
+        "uz": "\n\n👤 Siz: <b>{rank}-o'rin</b>, {points} ochko",
+        "ru": "\n\n👤 Вы: <b>{rank}-е место</b>, {points} очк.",
+    },
+    "gw_points": {"uz": "ochko", "ru": "очк."},
+    "gw_empty_top": {"uz": "Hali ishtirokchilar yo'q — birinchi bo'ling!", "ru": "Пока нет участников — будьте первым!"},
+    "gw_none": {
+        "uz": "Hozircha konkurs yo'q. Yangiliklarni kuzatib boring! 🙂",
+        "ru": "Сейчас конкурса нет. Следите за новостями! 🙂",
+    },
+    "gw_soon": {
+        "uz": "🎁 Konkurs <b>{date}</b> kuni boshlanadi. Kuting! 🙂",
+        "ru": "🎁 Конкурс начнётся <b>{date}</b>. Ждите! 🙂",
+    },
+    "gw_finished": {
+        "uz": "🎉 <b>Konkurs yakunlandi!</b>\n\nG'oliblar:\n{list}\n\nQatnashganingiz uchun rahmat! 💚",
+        "ru": "🎉 <b>Конкурс завершён!</b>\n\nПобедители:\n{list}\n\nСпасибо за участие! 💚",
+    },
+    "gw_error": {
+        "uz": "Hozir ma'lumotni olib bo'lmadi. Birozdan keyin qayta urinib ko'ring.",
+        "ru": "Сейчас не удалось получить данные. Попробуйте чуть позже.",
     },
 
     # ── /start ──

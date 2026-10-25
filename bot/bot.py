@@ -6,8 +6,10 @@ MUSA — muzlatilgan mahsulotlar do'koni: yarim tayyor, muzqaymoq, sirok.
 import asyncio
 import hashlib
 import hmac
+import html
 import json
 import logging
+import os
 import time
 from datetime import datetime, timezone
 
@@ -26,7 +28,7 @@ from aiogram.client.default import DefaultBotProperties
 
 # Karta ma'lumoti config.py dan emas, settings/payment hujjatidan olinadi (F-07)
 from config import (
-    BOT_TOKEN, MINI_APP_URL, ADMIN_PANEL_URL, CRON_SECRET,
+    BOT_TOKEN, MINI_APP_URL, ADMIN_PANEL_URL, CRON_SECRET, BOT_USERNAME,
 )
 # Adminlar ro'yxati dinamik — panel orqali qo'shiladi/o'chiriladi
 from admins import all_admins, is_admin, can_open_panel
@@ -64,7 +66,7 @@ def main_kb(admin: bool = False, lang: str = tr.DEFAULT):
         # Oddiy tugma — bosilganda pastdagi menyu tugmasiga yo'naltiradi.
         # Mini app faqat yozuv maydoni yonidagi "🥟 Katalog" orqali ochiladi.
         [KeyboardButton(text=tr.button("catalog", lang))],
-        [KeyboardButton(text=tr.button("orders", lang))],
+        [KeyboardButton(text=tr.button("orders", lang)), KeyboardButton(text=tr.button("giveaway", lang))],
         [KeyboardButton(text=tr.button("contact", lang)), KeyboardButton(text=tr.button("help", lang))]
     ]
     # Admin panel tugmasi FAQAT adminlarda: oddiy mijoz uni umuman
@@ -783,6 +785,140 @@ async def on_poll_update(poll: Poll):
 
 # ─── /start ──────────────────────────────────────────────────
 
+# ─── Konkurs: «🎁 Konkurs» tugmasi, ochko, reyting, taklif havolasi ───────────
+#
+# Hisob Vercel'da (api/_lib/actions/giveaway.ts → giveawayBoard): bot faqat
+# so'raydi va ko'rsatadi. Tugmani bosish konkursda ishtirok deb yoziladi
+# (eski mijozlar START bosmasa ham qatnashadi).
+
+GIVEAWAY_IMAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images", "konkurs.jpg")
+_giveaway_photo_id: str | None = None
+
+UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"]
+RU_MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+
+
+def gw_date(iso: str | None, lang: str) -> str:
+    """ISO (UTC) → «9-noyabr, 18:00» (Toshkent vaqti)."""
+    if not iso:
+        return "—"
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() + 5 * 3600
+        t = datetime.fromtimestamp(dt, tz=timezone.utc)
+    except ValueError:
+        return "—"
+    if lang == "ru":
+        return f"{t.day} {RU_MONTHS[t.month - 1]}, {t:%H:%M}"
+    return f"{t.day}-{UZ_MONTHS[t.month - 1]}, {t:%H:%M}"
+
+
+async def fetch_giveaway(user_id: int, join: bool) -> dict | None:
+    if not CRON_SECRET:
+        logger.info("[GIVEAWAY] CRON_SECRET yo'q")
+        return None
+    url = f"{MINI_APP_URL.rstrip('/')}/api/linko-cron?giveaway=1&user={user_id}" + ("&join=1" if join else "")
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers={"x-cron-secret": CRON_SECRET},
+                                   timeout=aiohttp.ClientTimeout(total=25)) as resp:
+                if resp.status != 200:
+                    logger.warning(f"[GIVEAWAY] {resp.status}: {(await resp.text())[:200]}")
+                    return None
+                return await resp.json()
+    except Exception as e:
+        logger.warning(f"[GIVEAWAY] so'rov xatosi: {e}")
+        return None
+
+
+def gw_link(user_id: int) -> str:
+    return f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
+
+
+def gw_keyboard(user_id: int, lang: str, prize: str, referral: bool) -> InlineKeyboardMarkup:
+    from urllib.parse import quote
+    rows = []
+    if referral:
+        share = (f"https://t.me/share/url?url={quote(gw_link(user_id))}"
+                 f"&text={quote(tr.t('gw_share_text', lang, prize=prize))}")
+        rows.append([InlineKeyboardButton(text=tr.t("gw_share_btn", lang), url=share)])
+    rows.append([InlineKeyboardButton(text=tr.t("gw_top_btn", lang), callback_data="gw:top")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def send_giveaway(message: Message, user_id: int, lang: str):
+    """Konkurs kartasi: rasm + shartlar + shaxsiy natija va havola."""
+    global _giveaway_photo_id
+    data = await fetch_giveaway(user_id, join=True)
+    if data is None:
+        await message.answer(tr.t("gw_error", lang))
+        return
+    if not data.get("exists"):
+        await message.answer(tr.t("gw_none", lang))
+        return
+    if data.get("finished"):
+        names = "\n".join(f"{i + 1}. {html.escape(w['name'])}" for i, w in enumerate(data.get("winnersList") or []))
+        await message.answer(tr.t("gw_finished", lang, list=names or "—"))
+        return
+    if not data.get("active"):
+        await message.answer(tr.t("gw_soon", lang, date=gw_date(data.get("startAt"), lang)))
+        return
+
+    prize = html.escape(data.get("prize") or "")
+    referral = bool(data.get("referral"))
+    text = tr.t("gw_info", lang, winners=data.get("winners", 5), prize=prize,
+                until=gw_date(data.get("endAt"), lang),
+                referral=tr.t("gw_referral", lang) if referral else "")
+    me = data.get("me")
+    if me:
+        text += tr.t("gw_me", lang, points=me["points"], refs=me["refs"], rank=me["rank"], total=data.get("participants", 0))
+    if referral:
+        text += tr.t("gw_link", lang, link=gw_link(user_id))
+    kb = gw_keyboard(user_id, lang, data.get("prize") or "", referral)
+
+    # Rasm bir marta yuklanadi, keyin Telegram file_id bilan
+    try:
+        if _giveaway_photo_id:
+            await message.answer_photo(_giveaway_photo_id, caption=text, reply_markup=kb)
+            return
+        if os.path.exists(GIVEAWAY_IMAGE):
+            from aiogram.types import FSInputFile
+            sent = await message.answer_photo(FSInputFile(GIVEAWAY_IMAGE), caption=text, reply_markup=kb)
+            if sent.photo:
+                _giveaway_photo_id = sent.photo[-1].file_id
+            return
+    except Exception as e:
+        logger.warning(f"[GIVEAWAY] rasm yuborilmadi: {e}")
+    await message.answer(text, reply_markup=kb, disable_web_page_preview=True)
+
+
+@dp.message(F.text.in_(tr.labels("giveaway") | {"/konkurs", "/konkurs@" + BOT_USERNAME}))
+async def handle_giveaway(message: Message):
+    lang = tr.normalize(db.get_user_language(message.from_user.id))
+    await send_giveaway(message, message.from_user.id, lang)
+
+
+@dp.callback_query(F.data == "gw:top")
+async def cb_giveaway_top(callback: CallbackQuery):
+    lang = tr.normalize(db.get_user_language(callback.from_user.id))
+    await callback.answer()
+    data = await fetch_giveaway(callback.from_user.id, join=False)
+    if not data or not data.get("exists"):
+        await callback.message.answer(tr.t("gw_none", lang))
+        return
+    medals = ["🥇", "🥈", "🥉"]
+    unit = tr.t("gw_points", lang)
+    rows = "\n".join(
+        f"{medals[i] if i < 3 else f'{i + 1}.'} {html.escape(r['name'])} — <b>{r['points']}</b> {unit}"
+        for i, r in enumerate(data.get("top") or [])
+    ) or tr.t("gw_empty_top", lang)
+    me = data.get("me")
+    me_text = tr.t("gw_top_me", lang, rank=me["rank"], points=me["points"]) if me else ""
+    await callback.message.answer(
+        tr.t("gw_top", lang, count=len(data.get("top") or []) or 10, rows=rows, me=me_text),
+        reply_markup=gw_keyboard(callback.from_user.id, lang, data.get("prize") or "", bool(data.get("referral"))),
+    )
+
+
 @dp.message(F.text.startswith("/start"))
 async def cmd_start(message: Message, state: FSMContext):
     user     = message.from_user
@@ -854,6 +990,10 @@ async def cmd_start(message: Message, state: FSMContext):
     # ── Oddiy /start ──
     await send_welcome(message, user, admin, lang)
 
+    # «🎁 Qatnashish» tugmasi yoki do'st havolasi bilan kelgan — konkurs ma'lumoti ham
+    if source and (source == "konkurs" or source.startswith("ref_")):
+        await send_giveaway(message, user.id, lang)
+
 
 async def send_welcome(message: Message, user, admin: bool, lang: str):
     """Salomlashish xabari — /start da ham, til tanlangandan keyin ham."""
@@ -890,6 +1030,16 @@ async def cb_language(callback: CallbackQuery):
 
     # Salomlashish va admin paneli — /start dagidek
     await send_welcome(callback.message, user, can_open_panel(user.id), lang)
+
+    # Yangi mijoz konkurs/do'st havolasi bilan kelgan bo'lsa — til tanlagach konkurs
+    src, src_at = db.get_last_source(user.id)
+    if src and (src == "konkurs" or src.startswith("ref_")) and src_at:
+        try:
+            fresh = time.time() - datetime.fromisoformat(src_at).timestamp() < 30 * 60
+        except ValueError:
+            fresh = False
+        if fresh:
+            await send_giveaway(callback.message, user.id, lang)
 
 
 @dp.message(F.contact)
