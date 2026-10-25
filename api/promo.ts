@@ -1,9 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { adminAuth, adminDb } from './_lib/firebase-admin.js'
 import { fail, requirePost } from './_lib/http.js'
+import { giveawayBoard } from './_lib/actions/giveaway.js'
 
 /**
  * POST /api/promo   { code: string, subtotal: number }
+ *                   { kind: 'giveaway', join?: boolean } — konkurs kartasi
  * Authorization: Bearer <Firebase ID token>
  * → { code, discountPercent, discount, total }
  *
@@ -23,6 +25,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     uid = (await (await adminAuth()).verifyIdToken(idToken)).uid
   } catch {
     return fail(res, 401, 'Sessiya eskirgan, ilovani qayta oching')
+  }
+
+  /*
+   * Konkurs (mini app kartasi): o'z ochkosi, o'rni, TOP. `join` — «Qatnashish».
+   * Alohida funksiya ochilmadi — Vercel'da funksiyalar soni cheklangan.
+   */
+  if (req.body?.kind === 'giveaway') {
+    try {
+      return res.status(200).json(await giveawayBoard(uid, req.body?.join === true))
+    } catch (error) {
+      console.error('[promo] konkurs:', error)
+      return fail(res, 500, 'Konkurs ma’lumotini olib bo‘lmadi')
+    }
   }
 
   const code = String(req.body?.code || '').trim().toUpperCase().slice(0, 40)

@@ -170,7 +170,7 @@ export function HomePage({
       <FreeDeliveryBanner onShop={onTimerShop} />
 
       {/* Konkurs — admin → «Konkurs» */}
-      <GiveawayCard userId={userId} />
+      <GiveawayCard userId={userId} products={products} />
 
       {/* Ishlayotgan aksiya — eng katta chegirmasi bilan */}
       {promotions[0] && (
