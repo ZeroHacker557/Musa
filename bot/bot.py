@@ -791,9 +791,6 @@ async def on_poll_update(poll: Poll):
 # so'raydi va ko'rsatadi. Tugmani bosish konkursda ishtirok deb yoziladi
 # (eski mijozlar START bosmasa ham qatnashadi).
 
-GIVEAWAY_IMAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images", "konkurs.jpg")
-_giveaway_photo_id: str | None = None
-
 UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"]
 RU_MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"]
 
@@ -846,8 +843,7 @@ def gw_keyboard(user_id: int, lang: str, prize: str, referral: bool) -> InlineKe
 
 
 async def send_giveaway(message: Message, user_id: int, lang: str):
-    """Konkurs kartasi: rasm + shartlar + shaxsiy natija va havola."""
-    global _giveaway_photo_id
+    """Konkurs kartasi: «Siz qo'shildingiz», shartlar, shaxsiy natija va havola."""
     data = await fetch_giveaway(user_id, join=True)
     if data is None:
         await message.answer(tr.t("gw_error", lang))
@@ -875,19 +871,7 @@ async def send_giveaway(message: Message, user_id: int, lang: str):
         text += tr.t("gw_link", lang, link=gw_link(user_id))
     kb = gw_keyboard(user_id, lang, data.get("prize") or "", referral)
 
-    # Rasm bir marta yuklanadi, keyin Telegram file_id bilan
-    try:
-        if _giveaway_photo_id:
-            await message.answer_photo(_giveaway_photo_id, caption=text, reply_markup=kb)
-            return
-        if os.path.exists(GIVEAWAY_IMAGE):
-            from aiogram.types import FSInputFile
-            sent = await message.answer_photo(FSInputFile(GIVEAWAY_IMAGE), caption=text, reply_markup=kb)
-            if sent.photo:
-                _giveaway_photo_id = sent.photo[-1].file_id
-            return
-    except Exception as e:
-        logger.warning(f"[GIVEAWAY] rasm yuborilmadi: {e}")
+    # Rasmsiz: e'lon rasmida «Qatnashish tugmasini bosing» chizilgan — qo'shilgan odamni chalg'itardi
     await message.answer(text, reply_markup=kb, disable_web_page_preview=True)
 
 

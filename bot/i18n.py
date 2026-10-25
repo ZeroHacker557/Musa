@@ -59,23 +59,21 @@ TEXTS = {
     # ── Konkurs (🎁 Konkurs tugmasi) ──
     "gw_info": {
         "uz": (
-            "🎁 <b>MUSA KONKURSI!</b>\n\n"
-            "{winners} kishiga «{prize}» sovg'a! 🥟\n\n"
-            "✅ <b>Siz konkurs ishtirokchisiz!</b>\n"
+            "✅ <b>Siz konkursga qo'shildingiz!</b>\n\n"
+            "🎁 {winners} kishiga «{prize}» sovg'a!\n"
+            "🗓 G'oliblar <b>{until}</b> da baraban orqali aniqlanadi.\n\n"
             "{referral}"
-            "🗓 G'oliblar: <b>{until}</b>, baraban orqali."
         ),
         "ru": (
-            "🎁 <b>КОНКУРС MUSA!</b>\n\n"
-            "{winners} победителям — «{prize}» в подарок! 🥟\n\n"
-            "✅ <b>Вы участник конкурса!</b>\n"
+            "✅ <b>Вы участвуете в конкурсе!</b>\n\n"
+            "🎁 {winners} победителям — «{prize}» в подарок!\n"
+            "🗓 Победители будут определены <b>{until}</b> на барабане.\n\n"
             "{referral}"
-            "🗓 Победители: <b>{until}</b>, на барабане."
         ),
     },
     "gw_referral": {
-        "uz": "👥 Do'stlaringizni taklif qiling — har bir yangi do'st <b>+1 ochko</b>. Ochko qancha ko'p — yutish imkoni shuncha katta! 🍀\n<i>(Do'stingiz havolangiz orqali botga kirib, ilovani ochishi kerak)</i>\n\n",
-        "ru": "👥 Приглашайте друзей — каждый новый друг даёт <b>+1 очко</b>. Чем больше очков — тем выше шанс на победу! 🍀\n<i>(Друг должен зайти в бота по вашей ссылке и открыть приложение)</i>\n\n",
+        "uz": "👥 <b>Imkoniyatingizni oshiring:</b> do'stlaringizni taklif qiling — har bir yangi do'st <b>+1 ochko</b>. Ochko qancha ko'p — yutish imkoni shuncha katta! 🍀\n<i>(Do'stingiz havolangiz orqali botga kirib, ilovani ochishi kerak)</i>",
+        "ru": "👥 <b>Увеличьте шансы:</b> приглашайте друзей — каждый новый друг даёт <b>+1 очко</b>. Чем больше очков — тем выше шанс на победу! 🍀\n<i>(Друг должен зайти в бота по вашей ссылке и открыть приложение)</i>",
     },
     "gw_me": {
         "uz": (
