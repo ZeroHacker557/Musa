@@ -505,6 +505,16 @@ def record_start(user_id: int, source: str, username: str | None = None,
     return is_new
 
 
+def get_giveaway_public() -> dict:
+    """Konkursning ochiq qismi (settings/giveaway) — sovg'a nomi va h.k."""
+    try:
+        snap = db.collection("settings").document("giveaway").get()
+        return snap.to_dict() if snap.exists else {}
+    except Exception as e:
+        print(f"[ERR] get_giveaway_public: {e}")
+        return {}
+
+
 def get_last_source(user_id: int) -> tuple[str | None, str | None]:
     """Foydalanuvchining oxirgi /start manbasi va vaqti (konkurs havolalari uchun)."""
     try:

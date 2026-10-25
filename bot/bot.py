@@ -875,6 +875,29 @@ async def send_giveaway(message: Message, user_id: int, lang: str):
     await message.answer(text, reply_markup=kb, disable_web_page_preview=True)
 
 
+async def notify_referrer(referrer: str, friend) -> None:
+    """«Do'stingiz havolangiz orqali qo'shildi» + ulashish tugmasi. Xato to'xtatmaydi."""
+    if not referrer.isdigit() or int(referrer) == friend.id:
+        return
+    try:
+        ref_id = int(referrer)
+        lang = tr.normalize(db.get_user_language(ref_id))
+        info = await asyncio.to_thread(db.get_giveaway_public)
+        if not info or info.get("finished") or not info.get("referral"):
+            return
+        from urllib.parse import quote
+        share = (f"https://t.me/share/url?url={quote(gw_link(ref_id))}"
+                 f"&text={quote(tr.t('gw_share_text', lang, prize=info.get('prize') or ''))}")
+        name = html.escape(friend.first_name or (f"@{friend.username}" if friend.username else "Do'stingiz"))
+        await bot.send_message(
+            ref_id,
+            tr.t("gw_ref_joined", lang, name=name),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=tr.t("gw_share_btn", lang), url=share)]]),
+        )
+    except Exception as e:
+        logger.info(f"[GIVEAWAY] taklif qilganga xabar ketmadi ({referrer}): {e}")
+
+
 @dp.message(F.text.in_(tr.labels("giveaway") | {"/konkurs", "/konkurs@" + BOT_USERNAME}))
 async def handle_giveaway(message: Message):
     lang = tr.normalize(db.get_user_language(message.from_user.id))
@@ -912,11 +935,16 @@ async def cmd_start(message: Message, state: FSMContext):
     # Trafik manbasi (reklama havolasi: t.me/musauz_bot?start=meta_ig).
     # Xato bo'lsa ham /start odatdagidek ishlashda davom etadi.
     source = parse_start_source(message.text)
+    is_new = False
     if source:
         try:
-            await asyncio.to_thread(db.record_start, user.id, source, user.username, user.first_name)
+            is_new = await asyncio.to_thread(db.record_start, user.id, source, user.username, user.first_name)
         except Exception as e:
             logger.warning(f"[SOURCE] {user.id} {source}: {e}")
+
+    # Do'st havolasi bilan YANGI odam keldi — taklif qilganga xabar
+    if is_new and source and source.startswith("ref_"):
+        await notify_referrer(source[4:], user)
 
     lang = db.get_user_language(user.id)
 

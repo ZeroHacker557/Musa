@@ -93,6 +93,18 @@ TEXTS = {
         "uz": "\n\n🔗 Shaxsiy havolangiz:\n{link}",
         "ru": "\n\n🔗 Ваша личная ссылка:\n{link}",
     },
+    "gw_ref_joined": {
+        "uz": (
+            "🎉 <b>{name}</b> sizning havolangiz orqali botga qo'shildi!\n"
+            "U ilovani ochishi bilan sizga <b>+1 ochko</b> yoziladi. "
+            "Yana do'stlaringizni taklif qiling 👇"
+        ),
+        "ru": (
+            "🎉 <b>{name}</b> присоединился по вашей ссылке!\n"
+            "Как только он откроет приложение, вам начислится <b>+1 очко</b>. "
+            "Приглашайте ещё друзей 👇"
+        ),
+    },
     "gw_share_btn": {"uz": "📤 Do'stlarga yuborish", "ru": "📤 Отправить друзьям"},
     "gw_top_btn": {"uz": "🏆 Reyting", "ru": "🏆 Рейтинг"},
     "gw_share_text": {
