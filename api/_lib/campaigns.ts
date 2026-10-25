@@ -23,6 +23,8 @@ export function isSource(value: unknown): value is string {
 export function trackedUrl(source: string, index: number, original: string): string {
   const site = miniAppUrl()
   if (!site) return original
+  // Telegram havolasi (bot, kanal) — to'g'ridan-to'g'ri: oraliq sahifa brauzerni ochib yuborardi
+  if (/^https:\/\/t\.me\//i.test(original) || /^tg:\/\//i.test(original)) return original
   return `${site}/api/track?go=${source}&b=${index}`
 }
 

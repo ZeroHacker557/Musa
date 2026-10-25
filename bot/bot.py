@@ -987,11 +987,16 @@ async def cmd_start(message: Message, state: FSMContext):
             await message.answer(tr.t("order_not_found", lang), reply_markup=main_kb(admin, lang))
         return
 
+    # ── Kanal/e'londagi «🎁 Qatnashish» — darhol konkurs (🎁 Konkurs tugmasidagi kabi) ──
+    if source == "konkurs":
+        await send_giveaway(message, user.id, lang)
+        return
+
     # ── Oddiy /start ──
     await send_welcome(message, user, admin, lang)
 
-    # «🎁 Qatnashish» tugmasi yoki do'st havolasi bilan kelgan — konkurs ma'lumoti ham
-    if source and (source == "konkurs" or source.startswith("ref_")):
+    # Do'st havolasi bilan kelgan — salomlashuvdan keyin konkurs ma'lumoti
+    if source and source.startswith("ref_"):
         await send_giveaway(message, user.id, lang)
 
 
