@@ -27,7 +27,7 @@ const RATIO: Record<string, number> = {
 }
 const it = (id: string, x: number, y: number, h: number, r = 0, z = 1): Item => ({ id, x, y, h, r, z, ratio: RATIO[id] })
 
-const OQUV: Item[] = [
+export const OQUV: Item[] = [
   it('899019', 235, 575, 225, -8), it('487486', 525, 548, 320, 3), it('503162', 825, 572, 300, 8),
   it('724060', 175, 772, 290, -7, 2), it('641125', 405, 790, 330, -3, 2), it('271876', 670, 785, 235, 5, 2), it('640530', 905, 778, 260, 9, 2),
   it('367803', 330, 968, 280, -5, 3), it('513048', 700, 978, 220, 4, 3),
@@ -39,7 +39,7 @@ const DASTURXON: Item[] = [
   it('13756', 545, 1068, 165, -4, 4),
 ]
 
-function Product({ item, dx = 0 }: { item: Item; dx?: number }) {
+export function Product({ item, dx = 0 }: { item: Item; dx?: number }) {
   const w = item.h * item.ratio
   return (
     <img

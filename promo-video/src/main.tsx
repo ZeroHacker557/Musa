@@ -7,6 +7,7 @@ import { LOOP, SetsLoop } from './sets/SetsLoop'
 import SETS from './sets-data.json'
 import { Guide } from './guide/Guide'
 import { PANO_IMAGES, Panorama } from './insta/Panorama'
+import { GiveawayPost } from './insta/GiveawayPost'
 import { GUIDE_DURATION, VOICE } from './guide/timeline'
 import './styles.css'
 
@@ -60,14 +61,14 @@ const root = createRoot(document.getElementById('root')!)
  * Instagram panoramasi (`?comp=insta`): bitta statik kadr. Render skripti
  * `window.__ready` ni kutadi (scripts/insta.mjs).
  */
-if (params.get('comp') === 'insta') {
-  document.body.classList.add('render', 'insta')
+if (params.get('comp') === 'insta' || params.get('comp') === 'gwpost') {
+  document.body.classList.add('render', params.get('comp') === 'gwpost' ? 'gwpost' : 'insta')
   const ready = Promise.all([preload(), ...PANO_IMAGES.map((src) => { const img = new Image(); img.src = src; return img.decode().catch(() => undefined) })])
-  root.render(<Panorama />)
+  root.render(params.get('comp') === 'gwpost' ? <GiveawayPost /> : <Panorama />)
   ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => { (window as unknown as { __ready: boolean }).__ready = true })))
 }
 
-if (params.get('comp') === 'insta') {
+if (params.get('comp') === 'insta' || params.get('comp') === 'gwpost') {
   // yuqorida chizildi
 } else if (params.has('render')) {
   document.body.classList.add('render')

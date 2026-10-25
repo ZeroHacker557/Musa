@@ -36,11 +36,23 @@ const base = urlArg || served.url
 const out = join(ROOT, 'out', 'insta')
 mkdirSync(out, { recursive: true })
 
-const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--hide-scrollbars', '--force-device-scale-factor=1', '--font-render-hinting=none'], defaultViewport: { width: 3240, height: 1440, deviceScaleFactor: 1 } })
+// `--comp gwpost` — konkurs e'loni rasmi (1080×1350), bo'linmaydi
+const comp = args.includes('--comp') ? args[args.indexOf('--comp') + 1] : 'insta'
+const size = comp === 'gwpost' ? { width: 1080, height: 1350 } : { width: 3240, height: 1440 }
+const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--hide-scrollbars', '--force-device-scale-factor=1', '--font-render-hinting=none'], defaultViewport: { ...size, deviceScaleFactor: 1 } })
 const page = await browser.newPage()
 page.on('pageerror', (e) => console.error('[sahifa xatosi]', e.message))
-await page.goto(`${base}/?comp=insta`, { waitUntil: 'networkidle0', timeout: 120000 })
+await page.goto(`${base}/?comp=${comp}`, { waitUntil: 'networkidle0', timeout: 120000 })
 await page.waitForFunction('window.__ready === true', { timeout: 60000 })
+if (comp === 'gwpost') {
+  const png = join(out, 'konkurs-post.png')
+  await page.screenshot({ path: png, clip: { x: 0, y: 0, ...size } })
+  await browser.close()
+  served?.server.close()
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', png, '-q:v', '2', join(out, 'konkurs-post.jpg')])
+  console.log('Tayyor:', join(out, 'konkurs-post.jpg'))
+  process.exit(0)
+}
 const pano = join(out, 'musa-panorama.png')
 await page.screenshot({ path: pano, clip: { x: 0, y: 0, width: 3240, height: 1440 } })
 await browser.close()
