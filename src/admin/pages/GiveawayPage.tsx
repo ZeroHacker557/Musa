@@ -15,7 +15,7 @@ type Config = {
   startAt: string | null
   endAt: string | null
   winners: number
-  referral: { enabled: boolean; cap: number }
+  referral: { enabled: boolean }
   messageUz: string
   messageRu: string
 }
@@ -119,13 +119,12 @@ export function GiveawayPage({ owner }: { owner: boolean }) {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="adm-label">G‘oliblar soni<input type="number" min={1} max={50} className="adm-input mt-1" value={form.winners} onChange={(e) => set('winners', Number(e.target.value))} /></label>
-              <label className="adm-label">Bitta odamga ko‘pi bilan qo‘shimcha imkoniyat<input type="number" min={1} max={100} className="adm-input mt-1" value={form.referral.cap} onChange={(e) => set('referral', { ...form.referral, cap: Number(e.target.value) })} /></label>
             </div>
             <label className="adm-ch-toggle">
               <span className="adm-ch-toggle__icon"><Users size={18} /></span>
               <span className="min-w-0 flex-1">
                 <b>{form.referral.enabled ? 'Do‘st taklifi hisobga olinadi' : 'Do‘st taklifi hisobga olinmaydi'}</b>
-                <span>Har bir taklif qilingan YANGI do‘st (mini app’ni ochgan) — +1 imkoniyat. Havola: t.me/{BOT}?start=ref_&lt;ID&gt;</span>
+                <span>Har bir taklif qilingan YANGI do‘st (mini app’ni ochgan) — +1 imkoniyat, cheklovsiz. Havola: t.me/{BOT}?start=ref_&lt;ID&gt;</span>
               </span>
               <input type="checkbox" className="adm-ch-switch" checked={form.referral.enabled} onChange={(e) => set('referral', { ...form.referral, enabled: e.target.checked })} />
             </label>

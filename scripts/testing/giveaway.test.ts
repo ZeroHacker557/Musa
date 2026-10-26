@@ -48,7 +48,7 @@ let threw = ''
 try { await giveawaySave(admin, { title: 'Konkurs', startAt: '' }) } catch (e) { threw = (e as Error).message }
 check('boshlanish vaqtisiz saqlanmaydi', threw.includes('Boshlanish'))
 
-await giveawaySave(admin, { title: 'MUSA konkursi', prize: 'Sog‘lom O‘quv Mavsumi seti', startAt: START, winners: 3, referral: { enabled: true, cap: 10 } })
+await giveawaySave(admin, { title: 'MUSA konkursi', prize: 'Sog‘lom O‘quv Mavsumi seti', startAt: START, winners: 3, referral: { enabled: true } })
 check('mini app uchun ochiq qismi yozildi', g.__data['settings/giveaway']?.referral === true && g.__data['settings/giveaway']?.startAt === START)
 
 let s = await giveawayGet()
@@ -60,12 +60,20 @@ check('ism va @username', by('101')?.name === 'Aziza' && by('101')?.username ===
 check('ishtirokchilar soni (do‘stlar ham START bosgan)', s.stats.people === 7, s.stats)
 
 // Taklif o'chirilsa — hamma 1 imkoniyat
-await giveawaySave(admin, { title: 'MUSA konkursi', startAt: START, winners: 3, referral: { enabled: false, cap: 10 } })
+await giveawaySave(admin, { title: 'MUSA konkursi', startAt: START, winners: 3, referral: { enabled: false } })
 s = await giveawayGet()
 check('taklif o‘chiq — Aziza 1 imkoniyat', by('101')?.tickets === 1)
-await giveawaySave(admin, { title: 'MUSA konkursi', prize: 'Sog‘lom O‘quv Mavsumi seti', startAt: START, winners: 3, referral: { enabled: true, cap: 1 } })
+// Cheklov yo'q: 25 ta haqiqiy do'st — 26 imkoniyat
+for (let i = 0; i < 25; i++) {
+  g.__data[`users/7${i}0`] = { id: Number(`7${i}0`), first_name: 'D' + i, lastActive: '2026-10-25' }
+  g.__data[`start_events/r${i}`] = ev(Number(`7${i}0`), '2026-10-25T13:00:00.000+00:00', 'ref_202', true)
+}
+await giveawaySave(admin, { title: 'MUSA konkursi', prize: 'Sog‘lom O‘quv Mavsumi seti', startAt: START, winners: 3, referral: { enabled: true } })
 s = await giveawayGet()
-check('chegara 1 — Aziza 2 imkoniyat', by('101')?.tickets === 2)
+check('cheklovsiz: Bobur 25 do‘st → 26 imkoniyat', by('202')?.refs === 25 && by('202')?.tickets === 26, by('202'))
+for (let i = 0; i < 25; i++) { delete g.__data[`users/7${i}0`]; delete g.__data[`start_events/r${i}`] }
+g.__data['giveaways/current'].board = null
+s = await giveawayGet()
 
 // Chiqarish
 await giveawayExclude(admin, { id: '406' })
@@ -73,7 +81,7 @@ s = await giveawayGet()
 check('chiqarilgan ishtirokchi belgilandi', by('406')?.excluded === true && s.stats.people === 6)
 
 // ── Bot: reyting va «Konkurs» tugmasi ──
-await giveawaySave(admin, { title: 'MUSA konkursi', prize: 'Sog‘lom O‘quv Mavsumi seti', startAt: START, winners: 3, referral: { enabled: true, cap: 10 } })
+await giveawaySave(admin, { title: 'MUSA konkursi', prize: 'Sog‘lom O‘quv Mavsumi seti', startAt: START, winners: 3, referral: { enabled: true } })
 const realNow = Date.now
 Date.now = () => Date.parse('2026-10-26T10:00:00Z')
 let b = await giveawayBoard('101')

@@ -15,7 +15,7 @@ import { escapeHtml, sendMessage } from '../telegram.js'
  * Bot uni oddiy manba sifatida yozadi (source = «ref_123»). Taklif
  * hisoblanadi, agar do'st: botga BIRINCHI marta kirgan (isNewUser), o'zini
  * o'zi taklif qilmagan va mini app'ni kamida bir marta ochgan bo'lsa
- * (soxta akkauntlar ko'paymasin). Har bir taklif +1 imkoniyat, chegarali.
+ * (soxta akkauntlar ko'paymasin). Har bir taklif +1 imkoniyat, cheklovsiz.
  *
  * Tanlov serverda: `crypto.randomInt`, har imkoniyat teng ehtimol. Admin
  * panel baraban animatsiyasini faqat ko'rsatadi — natija oldindan shu yerda.
@@ -29,7 +29,8 @@ export type GiveawayConfig = {
   startAt: string | null
   endAt: string | null
   winners: number
-  referral: { enabled: boolean; cap: number }
+  /** Do'st taklifi — cheklovsiz: har bir haqiqiy yangi do'st +1 imkoniyat (Abubakr, 2026-10-26). */
+  referral: { enabled: boolean }
   messageUz: string
   messageRu: string
 }
@@ -42,7 +43,7 @@ const DEFAULTS: GiveawayConfig = {
   startAt: null,
   endAt: null,
   winners: 5,
-  referral: { enabled: true, cap: 10 },
+  referral: { enabled: true },
   messageUz: '🎉 Tabriklaymiz, {name}!\n\nSiz MUSA konkursida g‘olib bo‘ldingiz va <b>{prize}</b> yutib oldingiz! 🎁\n\nSovg‘ani topshirish uchun tez orada operatorimiz siz bilan bog‘lanadi.',
   messageRu: '🎉 Поздравляем, {name}!\n\nВы стали победителем конкурса MUSA и выиграли <b>{prize}</b>! 🎁\n\nНаш оператор скоро свяжется с вами, чтобы передать подарок.',
 }
@@ -148,7 +149,7 @@ async function participants(state: Awaited<ReturnType<typeof load>>): Promise<Pa
         firstAt: row.firstAt,
         isNew: row.isNew,
         refs: r,
-        tickets: 1 + (config.referral.enabled ? Math.min(r, config.referral.cap) : 0),
+        tickets: 1 + (config.referral.enabled ? r : 0),
         excluded: excluded.includes(id),
       }
     })
@@ -192,7 +193,6 @@ export async function giveawaySave(actor: Staff, body: Record<string, unknown>) 
   const state = await load()
   if (state.confirmedAt) throw new Error('Konkurs yakunlangan — yangi konkurs uchun «Yangi konkurs» ni bosing')
   const winners = Math.round(Number(body.winners))
-  const cap = Math.round(Number((body.referral as { cap?: unknown } | undefined)?.cap))
   const config: GiveawayConfig = {
     title: text(body.title, 120) || DEFAULTS.title,
     prize: text(body.prize, 120) || DEFAULTS.prize,
@@ -201,7 +201,6 @@ export async function giveawaySave(actor: Staff, body: Record<string, unknown>) 
     winners: Number.isFinite(winners) && winners >= 1 && winners <= 50 ? winners : 5,
     referral: {
       enabled: (body.referral as { enabled?: unknown } | undefined)?.enabled !== false,
-      cap: Number.isFinite(cap) && cap >= 1 && cap <= 100 ? cap : 10,
     },
     messageUz: text(body.messageUz, 1500) || DEFAULTS.messageUz,
     messageRu: text(body.messageRu, 1500) || DEFAULTS.messageRu,
@@ -323,7 +322,7 @@ function publicName(p: Participant): string {
 const BOARD_TTL_MS = 3 * 60 * 1000
 
 /**
- * Ochko = imkoniyatlar soni (1 + taklif qilgan yangi do'stlar, chegara bilan).
+ * Ochko = imkoniyatlar soni (1 + taklif qilgan yangi do'stlar, cheklovsiz).
  * Ro'yxat 3 daqiqa keshlanadi — har tugma bosishda butun jurnal o'qilmasin.
  */
 export async function giveawayBoard(userId: string, join = false) {
